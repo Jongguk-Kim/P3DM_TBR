@@ -12179,7 +12179,7 @@ class PATTERN:
             surf_kerfgroup.append(surfgroup)
 
         # print ("KERF GROUPS ", len(surf_kerfgroup))
-        debug = 0
+        debug = 1
         NodeRelocated= self.KerfNodesRelocation(surf_kerfgroup, orgn_node, debug=debug)
 
         # print ("no of relocation=%d"%(len(NodeRelocated)))
@@ -12635,6 +12635,298 @@ class PATTERN:
             print (">>>>>>>>>>>>>>>>>>>>>> Returning edge groups > %d"%(len(divides)))
         return divides, opposite
     def KerfNodesRelocation(self, kerf_surf, origin, debug=0):  ## origin = model node set
+        ### kerf_surf : surface group of kerfs that comprise the kerf wall 
+
+        relocated = []
+
+        Wratio = self.TargetTDW / self.TreadDesignWidth * self.TargetGD / self.ModelGD
+        Lratio = self.TargetPL / self.pitchlength  * self.TargetGD / self.ModelGD
+
+        print(" Kerf Gauge : Width Ratio=%.2f, Length Ratio=%.2f"%(Wratio, Lratio))
+
+        for kerf_group in kerf_surf: 
+            for i, surfs in enumerate(kerf_group): 
+                ## find bottom nodes in the kerf sides 
+                ## this is the base line for the node position. 
+                ndo = []
+                ndn = []
+                tri = 0 
+                for j, surf in enumerate(surfs):
+                    if surf[10] < 10**7: 
+                        tri = 1 
+                        break 
+                    n1 = origin[np.where(origin[:,0]==surf[7])[0][0]]
+                    n2 = origin[np.where(origin[:,0]==surf[8])[0][0]]
+                    n3 = origin[np.where(origin[:,0]==surf[9])[0][0]]
+                    n4 = origin[np.where(origin[:,0]==surf[10])[0][0]]
+                    ndo.append([(n1[3]+n2[3])/2.0, n1, n2, n3, n4])
+                    n1 = self.npn[np.where(self.npn[:,0]==surf[7])[0][0]]
+                    n2 = self.npn[np.where(self.npn[:,0]==surf[8])[0][0]]
+                    n3 = self.npn[np.where(self.npn[:,0]==surf[9])[0][0]]
+                    n4 = self.npn[np.where(self.npn[:,0]==surf[10])[0][0]]
+                    ndn.append([(n1[3]+n2[3])/2.0, n1, n2, n3, n4])
+
+                if tri == 1: 
+                    continue 
+
+
+                mz = 10**7 
+                for nd in ndo:
+                    if nd[0] < mz : 
+                        mz = nd[0]
+            
+                for od, nd in zip(ndo, ndn):
+                    if od[0] == mz: 
+                        refo = [od[1], od[2]] ## kerf bottom nodes .. 
+                        refn = [nd[1], nd[2]]
+
+                td1 = (refo[0][1]-ndo[0][3][1])**2 +  (refo[0][2]-ndo[0][3][2])**2
+                td2 = (refo[0][1]-ndo[0][4][1])**2 +  (refo[0][2]-ndo[0][4][2])**2
+
+                if td1 < td2 :
+                    HT = abs(refo[0][3]-ndo[0][3][3])
+                    LT3 = sqrt((refo[0][1]-ndo[0][3][1])**2 +  (refo[0][2]-ndo[0][3][2])**2)
+                    LT4 = sqrt((refo[1][1]-ndo[0][4][1])**2 +  (refo[1][2]-ndo[0][4][2])**2)
+                    LefN03 = refo[0]; LefN04 = refo[1]
+                    TopN03 = ndo[0][3]; TopN04 = ndo[0][4]
+
+                    LefN13 = refn[0]; LefN14 = refn[1]
+                    TopN13 = ndn[0][3]; TopN14 = ndn[0][4]
+                else:
+                    HT = abs(refo[0][3]-ndo[0][3][3])
+                    LT3 = sqrt((refo[1][1]-ndo[0][3][1])**2 +  (refo[1][2]-ndo[0][3][2])**2)
+                    LT4 = sqrt((refo[0][1]-ndo[0][4][1])**2 +  (refo[0][2]-ndo[0][4][2])**2)
+                    LefN03 = refo[1]; LefN04 = refo[0]
+                    TopN03 = ndo[0][3]; TopN04 = ndo[0][4]
+
+                    LefN13 = refn[1]; LefN14 = refn[0]
+                    TopN13 = ndn[0][3]; TopN14 = ndn[0][4]
+
+                d03 = sqrt (  (TopN03[1] - LefN03[1])**2 + (TopN03[2] - LefN03[2])**2 )
+                d04 = sqrt (  (TopN04[1] - LefN04[1])**2 + (TopN04[2] - LefN04[2])**2 )
+
+                slope03 = d03 / (TopN03[3] - LefN03[3]) 
+                slope04 = d04 / (TopN04[3] - LefN04[3]) 
+
+                cnt = 0     
+                for od, nd in zip(ndo, ndn):
+                    cnt += 1 
+                    d03, inPoint03 = DistanceFromLineToNode2D(od[3], refo, xy=12)
+                    d04, inPoint04 = DistanceFromLineToNode2D(od[4], refo, xy=12)
+
+                    d13, inPoint13 = DistanceFromLineToNode2D(nd[3], refn, xy=12)
+                    d14, inPoint14 = DistanceFromLineToNode2D(nd[4], refn, xy=12)
+
+                    if d03 < 0.0001: ## in case that the wall is vertical 
+                        if d13 > 0.0001: 
+                            ix = np.where(self.npn[:,0]==nd[3][0])[0][0]
+                            self.npn[ix][1] = inPoint13[1]
+                            self.npn[ix][2] = inPoint13[2]
+                            relocated.append(self.npn[ix][0])
+                            if cnt == 1: 
+                                topN13 = self.npn[ix]
+                        if d14 > 0.0001: 
+                            ix = np.where(self.npn[:,0]==nd[4][0])[0][0]
+                            self.npn[ix][1] = inPoint14[1]
+                            self.npn[ix][2] = inPoint14[2]
+                            relocated.append(self.npn[ix][0])
+                            if cnt == 1: 
+                                topN14 = self.npn[ix]
+                    
+                    else: 
+
+                        V03 = [od[3][1]-inPoint03[1], od[3][2]-inPoint03[2]]
+
+                        ix = np.where(self.npn[:,0]==nd[3][0])[0][0]
+                        self.npn[ix][1] = inPoint13[1] + V03[0]  
+                        self.npn[ix][2] = inPoint13[2] + V03[1]
+
+                        if cnt == 1: 
+                            topN13 = self.npn[ix]
+
+                        if self.npn[ix][3] < topN13[3] : 
+                            d13 = sqrt (  (topN13[1] - self.npn[ix][1])**2 + (topN13[2] - self.npn[ix][2])**2 )
+                            slope13 = d13 / (topN13[3] - self.npn[ix][3])  
+
+                            if round(slope13, 3) != round(slope03, 3): 
+                                V13 = [self.npn[ix][1] - topN13[1], self.npn[ix][2] - topN13[2]]
+                                VL = sqrt(V13[0]**2 + V13[1]**2)
+                                if VL  > 0.0001: 
+                                    self.npn[ix][1] =  topN13[1] + V13[0] / VL * slope03 * (topN13[3] - self.npn[ix][3])  
+                                    self.npn[ix][2] =  topN13[2] + V13[1] / VL * slope03 * (topN13[3] - self.npn[ix][3]) 
+                                    print ("***  Length=%.5f, slope %.3f, %.3f "%(VL, slope03, slope13), V13, self.npn[ix], topN13)
+                                else:
+                                    print (" Length=%.5f, slope %.3f, %.3f "%(VL, slope03, slope13), V13, self.npn[ix], topN13)
+
+
+                        relocated.append(self.npn[ix][0])
+
+                        V04 = [od[4][1]-inPoint04[1], od[4][2]-inPoint04[2]]
+
+                        ix = np.where(self.npn[:,0]==nd[4][0])[0][0]
+                        self.npn[ix][1] = inPoint14[1] + V04[0]  
+                        self.npn[ix][2] = inPoint14[2] + V04[1]
+
+                        if cnt == 1: 
+                            topN14 = self.npn[ix]
+
+                        if self.npn[ix][3] < topN14[3]: 
+                            d14 = sqrt (  (topN14[1] - self.npn[ix][1])**2 + (topN14[2] - self.npn[ix][2])**2 )
+                            slope14 = d14 / (topN14[3] - self.npn[ix][3])  
+
+                            if round(slope14, 3) != round(slope04, 3): 
+                                V14 = [self.npn[ix][1] - topN14[1], self.npn[ix][2] - topN14[2]]
+                                VL = sqrt(V14[0]**2 + V14[1]**2)
+                                if VL > 0.0001: 
+                                    self.npn[ix][1] =  topN14[1] + V14[0]/VL  * slope04 * (topN14[3] - self.npn[ix][3]) 
+                                    self.npn[ix][2] =  topN14[2] + V14[1]/VL * slope04 * (topN14[3] - self.npn[ix][3])
+
+                        relocated.append(self.npn[ix][0])
+
+
+
+        return relocated
+
+        if 1: 
+            if 1: 
+
+                td1 = (refo[0][1]-ndo[0][3][1])**2 +  (refo[0][2]-ndo[0][3][2])**2
+                td2 = (refo[0][1]-ndo[0][4][1])**2 +  (refo[0][2]-ndo[0][4][2])**2
+
+                if td1 < td2 : 
+                    td0 =  sqrt((refo[0][1]-ndo[0][3][1])**2 +  (refo[0][2]-ndo[0][3][2])**2)
+                    td1 =  sqrt((refn[0][1]-ndn[0][3][1])**2 +  (refn[0][2]-ndn[0][3][2])**2)
+
+                    td2 =  sqrt((refo[1][1]-ndo[0][4][1])**2 +  (refo[1][2]-ndo[0][4][2])**2)
+                    td3 =  sqrt((refn[1][1]-ndn[0][4][1])**2 +  (refn[1][2]-ndn[0][4][2])**2)
+
+                else: 
+                    td0 =  sqrt((refo[1][1]-ndo[0][3][1])**2 +  (refo[1][2]-ndo[0][3][2])**2)
+                    td1 =  sqrt((refn[1][1]-ndn[0][3][1])**2 +  (refn[1][2]-ndn[0][3][2])**2)
+
+                    td2 =  sqrt((refo[0][1]-ndo[0][4][1])**2 +  (refo[0][2]-ndo[0][4][2])**2)
+                    td3 =  sqrt((refn[0][1]-ndn[0][4][1])**2 +  (refn[0][2]-ndn[0][4][2])**2)
+
+                Ratio3 = td1 / td0 
+                Ratio4 = td3 / td2
+
+
+                for od, nd in zip(ndo, ndn): 
+                    d03 = DistanceFromLineToNode2D(od[3], refo, xy=12, onlydist=1)
+                    d04 = DistanceFromLineToNode2D(od[4], refo, xy=12, onlydist=1)
+
+                    if d03 < 0.0001 and d04 > 0.0001: 
+                        d14 = DistanceFromLineToNode2D(nd[4], refn, xy=12, onlydist=1)
+                        d4_ratio = d14/d04 
+                        if abs(1-d4_ratio) < 0.01: 
+                            continue 
+
+                        rd1 = sqrt((refo[0][1]-od[4][1])**2 + (refo[0][2]-od[4][2])**2 )
+                        rd2 = sqrt((refo[1][1]-od[4][1])**2 + (refo[1][2]-od[4][2])**2 )
+                        if rd1 < rd2: 
+                            V04 = [(od[4][1]-refo[0][1])/rd1, (od[4][2]-refo[0][2])/rd1]
+
+                            d4 = sqrt((refn[1][1]-nd[4][1])**2 + (refn[1][2]-nd[4][2])**2 )
+
+                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
+                            self.npn[ix][1] = refn[1][1] + (od[4][1]-refo[0][1]) * Lratio
+                            self.npn[ix][2] = refn[1][2] + (od[4][2]-refo[0][2]) * Wratio 
+                            relocated.append(self.npn[ix][0])
+                        else:
+                            V04 = [(od[4][1]-refo[1][1])/rd1, (od[4][2]-refo[1][2])/rd1]
+
+                            d4 = sqrt((refn[0][1]-nd[4][1])**2 + (refn[0][2]-nd[4][2])**2 )
+                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
+                            self.npn[ix][1] = refn[0][1] +(od[4][1]-refo[1][1]) * Lratio 
+                            self.npn[ix][2] = refn[0][2] +(od[4][2]-refo[1][2]) * Wratio 
+                            relocated.append(self.npn[ix][0])
+
+                    elif d03 > 0.0001 and d04 < 0.0001: 
+                        d13 = DistanceFromLineToNode2D(nd[3], refn, xy=12, onlydist=1)
+                        d3_ratio = d03/d13 
+                        if abs(1-d3_ratio) < 0.01: 
+                            continue 
+
+                        rd1 = sqrt((ref0[0][1]-od[3][1])**2 + (refo[0][2]-od[3][2])**2 )
+                        rd2 = sqrt((refo[1][1]-od[3][1])**2 + (refo[1][2]-od[3][2])**2 )
+                        if rd1 < rd2: 
+                            V03 = [(od[3][1]-refo[0][1])/rd1, (od[3][2]-refo[0][2])/rd1]
+                            d3 = sqrt((refn[0][1]-nd[3][1])**2 + (refn[0][2]-nd[3][2])**2 )
+
+                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
+                            
+                            self.npn[ix][1] = refn[0][1] + (od[3][1]-refo[0][1]) * Lratio  * (1-(od[4][3]-refo[0][3]) / HT)
+                            self.npn[ix][2] = refn[0][2] + (od[3][2]-refo[0][2]) * Wratio * (1-(od[4][3]-refo[0][3]) / HT)
+                            relocated.append(self.npn[ix][0])
+
+                        else:
+                            rd1 = sqrt((refo[1][1]-od[3][1])**2 + (refo[1][2]-od[3][2])**2 )
+                            V03 = [(od[3][1]-refo[1][1])/rd1, (od[3][2]-refo[1][2])/rd1]
+
+                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
+                            d3 = sqrt((refn[1][1]-nd[3][1])**2 + (refn[1][2]-nd[3][2])**2 )
+                            self.npn[ix][1] = refn[1][1] + (od[3][1]-refo[1][1]) * Lratio  * (1-(od[4][3]-refo[0][3]) / HT)
+                            self.npn[ix][2] = refn[1][2] + (od[3][2]-refo[1][2]) * Wratio  * (1-(od[4][3]-refo[0][3]) / HT)
+                            relocated.append(self.npn[ix][0])
+
+                    
+                    elif d03 > 0.0001 and d04 > 0.0001: 
+                        d13 = DistanceFromLineToNode2D(nd[3], refn, xy=12, onlydist=1)
+                        d14 = DistanceFromLineToNode2D(nd[4], refn, xy=12, onlydist=1)
+
+                        d3_ratio = d03/d13 
+                        d4_ratio = d04/d14 
+
+                        if abs(1-d3_ratio) < 0.01 and abs(1-d4_ratio) < 0.01: 
+                            continue 
+
+                        rd1 = sqrt((refo[0][1]-od[3][1])**2 + (refo[0][2]-od[3][2])**2 )
+                        rd2 = sqrt((refo[0][1]-od[4][1])**2 + (refo[0][2]-od[4][2])**2 )
+                        if rd1 < rd2: 
+                            V03 = [(od[3][1]-refo[0][1])/rd1, (od[3][2]-refo[0][2])/rd1]
+
+                            rd2 = sqrt((refo[1][1]-od[4][1])**2 + (refo[1][2]-od[4][2])**2 )
+                            V04 = [(od[4][1]-refo[1][1])/rd2, (od[4][2]-refo[1][2])/rd2]
+
+                        
+                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
+                            d3 = sqrt((refn[0][1]-nd[3][1])**2 + (refn[0][2]-nd[3][2])**2 )
+                            self.npn[ix][1] = refn[0][1] + (od[3][1]-refo[0][1]) * Lratio 
+                            self.npn[ix][2] = refn[0][2] + (od[3][2]-refo[0][2]) * Wratio
+                            relocated.append(self.npn[ix][0])
+
+                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
+                            d4 = sqrt((refn[1][1]-nd[4][1])**2 + (refn[1][2]-nd[4][2])**2 )
+                            self.npn[ix][1] = refn[1][1] + (od[4][1]-refo[1][1]) * Lratio 
+                            self.npn[ix][2] = refn[1][2] + (od[4][2]-refo[1][2]) * Wratio 
+                            relocated.append(self.npn[ix][0])
+
+                        else:
+                            
+                            rd1 = sqrt((refo[1][1]-od[3][1])**2 + (refo[1][2]-od[3][2])**2 )
+                            V03 = [(od[3][1]-refo[1][1])/rd1, (od[3][2]-refo[1][2])/rd1]
+                            V04 = [(od[4][1]-refo[0][1])/rd2, (od[4][2]-refo[0][2])/rd2]
+
+                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
+                            d3 = sqrt((refn[1][1]-nd[3][1])**2 + (refn[1][2]-nd[3][2])**2 )
+                            self.npn[ix][1] = refn[1][1] + (od[3][1]-refo[1][1]) * Lratio 
+                            self.npn[ix][2] = refn[1][2] + (od[3][2]-refo[1][2]) * Wratio
+                            relocated.append(self.npn[ix][0])
+
+                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
+                            d4 = sqrt((refn[0][1]-nd[4][1])**2 + (refn[0][2]-nd[4][2])**2 )
+                            self.npn[ix][1] = refn[0][1] + (od[4][1]-refo[0][1]) * Lratio 
+                            self.npn[ix][2] = refn[0][2] + (od[4][2]-refo[0][2]) * Wratio 
+                            relocated.append(self.npn[ix][0])
+
+        relocated = np.array(relocated)
+        relocated = np.unique(relocated)
+
+        return relocated
+
+
+
+
         if debug ==1: f= open("kerf_gauge_calculation.txt", 'w')
 
         tnode =[]

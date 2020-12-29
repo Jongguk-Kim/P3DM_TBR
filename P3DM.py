@@ -468,9 +468,9 @@ class Ui_MainWindow(object):
         self.btn_generation.setDisabled(True)
         self.searchsolid = []
 
-        self._stdout = StdoutRedirect()
-        self._stdout.start()
-        self._stdout.printOccur.connect(lambda x : self._append_text(x))
+        # self._stdout = StdoutRedirect()
+        # self._stdout.start()
+        # self._stdout.printOccur.connect(lambda x : self._append_text(x))
 
         self.P3DMLayout = 0 
         self.P3DMPattern = 0  
@@ -1227,7 +1227,7 @@ class Ui_MainWindow(object):
 
         BodyStartNo = 1
         BodyOffset  = 10000
-        
+        return 
         self.user_sector=int(self.input_layout_sector.text()) 
         if self.user_sector < 20: 
             print ("##########################################")
