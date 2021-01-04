@@ -7560,7 +7560,7 @@ class PATTERN:
                         break 
 
         # print ("\nDELETE TOPEDGE ")
-        HalfTDW = self.TreadDesignWidth / 2.0 - 0.001 
+        HalfTDW = self.TargetTDW / 2.0 - 0.001 
         
         i = 0
         delEdges=[]
@@ -7589,6 +7589,9 @@ class PATTERN:
 
         Dgroups = self.Grouping_ConnectedEdges(delEdges)
         Tgroups = self.Grouping_ConnectedEdges(edgeTopSurf)
+
+        print (len(Dgroups))
+        print (len(Tgroups))
 
         if len(Dgroups) != len(Tgroups): 
             isLug = 1 
