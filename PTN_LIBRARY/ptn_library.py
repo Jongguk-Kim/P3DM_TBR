@@ -5246,13 +5246,14 @@ class PATTERN:
                 tnodes.append(self.npn[ix])
             tnodes = np.array(tnodes)
             topHalfWidth = np.max(tnodes[:,2]) 
-            if topHalfWidth < self.upFrontMaxY : 
+            # print ("Shoulder Type")
+            # print (topHalfWidth,",",  self.upFrontMaxY )
+            if round(topHalfWidth, 5) < round(self.upFrontMaxY, 5) : 
                 self.shoulderType ='S'
                 self.TreadDesignWidth = round(topHalfWidth * 2.0, 4) 
             else: self.shoulderType ='R'
 
             # print("Up Beam Max Y=%.3f, Top Surface Max Y=%.3f"%(self.upFrontMaxY*1000, np.max(tnodes[:,2])*1000 ))
-
                     
             if self.shoulderType == "R":   print ("* Pattern Type : ROUND")
             else:  print ("* Pattern Type : SQUARE")
@@ -6142,12 +6143,19 @@ class PATTERN:
             if self.shoulderType =="S": 
                 edge_top_surface = self.EliminateShoulderLugEdgeInTopEdges(self.edge_top_surface, self.npn)
 
-            if len(self.MainGroove) > 0: 
-                kerfedges, grooveedges, pvnode, cnode, fnode=self.GrooveSideNodeRepositioningfromTop(TopEdges=edge_top_surface, orgn=NodeOrigin, alledges=Edges,\
-                    surfaces=surfaces, maingroovebottomedge=self.SortedGroove, groovebottomsurf=surf_allgroovebtm, maingroovebottomsurf=self.SF_fulldepthgroove, \
-                    surf_mainside=self.SF_fulldepthgrooveside, surf_subside=self.SF_subgrooveside, surf_kerfside=self.KerfsideSurface)
-            else: 
-                grooveedges, kerfedges = self.Groove_kerf_edges_in_top_surface(top_edges=edge_top_surface, surf_main_side=self.SF_fulldepthgrooveside, surf_sub_side=self.SF_subgrooveside, surf_kerf_side=self.KerfsideSurface)
+                if len(self.MainGroove) > 0: 
+                    kerfedges, grooveedges, pvnode, cnode, fnode=self.GrooveSideNodeRepositioningfromTop(TopEdges=edge_top_surface, orgn=NodeOrigin, alledges=Edges,\
+                        surfaces=surfaces, maingroovebottomedge=self.SortedGroove, groovebottomsurf=surf_allgroovebtm, maingroovebottomsurf=self.SF_fulldepthgroove, \
+                        surf_mainside=self.SF_fulldepthgrooveside, surf_subside=self.SF_subgrooveside, surf_kerfside=self.KerfsideSurface)
+                else: 
+                    grooveedges, kerfedges = self.Groove_kerf_edges_in_top_surface(top_edges=edge_top_surface, surf_main_side=self.SF_fulldepthgrooveside, surf_sub_side=self.SF_subgrooveside, surf_kerf_side=self.KerfsideSurface)
+            else:
+                if len(self.MainGroove) > 0: 
+                    kerfedges, grooveedges, pvnode, cnode, fnode=self.GrooveSideNodeRepositioningfromTop(TopEdges=self.edge_top_surface, orgn=NodeOrigin, alledges=Edges,\
+                        surfaces=surfaces, maingroovebottomedge=self.SortedGroove, groovebottomsurf=surf_allgroovebtm, maingroovebottomsurf=self.SF_fulldepthgroove, \
+                        surf_mainside=self.SF_fulldepthgrooveside, surf_subside=self.SF_subgrooveside, surf_kerfside=self.KerfsideSurface)
+                else: 
+                    grooveedges, kerfedges = self.Groove_kerf_edges_in_top_surface(top_edges=self.edge_top_surface, surf_main_side=self.SF_fulldepthgrooveside, surf_sub_side=self.SF_subgrooveside, surf_kerf_side=self.KerfsideSurface)
 
             for psf in self.SF_pitchside:   ## delete pitch side surface to simplify the semi-groove bottom edge 
                 i =0
@@ -7485,6 +7493,8 @@ class PATTERN:
 
         ## self.freetop, self.freebottom, self.uncheckedfree, self.Surface
 
+        print ("\n* Searching Shoulder Lug ", end=">>")
+
         BtmBoundary = self.Edge_bottomSurface 
 
         en = []
@@ -7550,9 +7560,12 @@ class PATTERN:
                         break 
 
         # print ("\nDELETE TOPEDGE ")
+        HalfTDW = self.TreadDesignWidth / 2.0 - 0.001 
         
         i = 0
+        delEdges=[]
         isLug = 0 
+        edgeTopSurf = []
         while i < len(Topedges): 
             j = 0
             f = 0 
@@ -7564,16 +7577,51 @@ class PATTERN:
                     f = 1
                     break 
                 j += 1
+
+            idx = np.where(self.npn[:,0]==Topedges[i][0])[0][0]; n1 = self.npn[idx]
+            idx = np.where(self.npn[:,0]==Topedges[i][1])[0][0]; n2 = self.npn[idx]
+            if abs(n1[2]) > HalfTDW and abs(n2[2]) > HalfTDW: 
+                edgeTopSurf.append(Topedges[i])
+            
             if f ==1: 
-                # print(Topedges[i][3],end=",")
-                isLug = 1 
-                Topedges = np.delete(Topedges, i, axis=0)
-                continue 
+                delEdges.append(Topedges[i])
             i += 1
-        # print ("")
 
-        if isLug ==1: print ("* Disregarding the side angle in Sho. Lug")
+        Dgroups = self.Grouping_ConnectedEdges(delEdges)
+        Tgroups = self.Grouping_ConnectedEdges(edgeTopSurf)
 
+        if len(Dgroups) != len(Tgroups): 
+            isLug = 1 
+            edgeShoulderLug = []
+            for dgrp in Dgroups:
+                cnt = 0  
+                for tgrp in Tgroups: 
+                    for tg in tgrp:
+                        brk = 0 
+                        for dg in dgrp:
+                            if tg[3] == dg[3]: 
+                                cnt += 1
+                                brk = 1 
+                                break 
+                        if brk ==1 : 
+                            break 
+                if cnt > 1: 
+                    edgeShoulderLug.append(dgrp)
+
+                        
+            if len(edgeShoulderLug) > 0: 
+                for grp in edgeShoulderLug: 
+                    for ed in grp: 
+                        i = 0
+                        while i < len(Topedges) : 
+                            if Topedges[i][0] == ed[0] and Topedges[i][1] == ed[1]: 
+                                Topedges = np.delete(Topedges, i, axis=0)
+                                break 
+                            i += 1
+
+        print (" DONE!")
+        if isLug ==1: print (" Disregarding the side angle in Sho. Lug\n")
+        
         return Topedges
 
 
@@ -8853,7 +8901,7 @@ class PATTERN:
             if i ==0: continue 
             
             if ptchbase[i-1][2] != ptchbase[i][1]: 
-                if round(ptchbase[i-1][4][1], digit) != round(ptchbase[i][3][1], digit): 
+                if round(ptchbase[i-1][4][1], 4) != round(ptchbase[i][3][1], 4): 
                     print ("There are void in beam elements", ptchbase[i-1][4][1]*1000, ptchbase[i][3][1]*1000, (ptchbase[i-1][4][1]-ptchbase[i][3][1])*1000)
                     print (ptchbase[i-1][3], ptchbase[i-1][4], "\n", ptchbase[i][3], ptchbase[i][4])
         
@@ -12639,13 +12687,14 @@ class PATTERN:
 
         relocated = []
 
-        Wratio = self.TargetTDW / self.TreadDesignWidth * self.TargetGD / self.ModelGD
-        Lratio = self.TargetPL / self.pitchlength  * self.TargetGD / self.ModelGD
+        # Wratio = self.TargetTDW / self.TreadDesignWidth * self.TargetGD / self.ModelGD
+        # Lratio = self.TargetPL / self.pitchlength  * self.TargetGD / self.ModelGD
 
-        print(" Kerf Gauge : Width Ratio=%.2f, Length Ratio=%.2f"%(Wratio, Lratio))
+        # print(" Kerf Ga : Width Ratio=%.2f, Length Ratio=%.2f"%(Wratio, Lratio))
 
         for kerf_group in kerf_surf: 
             for i, surfs in enumerate(kerf_group): 
+                protrusion = 0 
                 ## find bottom nodes in the kerf sides 
                 ## this is the base line for the node position. 
                 ndo = []
@@ -12665,6 +12714,8 @@ class PATTERN:
                     n3 = self.npn[np.where(self.npn[:,0]==surf[9])[0][0]]
                     n4 = self.npn[np.where(self.npn[:,0]==surf[10])[0][0]]
                     ndn.append([(n1[3]+n2[3])/2.0, n1, n2, n3, n4])
+                
+                Nsurf = int(len(surfs) / 2) 
 
                 if tri == 1: 
                     continue 
@@ -12708,7 +12759,10 @@ class PATTERN:
                 slope03 = d03 / (TopN03[3] - LefN03[3]) 
                 slope04 = d04 / (TopN04[3] - LefN04[3]) 
 
-                cnt = 0     
+
+
+                cnt = 0   
+                reDo = 0   
                 for od, nd in zip(ndo, ndn):
                     cnt += 1 
                     d03, inPoint03 = DistanceFromLineToNode2D(od[3], refo, xy=12)
@@ -12734,435 +12788,107 @@ class PATTERN:
                                 topN14 = self.npn[ix]
                     
                     else: 
+                        V03 = [(od[3][1]-inPoint03[1]) , (od[3][2]-inPoint03[2]) ]
 
-                        V03 = [od[3][1]-inPoint03[1], od[3][2]-inPoint03[2]]
-
-                        ix = np.where(self.npn[:,0]==nd[3][0])[0][0]
+                        ix3 = np.where(self.npn[:,0]==nd[3][0])[0][0]
+                        ix4 = np.where(self.npn[:,0]==nd[4][0])[0][0]
+                        
+                        ix = ix3 
                         self.npn[ix][1] = inPoint13[1] + V03[0]  
                         self.npn[ix][2] = inPoint13[2] + V03[1]
 
                         if cnt == 1: 
                             topN13 = self.npn[ix]
 
-                        if self.npn[ix][3] < topN13[3] : 
-                            d13 = sqrt (  (topN13[1] - self.npn[ix][1])**2 + (topN13[2] - self.npn[ix][2])**2 )
-                            slope13 = d13 / (topN13[3] - self.npn[ix][3])  
+                        else:
+                            if od[3][1] - LefN03[1] !=0 or od[3][2] - LefN03[2] !=0 : 
+                                ang03 = Angle_3nodes (od[4], od[3], LefN03, xy=12) - 1.5707963
+                                ang13 = Angle_3nodes (self.npn[ix4], self.npn[ix3], LefN13,  xy=12)  - 1.5707963
+                                
+                                if ang03 * ang13 < 0.0  : 
+                                    ix = np.where(self.npn[:,0]==nd[3][0])[0][0]
 
-                            if round(slope13, 3) != round(slope03, 3): 
-                                V13 = [self.npn[ix][1] - topN13[1], self.npn[ix][2] - topN13[2]]
-                                VL = sqrt(V13[0]**2 + V13[1]**2)
-                                if VL  > 0.0001: 
-                                    self.npn[ix][1] =  topN13[1] + V13[0] / VL * slope03 * (topN13[3] - self.npn[ix][3])  
-                                    self.npn[ix][2] =  topN13[2] + V13[1] / VL * slope03 * (topN13[3] - self.npn[ix][3]) 
-                                    print ("***  Length=%.5f, slope %.3f, %.3f "%(VL, slope03, slope13), V13, self.npn[ix], topN13)
-                                else:
-                                    print (" Length=%.5f, slope %.3f, %.3f "%(VL, slope03, slope13), V13, self.npn[ix], topN13)
+                                    d13 = sqrt (  (topN13[1] - self.npn[ix][1])**2 + (topN13[2] - self.npn[ix][2])**2 )
+                                    if d13 > 0.0001: 
+                                            
+                                        V13 = [(self.npn[ix][1] - topN13[1])/d13, (self.npn[ix][2] - topN13[2])/d13]  ## vector from top to bottom 
+                                        
+                                        slope13 = sqrt (  (topN13[1] - LefN13[1])**2 + (topN13[2] - LefN13[2])**2 ) / (topN13[3] - LefN13[3])  
 
+                                        self.npn[ix][1] =  topN13[1] + V13[0]  * slope13 * (topN13[3] - self.npn[ix][3])  
+                                        self.npn[ix][2] =  topN13[2] + V13[1]  * slope13 * (topN13[3] - self.npn[ix][3]) 
+
+                                        reDo += 1 
+
+                                if reDo ==1 and Nsurf > cnt -1: 
+                                        for k in range(cnt-2, 1, -1): 
+                                            idx = np.where(self.npn[:,0]==ndn[k][2][0])[0][0]; ni = self.npn[idx]
+                                            idx = np.where(self.npn[:,0]==ndn[k][3][0])[0][0]; nj = self.npn[idx]
+                                            
+
+                                            slope1 = sqrt((nj[1]-ni[1])**2 + (nj[2]-ni[2])**2)
+                                            di0 =  sqrt((ndo[k][3][1]-ndo[k][2][1])**2 + (ndo[k][3][2]-ndo[k][2][2])**2) 
+                                            if di0 > 0.0001: 
+                                                slope0 = di0 / (ndo[k][3][3]-ndo[k][2][3])
+
+                                                vec = [(ndo[k][3][1]-ndo[k][2][1]) / di0  , (ndo[k][3][2]-ndo[k][2][2]) / di0]
+                                                self.npn[idx][1] = ni[1] + vec[0] * (nj[3]-ni[3])  * slope0
+                                                self.npn[idx][2] = ni[2] + vec[1] * (nj[3]-ni[3])  * slope0
+                                        reDo += 1 
 
                         relocated.append(self.npn[ix][0])
 
-                        V04 = [od[4][1]-inPoint04[1], od[4][2]-inPoint04[2]]
+                        V04 = [(od[4][1]-inPoint04[1])  , (od[4][2]-inPoint04[2]) ]
 
-                        ix = np.where(self.npn[:,0]==nd[4][0])[0][0]
+                        ix = ix4 
                         self.npn[ix][1] = inPoint14[1] + V04[0]  
                         self.npn[ix][2] = inPoint14[2] + V04[1]
 
-                        if cnt == 1: 
+                        if cnt == 1:  
                             topN14 = self.npn[ix]
+                            
+                        else:
+                            if od[4][1] - LefN04[1] !=0 or od[4][2] - LefN04[2] !=0 : 
+                                ang04 = Angle_3nodes (od[3], od[4], LefN04, xy=12) - 1.5707963
+                                ang14 = Angle_3nodes (self.npn[ix3], self.npn[ix4], LefN14,  xy=12)  - 1.5707963
+                                
+                                if ang04 * ang14 < 0.0   :
+                                    ix = np.where(self.npn[:,0]==nd[4][0])[0][0]
 
-                        if self.npn[ix][3] < topN14[3]: 
-                            d14 = sqrt (  (topN14[1] - self.npn[ix][1])**2 + (topN14[2] - self.npn[ix][2])**2 )
-                            slope14 = d14 / (topN14[3] - self.npn[ix][3])  
+                                    d14 = sqrt (  (topN14[1] - self.npn[ix][1])**2 + (topN14[2] - self.npn[ix][2])**2 )
+                                    if d14 > 0.0001: 
+                                            
+                                        V14 = [(self.npn[ix][1] - topN14[1])/d14, (self.npn[ix][2] - topN14[2])/d14]  ## vector from top to bottom 
+                                        
+                                        slope14 = sqrt (  (topN14[1] - LefN14[1])**2 + (topN14[2] - LefN14[2])**2 ) / (topN14[3] - LefN14[3])  
 
-                            if round(slope14, 3) != round(slope04, 3): 
-                                V14 = [self.npn[ix][1] - topN14[1], self.npn[ix][2] - topN14[2]]
-                                VL = sqrt(V14[0]**2 + V14[1]**2)
-                                if VL > 0.0001: 
-                                    self.npn[ix][1] =  topN14[1] + V14[0]/VL  * slope04 * (topN14[3] - self.npn[ix][3]) 
-                                    self.npn[ix][2] =  topN14[2] + V14[1]/VL * slope04 * (topN14[3] - self.npn[ix][3])
+                                        self.npn[ix][1] =  topN14[1] + V14[0]  * slope14 * (topN14[3] - self.npn[ix][3])  
+                                        self.npn[ix][2] =  topN14[2] + V14[1]  * slope14 * (topN14[3] - self.npn[ix][3]) 
+
+                                        reDo += 1 
+
+                                if reDo ==1 and Nsurf > cnt -1: 
+                                        for k in range(cnt-2, -1, -1): 
+                                            idx = np.where(self.npn[:,0]==ndn[k][1][0])[0][0]; ni = self.npn[idx]
+                                            idx = np.where(self.npn[:,0]==ndn[k][4][0])[0][0]; nj = self.npn[idx]
+                                            
+
+                                            slope1 = sqrt((nj[1]-ni[1])**2 + (nj[2]-ni[2])**2)
+
+                                            di0 =  sqrt((ndo[k][4][1]-ndo[k][1][1])**2 + (ndo[k][4][2]-ndo[k][1][2])**2) 
+                                            if di0 > 0.0001: 
+                                                slope0 = di0 / (ndo[k][4][3]-ndo[k][1][3])
+
+                                                vec = [(ndo[k][4][1]-ndo[k][1][1]) / di0  , (ndo[k][4][2]-ndo[k][1][2]) / di0]
+                                                self.npn[idx][1] = ni[1] + vec[0] * (nj[3]-ni[3]) * slope0
+                                                self.npn[idx][2] = ni[2] + vec[1] * (nj[3]-ni[3]) * slope0
+
+                                        reDo += 1 
 
                         relocated.append(self.npn[ix][0])
 
-
-
         return relocated
-
-        if 1: 
-            if 1: 
-
-                td1 = (refo[0][1]-ndo[0][3][1])**2 +  (refo[0][2]-ndo[0][3][2])**2
-                td2 = (refo[0][1]-ndo[0][4][1])**2 +  (refo[0][2]-ndo[0][4][2])**2
-
-                if td1 < td2 : 
-                    td0 =  sqrt((refo[0][1]-ndo[0][3][1])**2 +  (refo[0][2]-ndo[0][3][2])**2)
-                    td1 =  sqrt((refn[0][1]-ndn[0][3][1])**2 +  (refn[0][2]-ndn[0][3][2])**2)
-
-                    td2 =  sqrt((refo[1][1]-ndo[0][4][1])**2 +  (refo[1][2]-ndo[0][4][2])**2)
-                    td3 =  sqrt((refn[1][1]-ndn[0][4][1])**2 +  (refn[1][2]-ndn[0][4][2])**2)
-
-                else: 
-                    td0 =  sqrt((refo[1][1]-ndo[0][3][1])**2 +  (refo[1][2]-ndo[0][3][2])**2)
-                    td1 =  sqrt((refn[1][1]-ndn[0][3][1])**2 +  (refn[1][2]-ndn[0][3][2])**2)
-
-                    td2 =  sqrt((refo[0][1]-ndo[0][4][1])**2 +  (refo[0][2]-ndo[0][4][2])**2)
-                    td3 =  sqrt((refn[0][1]-ndn[0][4][1])**2 +  (refn[0][2]-ndn[0][4][2])**2)
-
-                Ratio3 = td1 / td0 
-                Ratio4 = td3 / td2
-
-
-                for od, nd in zip(ndo, ndn): 
-                    d03 = DistanceFromLineToNode2D(od[3], refo, xy=12, onlydist=1)
-                    d04 = DistanceFromLineToNode2D(od[4], refo, xy=12, onlydist=1)
-
-                    if d03 < 0.0001 and d04 > 0.0001: 
-                        d14 = DistanceFromLineToNode2D(nd[4], refn, xy=12, onlydist=1)
-                        d4_ratio = d14/d04 
-                        if abs(1-d4_ratio) < 0.01: 
-                            continue 
-
-                        rd1 = sqrt((refo[0][1]-od[4][1])**2 + (refo[0][2]-od[4][2])**2 )
-                        rd2 = sqrt((refo[1][1]-od[4][1])**2 + (refo[1][2]-od[4][2])**2 )
-                        if rd1 < rd2: 
-                            V04 = [(od[4][1]-refo[0][1])/rd1, (od[4][2]-refo[0][2])/rd1]
-
-                            d4 = sqrt((refn[1][1]-nd[4][1])**2 + (refn[1][2]-nd[4][2])**2 )
-
-                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
-                            self.npn[ix][1] = refn[1][1] + (od[4][1]-refo[0][1]) * Lratio
-                            self.npn[ix][2] = refn[1][2] + (od[4][2]-refo[0][2]) * Wratio 
-                            relocated.append(self.npn[ix][0])
-                        else:
-                            V04 = [(od[4][1]-refo[1][1])/rd1, (od[4][2]-refo[1][2])/rd1]
-
-                            d4 = sqrt((refn[0][1]-nd[4][1])**2 + (refn[0][2]-nd[4][2])**2 )
-                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
-                            self.npn[ix][1] = refn[0][1] +(od[4][1]-refo[1][1]) * Lratio 
-                            self.npn[ix][2] = refn[0][2] +(od[4][2]-refo[1][2]) * Wratio 
-                            relocated.append(self.npn[ix][0])
-
-                    elif d03 > 0.0001 and d04 < 0.0001: 
-                        d13 = DistanceFromLineToNode2D(nd[3], refn, xy=12, onlydist=1)
-                        d3_ratio = d03/d13 
-                        if abs(1-d3_ratio) < 0.01: 
-                            continue 
-
-                        rd1 = sqrt((ref0[0][1]-od[3][1])**2 + (refo[0][2]-od[3][2])**2 )
-                        rd2 = sqrt((refo[1][1]-od[3][1])**2 + (refo[1][2]-od[3][2])**2 )
-                        if rd1 < rd2: 
-                            V03 = [(od[3][1]-refo[0][1])/rd1, (od[3][2]-refo[0][2])/rd1]
-                            d3 = sqrt((refn[0][1]-nd[3][1])**2 + (refn[0][2]-nd[3][2])**2 )
-
-                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
-                            
-                            self.npn[ix][1] = refn[0][1] + (od[3][1]-refo[0][1]) * Lratio  * (1-(od[4][3]-refo[0][3]) / HT)
-                            self.npn[ix][2] = refn[0][2] + (od[3][2]-refo[0][2]) * Wratio * (1-(od[4][3]-refo[0][3]) / HT)
-                            relocated.append(self.npn[ix][0])
-
-                        else:
-                            rd1 = sqrt((refo[1][1]-od[3][1])**2 + (refo[1][2]-od[3][2])**2 )
-                            V03 = [(od[3][1]-refo[1][1])/rd1, (od[3][2]-refo[1][2])/rd1]
-
-                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
-                            d3 = sqrt((refn[1][1]-nd[3][1])**2 + (refn[1][2]-nd[3][2])**2 )
-                            self.npn[ix][1] = refn[1][1] + (od[3][1]-refo[1][1]) * Lratio  * (1-(od[4][3]-refo[0][3]) / HT)
-                            self.npn[ix][2] = refn[1][2] + (od[3][2]-refo[1][2]) * Wratio  * (1-(od[4][3]-refo[0][3]) / HT)
-                            relocated.append(self.npn[ix][0])
-
-                    
-                    elif d03 > 0.0001 and d04 > 0.0001: 
-                        d13 = DistanceFromLineToNode2D(nd[3], refn, xy=12, onlydist=1)
-                        d14 = DistanceFromLineToNode2D(nd[4], refn, xy=12, onlydist=1)
-
-                        d3_ratio = d03/d13 
-                        d4_ratio = d04/d14 
-
-                        if abs(1-d3_ratio) < 0.01 and abs(1-d4_ratio) < 0.01: 
-                            continue 
-
-                        rd1 = sqrt((refo[0][1]-od[3][1])**2 + (refo[0][2]-od[3][2])**2 )
-                        rd2 = sqrt((refo[0][1]-od[4][1])**2 + (refo[0][2]-od[4][2])**2 )
-                        if rd1 < rd2: 
-                            V03 = [(od[3][1]-refo[0][1])/rd1, (od[3][2]-refo[0][2])/rd1]
-
-                            rd2 = sqrt((refo[1][1]-od[4][1])**2 + (refo[1][2]-od[4][2])**2 )
-                            V04 = [(od[4][1]-refo[1][1])/rd2, (od[4][2]-refo[1][2])/rd2]
-
-                        
-                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
-                            d3 = sqrt((refn[0][1]-nd[3][1])**2 + (refn[0][2]-nd[3][2])**2 )
-                            self.npn[ix][1] = refn[0][1] + (od[3][1]-refo[0][1]) * Lratio 
-                            self.npn[ix][2] = refn[0][2] + (od[3][2]-refo[0][2]) * Wratio
-                            relocated.append(self.npn[ix][0])
-
-                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
-                            d4 = sqrt((refn[1][1]-nd[4][1])**2 + (refn[1][2]-nd[4][2])**2 )
-                            self.npn[ix][1] = refn[1][1] + (od[4][1]-refo[1][1]) * Lratio 
-                            self.npn[ix][2] = refn[1][2] + (od[4][2]-refo[1][2]) * Wratio 
-                            relocated.append(self.npn[ix][0])
-
-                        else:
-                            
-                            rd1 = sqrt((refo[1][1]-od[3][1])**2 + (refo[1][2]-od[3][2])**2 )
-                            V03 = [(od[3][1]-refo[1][1])/rd1, (od[3][2]-refo[1][2])/rd1]
-                            V04 = [(od[4][1]-refo[0][1])/rd2, (od[4][2]-refo[0][2])/rd2]
-
-                            ix = np.where(self.npn[:,0] == nd[3][0])[0][0]
-                            d3 = sqrt((refn[1][1]-nd[3][1])**2 + (refn[1][2]-nd[3][2])**2 )
-                            self.npn[ix][1] = refn[1][1] + (od[3][1]-refo[1][1]) * Lratio 
-                            self.npn[ix][2] = refn[1][2] + (od[3][2]-refo[1][2]) * Wratio
-                            relocated.append(self.npn[ix][0])
-
-                            ix = np.where(self.npn[:,0] == nd[4][0])[0][0]
-                            d4 = sqrt((refn[0][1]-nd[4][1])**2 + (refn[0][2]-nd[4][2])**2 )
-                            self.npn[ix][1] = refn[0][1] + (od[4][1]-refo[0][1]) * Lratio 
-                            self.npn[ix][2] = refn[0][2] + (od[4][2]-refo[0][2]) * Wratio 
-                            relocated.append(self.npn[ix][0])
-
-        relocated = np.array(relocated)
-        relocated = np.unique(relocated)
-
-        return relocated
-
-
-
-
-        if debug ==1: f= open("kerf_gauge_calculation.txt", 'w')
-
-        tnode =[]
-        digit = 5 
-        # ddd = 0 
-        for kerf in kerf_surf:
-            # ddd +=1 
-            # if ddd == 6: debug = 1
-            
-            for k, surfs in enumerate(kerf): 
-                iN = len(surfs)
-                if debug==1: 
-                    f.write("\n\n### Kerf ##############\n")
-                    f.write (" No of surfs=%d TOP Surf ID= %d\n"%(iN, surfs[0][0]-10**7))
-                    for sfid in surfs: 
-                        f.write("%d,"%(sfid[0]-10**7))
-                    f.write("\n")
-
-                if surfs[int(iN/2)-1][2] ==4: 
-                    basen1 = surfs[int(iN/2)-1][7]
-                    basen2 = surfs[int(iN/2)-1][8]
-                else: 
-                    bn1 = [surfs[int(iN/2)-1][7], surfs[int(iN/2)-1][8], surfs[int(iN/2)-1][9]]
-                    bn2 = [surfs[int(iN/2)][7], surfs[int(iN/2)][8], surfs[int(iN/2)][9]]
-                    cmnode = []
-                    for an in bn1: 
-                        for bn in bn2: 
-                            if an == bn: 
-                                cmnode.append(an)
-                                break 
-                    if len(cmnode) != 2: 
-                        print ("## The 2 surfaces at the kerf bottom should meet.")
-                        print ("## Check the bottom of surfs %d, %d"%(surfs[int(iN/2)-1]-10**7, surfs[int(iN/2)]-10**7))
-                        break 
-                    else: 
-                        basen1 = cmnode[0]
-                        basen2 = cmnode[1]
-
-                indx = np.where(origin[:,0]==basen1)[0][0]
-                BN1 = [origin[indx][0], origin[indx][1], origin[indx][2], 0.0]
-                indx = np.where(origin[:,0]==basen2)[0][0]
-                BN2 = [origin[indx][0], origin[indx][1], origin[indx][2], 0.0]
-
-                indx = np.where(self.npn[:,0]==basen1)[0][0]
-                N1 = [self.npn[indx][0], self.npn[indx][1], self.npn[indx][2], 0.0]
-                indx = np.where(self.npn[:,0]==basen2)[0][0]
-                N2 = [self.npn[indx][0], self.npn[indx][1], self.npn[indx][2], 0.0]
-
-                #######################################################################
-                # if N1[0] -10**7 == 6313 or N2[0] -10**7 == 6313 or N1[0] -10**7 == 5320 or N2[0] -10**7 == 5320 or N1[0] -10**7 == 6338 or N2[0] -10**7 == 6338 or N1[0] -10**7 == 6315 or N2[0] -10**7 == 6315 : 
-                #     debug = 1
-                #     print (" DEBUG MODE PRING INFO..")
-                # else: 
-                #     debug = 0 
-                #######################################################################
-
-                for i in range(int(iN/2)): 
-                    ii = int(iN/2) -1 -i
-                    ij = int(iN/2)  +i  
-                    if k ==0: 
-                        tn1 = surfs[ii][10]
-                        tn2 = surfs[ij][9 ]
-
-                        ## if tn1 ==0 or tn2 == 0: 
-                        ## there are two 3-node surfaces at the bottom 
-
-                        if tn1 > 0: 
-                            indx = np.where(origin[:,0]==tn1)[0][0]
-                            BN3 = [origin[indx][0], origin[indx][1], origin[indx][2], 0.0]
-                            
-                        indx = np.where(origin[:,0]==tn2)[0][0]
-                        BN4 = [origin[indx][0], origin[indx][1], origin[indx][2], 0.0]
-                        
-
-                        if tn1>0: D1 = DistanceFromLineToNode2D(BN3, [BN1, BN2], onlydist=1)
-                        D2 = DistanceFromLineToNode2D(BN4, [BN1, BN2], onlydist=1)
-
-                        if tn1>0: 
-                            indx1 = np.where(self.npn[:,0]==tn1)[0][0]
-                            N3 = [self.npn[indx1][0], self.npn[indx1][1], self.npn[indx1][2], 0.0]
-                        indx2 = np.where(self.npn[:,0]==tn2)[0][0]
-                        N4 = [self.npn[indx2][0], self.npn[indx2][1], self.npn[indx2][2], 0.0]
-
-                        if tn1>0: 
-                            T1 = DistanceFromLineToNode2D(N3, [N1, N2], onlydist=1)
-                        T2 = DistanceFromLineToNode2D(N4, [N1, N2], onlydist=1)
-                        if tn1>0: 
-                            if round(D1+D2, 5) == 0: 
-                                Mid = [0, (N3[1]+N4[1])/2.0, (N3[2]+N4[2])/2.0, 0.0]
-                            else: 
-                                Mid = [0, N3[1]+ (N4[1]-N3[1])*T1/(T1+T2), N3[2]+ (N4[2]-N3[2])*T1/(T1+T2), 0.0]
-                        else: 
-                            D1 = 0  
-                            Mid = [0, (N1[1]+N2[1])/2.0, (N1[2]+N2[2])/2.0, 0.0]
-
-                        # print ("MID X=%5.2f, Y=%5.2f"%(Mid[1]*1000, Mid[2]*1000))
-                        if round(D1, 5) ==0: 
-                            tx = N3[1]; ty = N3[2]
-                        elif T1 > 1.0E-6: 
-                            tx = Mid[1] + (N3[1]-Mid[1])*D1/T1
-                            ty = Mid[2] + (N3[2]-Mid[2])*D1/T1
-                        else: 
-                            tx = Mid[1] + (N3[1]-Mid[1])
-                            ty = Mid[2] + (N3[2]-Mid[2])
-                        # print ("TX X=%5.2f, Y=%5.2f"%(tx*1000, ty*1000))
-
-                        # if N3[0]-10**7 == 5391 or N3[0]-10**7 == 5741 or N3[0]-10**7 == 5833 or N3[0]-10**7 == 5744 : 
-                        #     print ("%d, Del X=%.3f, Y=%.3f"%(N3[0]-10**7, (-N3[1]+tx)*1000, (-N3[2]+ty)*1000 ))
-                        #     print ("D1=%.3f, D2=%.3f"%(D1*1000, D2*1000))
-
-                        if D1 < 1.5E-03 and  tn1 > 0 :  
-                            V1 = [N3[0], tx, ty, 0.0, -N3[1]+tx, -N3[2]+ty, 0.0]
-                            tnode.append(V1)
-                            self.npn[indx1][1] = V1[1]
-                            self.npn[indx1][2] = V1[2]
-
-                        # print ("V1 X=%5.2f(del=%5.2f), Y=%5.2f(del=%5.2f)"%(V1[1]*1000, V1[4]*1000, V1[2]*1000, V1[5]*1000))
-                    
-                        if round(D2, 5) ==0: 
-                            tx = N4[1]; ty = N4[2]
-                        elif T2 > 1.0E-6: 
-                            tx = Mid[1] + (N4[1]-Mid[1])*D2/T2
-                            ty = Mid[2] + (N4[2]-Mid[2])*D2/T2
-                        else: 
-                            tx = Mid[1] + (N4[1]-Mid[1])
-                            ty = Mid[2] + (N4[2]-Mid[2])
-
-                        # if N4[0]-10**7 == 5391 or N4[0]-10**7 == 5741 or N4[0]-10**7 == 5833 or N4[0]-10**7 == 5744 : 
-                        #     print ("%d, Del X=%.3f, Y=%.3f"%(N4[0]-10**7, (-N4[1]+tx)*1000, (-N4[2]+ty)*1000 ))
-                        #     print ("D1=%.3f, D2=%.3f"%(D1*1000, D2*1000))
-                        if D2 < 1.5E-03 and tn2 > 0 : 
-                            V2 = [N4[0], tx, ty, 0.0, -N4[1]+tx, -N4[2]+ty, 0.0]
-                            tnode.append(V2)
-                            self.npn[indx2][1] = V2[1]
-                            self.npn[indx2][2] = V2[2]
-
-                        if debug==1: 
-                            try: 
-                                f.write ("* D1/T1=%7.2f(D1=%7.2f, T1=%7.2f), D2/T2=%7.2f(D2=%7.2f, T2=%7.2f) , N3=%4d, N4=%4d\n"%(D1/T1, D1*1000, T1*1000, D2/T2, D2*1000, T2*1000, N3[0]-10**7, N4[0]-10**7))
-                            except:
-                                f.write("* D1/T1 or D2/T1 Impossible : T1=%7.2f, T2=%7.2f, D1=%7.2f, D2=%7.2f, N3=%7.2f, N4=%7.2f\n"%(T1*1000, T2*1000, D1*1000, D2*1000, N3[0]-10**7, N4[0]-10**7))
-                        if debug==1 : 
-                            f.write (" ***********************************************************************\n")
-                            f.write ("  kerf Dist depth from btm(%1d) = %5.2f (D1=%5.2f, D2=%5.2f), Current =%5.2f (T1=%5.2f, T2=%5.2f), Del 1x=%5.2f, 1y=%5.2f, 2x=%5.2f, 2y=%5.2f\n"%(\
-                                                                        i, (D1+D2)*1000, D1*1000, D2*1000, (T1+T2)*1000, T1*1000, T2*1000, V1[4]*1000, V1[5]*1000, V2[4]*1000, V2[5]*1000))
-                            f.write (" Scaled Position : N3 x=%7.3f, y=%7.3f,  Mid x=%7.3f, y=%7.3f, N4 x=%7.3f, y=%7.3f, > N3 x=%7.3f, y=%7.3f, N4 x=%7.3f, y=%7.3f \n"%(N3[1]*1000,N3[2]*1000, Mid[1]*1000, Mid[2]*1000, N4[1]*1000, N4[2]*1000, V1[1]*1000, V1[2]*1000, V2[1]*1000, V2[2]*1000))
-                            f.write (" N3-Mid : Model Ga. = %7.3f, Scaled Ga. = %7.3f, Final Ga. = %7.3f, N4-Mid : Model Ga. = %7.3f, Scaled Ga. = %7.3f, Final Ga. = %7.3f\n"%(\
-                                    D1*1000, T1*1000, DistanceFromLineToNode2D(V1, [N1, N2], onlydist=1)*1000, D2*1000, T2*1000, DistanceFromLineToNode2D(V2, [N1, N2], onlydist=1)*1000))
-                            
-                    tn1 = surfs[ii][9]
-                    tn2 = surfs[ij][10]
-
-                    indx = np.where(origin[:,0]==tn1)[0][0]
-                    BN3 = [origin[indx][0], origin[indx][1], origin[indx][2], 0.0]
-                    if tn2 > 0: 
-                        indx = np.where(origin[:,0]==tn2)[0][0]
-                        BN4 = [origin[indx][0], origin[indx][1], origin[indx][2], 0.0]
-
-                    D1 = DistanceFromLineToNode2D(BN3, [BN1, BN2], onlydist=1)
-                    if tn2 > 0: 
-                        D2 = DistanceFromLineToNode2D(BN4, [BN1, BN2], onlydist=1)
-
-                    indx1 = np.where(self.npn[:,0]==tn1)[0][0]
-                    N3 = [self.npn[indx1][0], self.npn[indx1][1], self.npn[indx1][2], 0.0]
-                    if tn2 > 0: 
-                        indx2 = np.where(self.npn[:,0]==tn2)[0][0]
-                        N4 = [self.npn[indx2][0], self.npn[indx2][1], self.npn[indx2][2], 0.0]
-
-                    T1 = DistanceFromLineToNode2D(N3, [N1, N2], onlydist=1)
-                    if tn2 > 0: 
-                        T2 = DistanceFromLineToNode2D(N4, [N1, N2], onlydist=1)
-                        if round(D1+D2, 5) == 0: 
-                            Mid = [0, (N3[1]+N4[1])/2.0, (N3[2]+N4[2])/2.0, 0.0]
-                            # print ("MID 3")
-                        else: 
-                            Mid = [0, N3[1]+(N4[1]-N3[1])*T1/(T1+T2), N3[2]+(N4[2]-N3[2])*T1/(T1+T2), 0.0]
-                            # print ("MID 1")
-                            # print ("T1=%.3f, T2=%.3f, rat=%.3f"%(T1*1000, T2*1000, T1/(T1+T2)))
-                            # print ("N3[2]=%.3f, N4[2]=%.3f"%(N3[2]*1000, N4[2]*1000))
-                            # print (N3)
-                            # print (N4)
-                    else: 
-                        D2 = 0.0 
-                        Mid = [0, (N1[1]+N2[1])/2.0, (N1[2]+N2[2])/2.0, 0.0]
-                        # print ("MID 2")
-                    
-                    if round(D1, 5) ==0: 
-                        tx = N3[1]; ty = N3[2]
-                    else: 
-                        tx = Mid[1] + (N3[1]-Mid[1])*D1/T1; ty = Mid[2] + (N3[2]-Mid[2])*D1/T1
-
-                    
-                    if D1 < 1.5E-03 and  tn1 > 0 :  
-                        V1 = [N3[0], tx, ty, 0.0, -N3[1]+tx, -N3[2]+ty, 0.0]
-                        tnode.append(V1)
-                        self.npn[indx1][1] = V1[1]
-                        self.npn[indx1][2] = V1[2]
-                        if debug==1:
-                            f.write ("%d(%d), Del X=%.3f, Y=%.3f\n"%(N3[0]-10**7, surfs[ii][0]-10**7, (-N3[1]+tx)*1000, (-N3[2]+ty)*1000 ))
-                            f.write ("**D1=%.3f , T1=%.3f\n"%(D1*1000, T1*1000))
-
-                    if D2<1.0E-5  and tn2 > 0: 
-                        tx = N4[1]; ty = N4[2]
-                    elif D2 < 1.5E-03 and tn2 > 0 : 
-                        tx = Mid[1] + (N4[1]-Mid[1])*D2/T2; 
-                        ty = Mid[2] + (N4[2]-Mid[2])*D2/T2
-
-                        # print ("D2 =%.5f, T2=%.5f D2/T2=%.4f"%(D2*1000, T2*1000, D2/T2))
-                        # print ("Mid2=%.3f, N4-Mid=%.3f"%(Mid[2]*1000, (N4[2]-Mid[2])*1000 ))
-                        # print (" N4[2]=%.3f, Mid[2]=%.3f, ty=%.3f"%(N4[2]*1000, Mid[2]*1000, ty*1000))
-                    
-                    # if D2 < 1.5E-03 and tn2 > 0 : 
-                        V2 = [N4[0], tx, ty, 0.0, -N4[1]+tx, -N4[2]+ty, 0.0]
-                        tnode.append(V2)
-                        self.npn[indx2][1] = V2[1]
-                        self.npn[indx2][2] = V2[2]
-                        if debug==1:
-                            f.write ("%d(sf=%d), Del X=%.3f, Y=%.3f\n"%(N4[0]-10**7, surfs[ij][0]-10**7, (-N4[1]+tx)*1000, (-N4[2]+ty)*1000 ))
-                            f.write ("* D2=%.3f, T2=%.3f\n"%(D1*1000, T2*1000))
-
-
-                    if debug==1: 
-                        try: 
-                            f.write ("** D1/T1=%7.2f(D1=%7.2f, T1=%7.2f), D2/T2=%7.2f(D2=%7.2f, T2=%7.2f) , N3=%4d, N4=%4d\n"%(D1/T1, D1*1000, T1*1000, D2/T2, D2*1000, T2*1000, N3[0]-10**7, N4[0]-10**7))
-                        except:
-                            f.write("** D1/T1 or D2/D3 Impossible : T1=%7.2f, T2=%7.2f, D1=%7.2f, D2=%7.2f, N3=%7.2f, N4=%7.2f\n"%(T1*1000, T2*1000, D1*1000, D2*1000, N3[0]-10**7, N4[0]-10**7))
-                    if debug==1: 
-                        f.write ("   kerf Dist depth from btm(%1d) = %5.2f (D1=%5.2f, D2=%5.2f), Current =%5.2f (T1=%5.2f, T2=%5.2f), Del 1x=%5.2f, 1y=%5.2f, 2x=%5.2f, 2y=%5.2f\n"%(i, (D1+D2)*1000, D1*1000, D2*1000, (T1+T2)*1000, T1*1000, T2*1000, V1[4]*1000, V1[5]*1000, V2[4]*1000, V2[5]*1000))
-                        f.write (" ***********************************************************************\n")
-                        f.write (" Scaled Position : N3 x=%7.3f, y=%7.3f,  Mid x=%7.3f, y=%7.3f, N4 x=%7.3f, y=%7.3f, > N3 x=%7.3f, y=%7.3f, N4 x=%7.3f, y=%7.3f \n"%(N3[1]*1000,N3[2]*1000, Mid[1]*1000, Mid[2]*1000, N4[1]*1000, N4[2]*1000, V1[1]*1000, V1[2]*1000, V2[1]*1000, V2[2]*1000))
-                        f.write (" N3-Mid : Model Ga. = %7.3f, Scaled Ga. = %7.3f, Final Ga. = %7.3f, N4-Mid : Model Ga. = %7.3f, Scaled Ga. = %7.3f, Final Ga. = %7.3f\n"%(\
-                                    D1*1000, T1*1000, DistanceFromLineToNode2D(V1, [N1, N2], onlydist=1)*1000, D2*1000, T2*1000, DistanceFromLineToNode2D(V2, [N1, N2], onlydist=1)*1000))
-                    
-        if debug==1: f.close()
-        tnode = np.array(tnode)
-        return tnode
+         
     def ExtendMainGrooveEdge_InlateralGroove(self, cedge, redge, bottomedges, groovebottom): 
         """
         Searching th edge to connect the main groove in the lateral groove 
@@ -14446,8 +14172,16 @@ def Angle_3nodes(n1=[], n2=[], n3=[], xy=0): ## n2 : mid node
         angle = acos(cos)
     else: 
         x = int(xy/10)-1;     y = int(xy%10)-1
-        cos = round((v1[x]*v2[x] + v1[y]*v2[y] ) /  sqrt(v1[x]**2 + v1[y]**2 ) / sqrt(v2[x]**2 + v2[y]**2), 9)
-        angle = acos(cos)
+        L1 = sqrt(v1[x]**2 + v1[y]**2 ) 
+        L2 = sqrt(v2[x]**2 + v2[y]**2)
+        if L1 > 0 and L2 > 0: 
+            cos = round((v1[x]*v2[x] + v1[y]*v2[y] ) /  L1 / L2, 9)
+            angle = acos(cos)
+        else: 
+            print ("Error calculate angle")
+            print (n1)
+            print (n2)
+            print (n3)
 
     return angle 
 def Distance_2nodes(n1, n2, d2=0, xy=23): 

@@ -468,9 +468,9 @@ class Ui_MainWindow(object):
         self.btn_generation.setDisabled(True)
         self.searchsolid = []
 
-        # self._stdout = StdoutRedirect()
-        # self._stdout.start()
-        # self._stdout.printOccur.connect(lambda x : self._append_text(x))
+        self._stdout = StdoutRedirect()
+        self._stdout.start()
+        self._stdout.printOccur.connect(lambda x : self._append_text(x))
 
         self.P3DMLayout = 0 
         self.P3DMPattern = 0  
@@ -1227,7 +1227,7 @@ class Ui_MainWindow(object):
 
         BodyStartNo = 1
         BodyOffset  = 10000
-        return 
+        
         self.user_sector=int(self.input_layout_sector.text()) 
         if self.user_sector < 20: 
             print ("##########################################")
@@ -3106,8 +3106,13 @@ class myCanvas(FigureCanvas):
             del(npn)
             del(surface)
             
-        plt.xlim(minx-0.01, maxx+0.01)
-        plt.ylim(miny-0.01, maxy+0.01)
+        try:
+            plt.xlim(minx-0.01, maxx+0.01)
+            plt.ylim(miny-0.01, maxy+0.01)
+        except:
+            print ("Image range")
+            print ("X %.3f~%.3f"%(minx*1000, maxx*1000))
+            print ("Y %.3f~%.3f"%(miny*1000, maxy*1000))
 
         # print (" all printed node =%d"%(len(self.points)))
 
