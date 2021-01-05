@@ -1243,29 +1243,21 @@ class Ui_MainWindow(object):
                 print ("******************************************")
                 print ("** Generate 3d tire mesh without pattern")
                 print ("******************************************")
-                print ("** %s"%(savefile))
-                print ("* Layout Sectors =%d (sector=%.2f degree)"%(self.user_sector, 360.0/float(self.user_sector)))
                 
-                self.edge_body = self.layout.Element.OuterEdge(self.layout.Node)
-                BodySector = self.user_sector
-                # self.input_layout_sector.setDisabled(True)
+                print ("* Layout Sectors =%d (sector=%.2f degree)"%(self.user_sector, 360.0/float(self.user_sector)))
 
-                self.B3Dnodes, self.B3Del4, self.B3Del6, self.B3Del8, self.B3Delset, self.B3Dsurface, self.Bodysurf = \
-                PTN.GenerateFullBodyMesh(self.layout.Node, self.layout.Element, self.layout.Elset, surfaces=self.layout.Surface, body_outer=self.edge_body, sectors=BodySector, offset=BodyOffset)
+                if self.ABAQUS.isChecked() == True: 
+                    abq = 1
+                else:
+                    abq = 0 
 
-                if self.ABAQUS.isChecked() == True:       abq = 1
-                else:                                     abq = 0 
-                PTN.Write_SMART_TireBodyMesh(file=savefile, nodes=self.B3Dnodes, el4=self.B3Del4, el6=self.B3Del6, el8=self.B3Del8, elsets=self.B3Delset, surfaces=self.B3Dsurface,\
-                surf_body=self.Bodysurf, ties=self.layout.Tie, txtelset=self.layout.TxtElset, start=BodyStartNo, offset=BodyOffset, abaqus=abq, bodyonly=1)
-
-                PTN.SolidComponents_checking(fname=savefile+".dat", axi=savefile)
-
+                PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
+                self.layout.Surface, sectors=self.user_sector, offset=BodyOffset, abaqus=abq)
                 print ("\n# Layout 3D mesh was saved.")
-
+                print (" %s\n"%(savefile))
                 line = "Full tire meshes were saved.\n"
                 self.message.setText(line)
                 self.check_Direction.setEnabled(True)
-
             return 
 
         if self.readlayout == 1 and self.readpattern == 1: 

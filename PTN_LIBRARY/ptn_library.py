@@ -43,6 +43,11 @@ TireRubberComponents = [
     
     'WSW'  # While Sidewall
 ]
+TireTreadComponents = [
+    'CTB' , 'CTR',
+    'SUT' , 'UTR',
+    'TRW'
+]
 TireCordComponents = [
     'C01'  , 'CC1', # Carcass Cord 1 
     'C02'  , 'CC2', # Carcass Cord 2
@@ -1264,6 +1269,265 @@ def FindSolidElementBetweenMembrane(m1, m2, Elements):
             if cnt ==2: 
                 break 
     return between     
+def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, sectors=240, offset=10000, no_tread=10**7, abaqus=0): 
+
+    tread=ELEMENT()
+    body = ELEMENT()
+    for el in elements.Element:
+        td = 0 
+        for td in TireTreadComponents: 
+            if el[5].upper() == td: 
+                td = 1
+                break 
+        if td ==1: 
+            tread.Add(el)
+        else:
+            body.Add(el)
+
+    Node_body = body.Nodes(node=nodes)
+    Node_tread = tread.Nodes(node=nodes)
+
+    body_TieMaster, body_TieSlave, body_outer, body_centerNodes, body_FreeEdges, body_allEdges, TieError = TieSurface(body.Element, Node_body.Node)
+
+    delta =  2*PI / float(sectors)
+
+    f=open(fname+".axi", 'w')
+    if abaqus ==0:  f.write("*TIREBODY_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET= 1, %5d, 1, %5d\n"%(offset, offset))
+    f.write("*NODE\n")
+    for i in range(sectors): 
+        sec = float(i)
+        for n in Node_body.Node:
+            f.write("%8d, %.6e, %.6e, %.6e\n"%(n[0]+offset*sec, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
+            ## [nd[0]+offset*i, nd[3]*sin(delta * f), nd[2], nd[3]*cos(delta*f)]
+
+    el2=[]; el3=[]; el4=[]
+    for i in range(sectors): 
+        for el in body.Element: 
+            en = el[0] + offset*i
+            if i < sectors -1: 
+                n1 = el[1] + offset*i
+                n2 = el[2] + offset*i
+                n3 = el[3] + offset*i
+                n4 = el[4] + offset*i
+                n5 = el[1] + offset*(i+1)
+                n6 = el[2] + offset*(i+1)
+                n7 = el[3] + offset*(i+1)
+                n8 = el[4] + offset*(i+1)
+            else: 
+                n1 = el[1] + offset*i
+                n2 = el[2] + offset*i
+                n3 = el[3] + offset*i
+                n4 = el[4] + offset*i
+                n5 = el[1] 
+                n6 = el[2] 
+                n7 = el[3] 
+                n8 = el[4] 
+            if el[6] == 2: el2.append([en, n1, n2, n6, n5])
+            elif el[6] == 3: el3.append([en, n5, n6, n7, n1, n2, n3])
+            elif el[6] == 4: el4.append([en, n5, n6, n7, n8, n1, n2, n3, n4])
+
+    if len(el2)>0: 
+        f.write("*ELEMENT, TYPE=M3D4R\n")
+        for e in el2:
+            f.write("%6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4]))
+
+    if len(el3)>0: 
+        f.write("*ELEMENT, TYPE=C3D6\n")
+        for e in el3:
+            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6]))
+    if len(el4)>0: 
+        f.write("*ELEMENT, TYPE=C3D8R\n")
+        for e in el4:
+            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]))
+    
+    for es in elset.Elset:
+        td = 0 
+        for en in TireTreadComponents:
+            if es[0].upper() == en:
+                td = 1
+                break 
+        if td ==0: 
+            N = len(es)
+            if N > 1: 
+                f.write("*ELSET, ELSET=%s\n"%(es[0]))
+                
+                for i in range(sectors): 
+                    ret = 0 
+                    for i in range(1, N):
+                        if i%10 == 0: 
+                            f.write("%6d\n"%(es[i]+offset*i))
+                            ret = 1 
+                        elif i == N-1: 
+                            f.write("%6d\n"%(es[i]+offset*i))
+                            ret =1 
+                        else: 
+                            f.write("%6d,"%(es[i]+offset*i))
+                            ret = 0 
+                    if ret == 0: 
+                        f.write("\n")
+
+    for es in surfaces.Surface:
+        if es[0] !="CONT" and not 'Tie' in es[0]: 
+            N = len(es)
+            if N > 1: 
+                f.write("*SURFACE,TYPE=ELEMENT,NAME=%s\n"%(es[0]))
+                for i in range(sectors): 
+                    for i in range(1, N):
+                        f.write("%6d, %s\n"%(es[i][0]+offset*i, Change3DFace(es[i][1])))
+    f.write("*SURFACE,TYPE=ELEMENT,NAME=TIREBODY\n")
+    for i in range(sectors): 
+        for ed in body_outer: 
+            f.write("%6d, %s\n"%(ed[4]+offset*i, Change3DFace(ed[3])))
+    cnt = 0 
+    for ts, tm in zip(body_TieSlave, body_TieMaster): 
+        cnt +=1 
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt))
+        for i in range(sectors): 
+            f.write("%6d, %s\n"%(tm[4]+offset*i, Change3DFace(tm[3])))
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt))
+        for i in range(sectors): 
+            for t in ts: 
+                f.write("%6d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
+        f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
+        f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
+
+    f.close()
+
+    tread_TieMaster, tread_TieSlave, tread_outer, tread_centerNodes, tread_FreeEdges, tread_allEdges, TieError=  TieSurface(tread.Element, Node_tread.Node)
+
+
+    f=open(fname+".trd", 'w')
+    if abaqus ==0: f.write("*TREADPTN_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET= %d, %d, %d, %d\n"%(no_tread, offset, no_tread, offset))
+
+    f.write("*NODE\n")
+    for i in range(sectors): 
+        sec = float(i)
+        for n in Node_tread.Node:
+            f.write("%8d, %.6e, %.6e, %.6e\n"%(n[0]+offset*sec + no_tread, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
+
+    el2=[]; el3=[]; el4=[]
+    for i in range(sectors): 
+        for el in tread.Element: 
+            en = el[0] + offset*i  + no_tread
+            if i < sectors -1: 
+                n1 = el[1] + offset*i + no_tread
+                n2 = el[2] + offset*i + no_tread
+                n3 = el[3] + offset*i + no_tread
+                n4 = el[4] + offset*i + no_tread
+                n5 = el[1] + offset*(i+1) + no_tread
+                n6 = el[2] + offset*(i+1) + no_tread
+                n7 = el[3] + offset*(i+1) + no_tread
+                n8 = el[4] + offset*(i+1) + no_tread
+            else: 
+                n1 = el[1] + offset*i + no_tread
+                n2 = el[2] + offset*i + no_tread
+                n3 = el[3] + offset*i + no_tread
+                n4 = el[4] + offset*i + no_tread
+                n5 = el[1]  + no_tread
+                n6 = el[2]  + no_tread
+                n7 = el[3]  + no_tread
+                n8 = el[4]  + no_tread
+            if el[6] == 2: el2.append([en, n1, n2, n6, n5])
+            elif el[6] == 3: el3.append([en, n5, n6, n7, n1, n2, n3])
+            elif el[6] == 4: el4.append([en, n5, n6, n7, n8, n1, n2, n3, n4])
+
+    if len(el2)>0: 
+        f.write("*ELEMENT, TYPE=M3D4R\n")
+        for i in range(sectors): 
+            en = e[0] + offset * i 
+            for el in el2:
+                f.write("%6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4]))
+
+    if len(el3)>0: 
+        f.write("*ELEMENT, TYPE=C3D6\n")
+        for e in el3:
+            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6]))
+    if len(el4)>0: 
+        f.write("*ELEMENT, TYPE=C3D8R\n")
+        for e in el4:
+            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]))
+    
+    for es in elset.Elset:
+        td = 0 
+        for en in TireTreadComponents:
+            if es[0].upper() == en:
+                td = 1
+                break 
+        if td ==1: 
+            N = len(es)
+            if N > 1: 
+                f.write("*ELSET, ELSET=%s\n"%(es[0]))
+                
+                for i in range(sectors): 
+                    ret = 0 
+                    for i in range(1, N):
+                        if i%10 == 0: 
+                            f.write("%6d\n"%(es[i]+offset*i + no_tread))
+                            ret = 1 
+                        elif i == N-1: 
+                            f.write("%6d\n"%(es[i]+offset*i + no_tread))
+                            ret =1 
+                        else: 
+                            f.write("%6d,"%(es[i]+offset*i + no_tread))
+                            ret = 0 
+                    if ret == 0: 
+                        f.write("\n")
+
+    for es in surfaces.Surface:
+        if es[0] =="CONT" : 
+            N = len(es)
+            if N > 1: 
+                f.write("*SURFACE,TYPE=ELEMENT,NAME=%s\n"%(es[0]))
+                for i in range(sectors): 
+                    for i in range(1, N):
+                        f.write("%6d, %s\n"%(es[i][0]+offset*i + no_tread, Change3DFace(es[i][1])))
+
+    f.write("*SURFACE,TYPE=ELEMENT,NAME=XTRD1001\n")
+    for i in range(sectors): 
+        for ed in tread_outer: 
+            f.write("%6d, %s\n"%(ed[4]+offset*i + no_tread, Change3DFace(ed[3])))
+    
+
+   
+    Tire_Outer = elements.OuterEdge(nodes)
+    f.write("*SURFACE,TYPE=ELEMENT,NAME=YTIE1001\n")
+    for ed in tread_outer: 
+        fd = 0 
+        for te in Tire_Outer.Edge:
+            if te[0] == ed[0] and te[1] == ed[1]: 
+                fd =1 
+                break 
+        for te in tread_TieSlave:
+            if te[0] == ed[0] and te[1] == ed[1]: 
+                fd =1 
+                break 
+        for te in tread_TieMaster:
+            if te[0] == ed[0] and te[1] == ed[1]: 
+                fd =1 
+                break 
+        if fd ==0: 
+            for i in range(sectors): 
+                f.write("%6d, %s\n"%(ed[4]+offset*i + no_tread, Change3DFace(ed[3]))) 
+
+    cnt = 0 
+    for ts, tm in zip(tread_TieSlave, tread_TieMaster): 
+        cnt +=1 
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt+1000))
+        for i in range(sectors): 
+            f.write("%6d, %s\n"%(tm[4]+offset*i + no_tread, Change3DFace(tm[3])))
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt+1000))
+        for i in range(sectors): 
+            for t in ts: 
+                f.write("%6d, %s\n"%(t[4]+offset*i + no_tread,  Change3DFace(t[3])))
+        f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt+1000))
+        f.write(" TIE_S%d, TIE_M%d\n"%(cnt+1000, cnt+1000))
+
+
+    f.write("*TIE, NAME=TBD2TRD, ADJUST=YES, POSITION TOLERANCE= 0.0001\n")
+    f.write(" YTIE1001, TIREBODY\n")
+
+    f.close()
+
 
 class MESH2D: 
     def __init__(self, filename):
