@@ -5487,7 +5487,8 @@ class PATTERN:
             print ("  All Free : %d, Top : %d, Bottom : %d"%(len(self.freetop)+len(self.freebottom)+len(self.uncheckedfree), len(self.freetop), len(self.freebottom) ))
             
             print ("  Main Groove Bottom: %d, Sub Groove: %d \n  Other Sides=%d(grv %d, kerf %d)"%(\
-                        len(self.SF_fulldepthgroove), len(self.SF_subgroove), len(self.surf_pattern_neg_side) + len(self.surf_pattern_pos_side), len(self.SF_subgrooveside), len(self.KerfsideSurface)))
+                        len(self.SF_fulldepthgroove), len(self.SF_subgroove), len(self.surf_pattern_neg_side) + len(self.surf_pattern_pos_side), \
+                            len(self.SF_subgrooveside), len(self.KerfsideSurface)))
             print ("\n*********************************************")
             print ("* Model Pattern")
             print ("* Diameter=%.2f(R=%.2f)"%(self.diameter*1000, MODEL_R*1000))
@@ -7590,9 +7591,6 @@ class PATTERN:
         Dgroups = self.Grouping_ConnectedEdges(delEdges)
         Tgroups = self.Grouping_ConnectedEdges(edgeTopSurf)
 
-        print (len(Dgroups))
-        print (len(Tgroups))
-
         if len(Dgroups) != len(Tgroups): 
             isLug = 1 
             edgeShoulderLug = []
@@ -7623,7 +7621,7 @@ class PATTERN:
                             i += 1
 
         print (" DONE!")
-        if isLug ==1: print (" Disregarding the side angle in Sho. Lug\n")
+        if isLug ==1: print (" Disregarding the angle of Sho. Lug Side\n")
         
         return Topedges
 

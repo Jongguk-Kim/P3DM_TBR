@@ -1514,6 +1514,9 @@ class Ui_MainWindow(object):
             self.figure.plot(layout=self.layout, pattern=self.pattern, show='all', ptn_elset=self.ptn_elset, bended=1)
             self.ShowingImage = 'layout'
 
+            if len(solid_err) > 0 :
+                return 
+
             # if   self.layout.shoulderType=="S" and self.layout.T3DMMODE ==0 : return 
             print ("\n** Full 3D Mesh ")
             print ("** Pattern Start =%d, Offset=%d\n** Layout Start=%d, Offset=%d\n** No. of body sectors=%d\n"%(self.Pattern_start_number, POFFSET, BodyStartNo, BodyOffset, BodySector))
