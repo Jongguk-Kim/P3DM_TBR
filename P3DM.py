@@ -936,8 +936,6 @@ class Ui_MainWindow(object):
         
         self.layout = PTN.MESH2D(self.layoutmesh)
 
-              
-
         if self.layout.IsError == 100: 
             del(self.layout)
             return 0
@@ -1252,7 +1250,7 @@ class Ui_MainWindow(object):
                     abq = 0 
 
                 PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
-                self.layout.Surface, sectors=self.user_sector, offset=BodyOffset, abaqus=abq)
+                self.layout.Surface, sectors=self.user_sector, offset=BodyOffset, abaqus=abq, mesh=self.layoutmesh)
                 print ("\n# Layout 3D mesh was saved.")
                 print (" %s\n"%(savefile))
                 line = "Full tire meshes were saved.\n"
@@ -1557,6 +1555,8 @@ class Ui_MainWindow(object):
             PTN.Write_SMART_TireBodyMesh(file=savefile  + ".axi", nodes=self.B3Dnodes, el4=self.B3Del4, el6=self.B3Del6, el8=self.B3Del8, elsets=self.B3Delset, surfaces=self.B3Dsurface,\
                 surf_body=self.Bodysurf, ties=self.layout.Tie, txtelset=self.layout.TxtElset, start=BodyStartNo, offset=BodyOffset, abaqus=abq)
 
+            PTN.SolidComponents_checking(fname=savefile+"_solids.dat", trd=savefile +".trd", axi=savefile +".axi")
+
             line = "Full tire meshes were saved.\n"
             self.message.setText(line)
 
@@ -1575,7 +1575,6 @@ class Ui_MainWindow(object):
             print ("## Tread Removed Mesh is created.")
             print ("  %s\n"%(filename.split("/")[-1]))
 
-            PTN.SolidComponents_checking(fname=savefile+"_solids.dat", trd=savefile +".trd", axi=savefile +".axi")
 
             # self.nd_deleted=[]; self.fullnodes=[], P0_TOP, P0_SelfContact  ## 
             # P0_TOP = np.concatenate((P0_TOP), axis=0)
