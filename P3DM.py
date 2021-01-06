@@ -1567,7 +1567,7 @@ class Ui_MainWindow(object):
                 fname=filename, PN=self.pattern.NoPitch, pitch_up=self.pattern.surf_pitch_up, pitch_down=self.pattern.surf_pitch_down, \
                 pitch_side_pos=self.pattern.surf_pattern_pos_side, pitch_side_neg=self.pattern.surf_pattern_neg_side, \
                 bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, revPtn=self.check_Direction.isChecked())
-            print ("## Single Pitch Mesh is created.")
+            print ("\n## Single Pitch Mesh is created.")
             print ("  %s"%(filename.split("/")[-1]))
             filename = savefile+"-L2DM.inp"
             PTN.Creating_tread_removed_layout(fname=filename, nodes=self.layout.body_nodes, elements=self.layout.Element, elsets=self.layout.Elset,\
