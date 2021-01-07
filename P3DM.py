@@ -23,7 +23,7 @@ from time import time
 
 from math import sqrt 
 from operator import mul as OP_mul 
-
+import win32gui
 
 class StdoutRedirect(QtCore.QObject):
     printOccur = QtCore.pyqtSignal(str, str, name="print")
@@ -49,7 +49,8 @@ class StdoutRedirect(QtCore.QObject):
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        
+        self.mainWindowName = "P3DM - pattern mesh expansion"
+
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1200, 900)
         Width_command=300 
@@ -483,7 +484,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "P3DM - pattern mesh expansion"))
+        MainWindow.setWindowTitle(_translate("MainWindow", self.mainWindowName))
         
         self.btn_auto.setText(_translate("MainWindow", "Fully automatic generation"))
         self.btn_auto.setShortcut(_translate("MainWindow", "Ctrl+F"))
@@ -830,6 +831,9 @@ class Ui_MainWindow(object):
         except: 
             pass 
 
+        # w = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+        # print(w)
+        
 
         self.message.setText("Please Select Tire Layout mesh file (2D)")
         self.layoutmesh, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select layout mesh File", self.cwd, "Layout Mesh(*.inp)") 
@@ -840,10 +844,15 @@ class Ui_MainWindow(object):
             self.cwd=writeworkingdirectory(self.layoutmesh, dfile=self.dfile)
             self.savedirectory = self.cwd 
         else: 
+            hwnd = win32gui.FindWindow(None, self.mainWindowName)
+            win32gui.SetForegroundWindow(hwnd)
             return 
-
-        self.message.setText("Please Select 3D Pattern mesh file (2D)")
+        
+        # win32gui.SetForegroundWindow(hwnd)
+        
+        self.message.setText("Please Select 3D Pattern mesh file")
         self.patternmesh, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select pattern mesh File", self.cwd, "Pattern Mesh(*.ptn)") 
+        
         if self.patternmesh: 
             if '/' in self.patternmesh: self.ptnms = self.patternmesh.split("/")[-1].split(".")[0]
             else: self.ptnms = self.patternmesh.split("\\")[-1].split(".")[0]
@@ -851,11 +860,15 @@ class Ui_MainWindow(object):
             self.cwd=writeworkingdirectory(self.patternmesh, dfile=self.dfile)
         else:
             self.layoutfile.setText("")
-
+            hwnd = win32gui.FindWindow(None, self.mainWindowName)
+            win32gui.SetForegroundWindow(hwnd)
             return 
 
         self.input_pitch_no.setText("0")
         self.user_sector=int(self.input_layout_sector.text()) 
+
+        hwnd = win32gui.FindWindow(None, self.mainWindowName)
+        win32gui.SetForegroundWindow(hwnd)
 
         if self.patternmesh and self.layoutmesh: 
             
@@ -1141,8 +1154,6 @@ class Ui_MainWindow(object):
             else: 
                 self.layout.ElimateSquareTread(self.pattern.leftprofile, self.pattern.rightprofile)
 
-            
-
             if self.layout.shoulderType == 'R':
                 self.flattened_Tread_bottom_sorted, self.layout.GD = PTN.Unbending_layoutTread(self.layout.tdnodes, self.layout.Tread, \
                     self.layout.LeftProfile, self.layout.RightProfile, self.layout.L_curves, self.layout.R_curves, self.layout.OD, \
@@ -1153,7 +1164,6 @@ class Ui_MainWindow(object):
             elif self.layout.shoulderType == 'S' : 
                 self.flattened_Tread_bottom_sorted,   self.layout.sideNodes=PTN.Unbending_squareLayoutTread(self.layout.tdnodes, self.layout.Tread, \
                     self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop)
-
                 self.shoulderGa = 1.0
 
                 if len(self.flattened_Tread_bottom_sorted) ==0: return 
@@ -1366,11 +1376,8 @@ class Ui_MainWindow(object):
 
             solid_err, text, _, _=PTN.Jacobian_check(self.pattern.npn, self.pattern.nps)  ## deformed pattern mesh check 
              
-            if self.check_SubTread.isChecked() == True: 
-                sut =1 
-            else: 
-                sut = 0 
-            self.ptn_elset = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node, sut=sut, btm=1, surf_btm=self.pattern.freebottom)
+            self.ptn_elset = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
+                 subtread=self.check_SubTread.isChecked(), btm=1, surf_btm=self.pattern.freebottom)
             # self.check_FricView.setDisabled(True) 
             self.check_SubTread.setDisabled(True)
             if len(solid_err) > 0 : 
@@ -1542,7 +1549,7 @@ class Ui_MainWindow(object):
             isSut=0 
             for eset in self.layout.Elset.Elset: 
                 if eset[0] == "CTR" or eset[0] == 'CTB': isCtb = 1
-                if eset[0] == "UTR" or eset[0] == 'SUT': isCtb = 1
+                if eset[0] == "UTR" or eset[0] == 'SUT': isSut = 1
             namechange = [isCtb, isSut]
 
             if self.ABAQUS.isChecked() == True:  
@@ -1555,8 +1562,9 @@ class Ui_MainWindow(object):
             PTN.Write_SMART_TireBodyMesh(file=savefile  + ".axi", nodes=self.B3Dnodes, el4=self.B3Del4, el6=self.B3Del6, el8=self.B3Del8, elsets=self.B3Delset, surfaces=self.B3Dsurface,\
                 surf_body=self.Bodysurf, ties=self.layout.Tie, txtelset=self.layout.TxtElset, start=BodyStartNo, offset=BodyOffset, abaqus=abq)
 
-            PTN.SolidComponents_checking(fname=savefile+"_solids.dat", trd=savefile +".trd", axi=savefile +".axi")
-
+            # PTN.SolidComponents_checking(fname=savefile+"_solids.dat", trd=savefile +".trd", axi=savefile +".axi")
+            PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
+                elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element)
             line = "Full tire meshes were saved.\n"
             self.message.setText(line)
 
@@ -2353,6 +2361,8 @@ class myCanvas(FigureCanvas):
 
         self.snap_mode = 1 
 
+        self.Plot3D = 0 
+
     def zoom(self, event, base_scale=1.2): 
         
         cur_xlim = self.ax.get_xlim()
@@ -2394,283 +2404,283 @@ class myCanvas(FigureCanvas):
 
     def onReleased(self, event): 
         
-        
-        if event.button == 2: 
-            self.mclick += 1
+        if self.Plot3D == 0 : 
+            if event.button == 2: 
+                self.mclick += 1
 
-            if self.snap_mode == 1 : #and self.mclick < 4: 
-                ind = []
-                indx1 = np.where(self.points[:,2]>=event.xdata-0.01)[0]
-                indx2 = np.where(self.points[:,2]<=event.xdata+0.01)[0]
-                indx = np.intersect1d(indx1, indx2)
-                if len(indx) > 0: 
-                    indy1 = np.where(self.points[:,3]>=event.ydata-0.01)[0]
-                    indy2 = np.where(self.points[:,3]<=event.ydata+0.01)[0]
-                    indy = np.intersect1d(indy1, indy2)
-                    if len(indy) > 0: 
-                        ind = np.intersect1d(indx, indy) 
-                if len(ind) > 0 : 
-                    mn = []
-                    for ix in ind: 
-                        l = sqrt( (event.xdata - self.points[ix][2])**2 + (event.ydata - self.points[ix][3])**2 )
-                        mn.append([ix, l])
-                    mn = np.array(mn)
-                    lmin = np.min(mn[:,1]) 
-                    lx = -1
-                    for l in mn: 
-                        if l[1] == lmin: 
-                            lx = int(l[0])
+                if self.snap_mode == 1 : #and self.mclick < 4: 
+                    ind = []
+                    indx1 = np.where(self.points[:,2]>=event.xdata-0.01)[0]
+                    indx2 = np.where(self.points[:,2]<=event.xdata+0.01)[0]
+                    indx = np.intersect1d(indx1, indx2)
+                    if len(indx) > 0: 
+                        indy1 = np.where(self.points[:,3]>=event.ydata-0.01)[0]
+                        indy2 = np.where(self.points[:,3]<=event.ydata+0.01)[0]
+                        indy = np.intersect1d(indy1, indy2)
+                        if len(indy) > 0: 
+                            ind = np.intersect1d(indx, indy) 
+                    if len(ind) > 0 : 
+                        mn = []
+                        for ix in ind: 
+                            l = sqrt( (event.xdata - self.points[ix][2])**2 + (event.ydata - self.points[ix][3])**2 )
+                            mn.append([ix, l])
+                        mn = np.array(mn)
+                        lmin = np.min(mn[:,1]) 
+                        lx = -1
+                        for l in mn: 
+                            if l[1] == lmin: 
+                                lx = int(l[0])
+                                break 
+                        if lx >=0: 
+                            tx = self.points[lx][2]
+                            ty = self.points[lx][3]
+                            # print ("B2", self.points[lx])
+                    else: 
+                        self.mclick -= 1
+                        return 
+                else:
+                    tx = event.xdata
+                    ty = event.ydata 
+
+
+                if self.mclick == 4: 
+                    self.cxs=[]
+                    self.cys=[]
+                    self.mclick=0
+                    for dot in self.dots:
+                        dot.remove()
+                    self.dots=[]
+
+                    for char in self.chars: 
+                        char.set_visible(False)
+
+                    for cl in self.circle:
+                        cl.remove()
+
+                    self.circle=[]
+                
+                elif self.mclick ==3:
+                    
+                    sameposition = 0 
+                    for p1, p2 in zip(self.cxs, self.cys): 
+                        if p1 == tx and p2 == ty: 
+                            sameposition = 1 
                             break 
-                    if lx >=0: 
-                        tx = self.points[lx][2]
-                        ty = self.points[lx][3]
-                        # print ("B2", self.points[lx])
-                else: 
-                    self.mclick -= 1
-                    return 
-            else:
-                tx = event.xdata
-                ty = event.ydata 
+                    if sameposition == 1: 
+                        self.mclick -= 1 
+                        return 
+                    else:  
+                        self.cxs.append(tx)
+                        self.cys.append(ty)
+
+                        d, = plt.plot(tx, ty, 'o', color='gray')
+                        self.dots.append(d)
+                        
+
+                        x1 = self.cxs[0]; x2=self.cxs[1]; x3=self.cxs[2]
+                        y1 = self.cys[0]; y2=self.cys[1]; y3=self.cys[2]
+                        A = x1*(y2-y3) - y1 *(x2-x3) + x2*y3 - x3*y2
+                        B = (x1*x1 + y1*y1)*(y3-y2) +(x2**2 + y2**2)*(y1-y3) + (x3**2+y3**2)*(y2-y1)
+                        C = (x1**2 + y1**2)*(x2-x3)+(x2**2+y2**2)*(x3-x1) + (x3*x3 + y3*y3)*(x1-x2)
+                        D = (x1*x1 + y1*y1)*(x3*y2-x2*y3)+(x2*x2+y2*y2)*(x1*y3-x3*y1)+(x3*x3+y3*y3)*(x2*y1-x1*y2)
+                        SQRT = B*B + C*C - 4*A*D  
+
+                        # print ("A", A)
+                        # print ("B", B)
+                        # print ("C", C)
+                        # print ("D", D)
+                        # print ("S", SQRT)
+
+                        if A == 0 or SQRT < 0.0: 
+                            print (" The 3 nodes cannot make a circle.")
+                            print (" (%10.3E, %10.3E), (%10.3E, %10.3E)\n (%10.3E, %10.3E)"%(self.cxs[0]*1000,self.cys[0]*1000, self.cxs[1]*1000,self.cys[1]*1000, self.cxs[2]*1000,self.cys[2]*1000))
+
+                            for dot in self.dots:
+                                dot.remove()
+                            self.dots=[]
+                            self.cxs=[]
+                            self.cys=[]
+                            self.mclick=0
+
+                        else: 
+                            cx = -B/A/2.0
+                            cy = -C/A/2.0
+                            
+                            R = sqrt(SQRT) / 2/abs(A)
+
+                            self.cxs.append(tx)
+                            self.cys.append(ty)
+                            d, = plt.plot(cx, cy, 'o', color='red')
+                            self.dots.append(d)
+
+                            
+                            ch = plt.text((self.cxs[0]+self.cxs[1])/2.0, (self.cys[0]+self.cys[1])/2.0, "R="+str(round(R*1000, 2)), size=self.fontsize, color='black')
+                            self.chars.append(ch)
+
+                            if R > 1E10: 
+                                print (" The circle cannot be drawn.")
+                                print (" Center = %.3E, %.3E"%(-B/A*500, -C/A*500))
+                                print (" Radius = %.3E"%(sqrt(SQRT) /abs(A)*500))
+                            else: 
+                                crcl = plt.Circle((cx, cy), R, color='gray', fill=False)
+                                self.ax.add_artist(crcl)
+                                self.circle.append(crcl)
+                        self.mclick = 0 
+                        self.cxs=[]
+                        self.cys=[]
+                            
+
+                else:
+                    sameposition = 0 
+                    for p1, p2 in zip(self.cxs, self.cys): 
+                        if p1 == tx and p2 == ty: 
+                            sameposition = 1 
+                            break 
+                    if sameposition == 1: 
+                        self.mclick -= 1 
+                    else: 
+                        self.cxs.append(tx)
+                        self.cys.append(ty)
+
+                        d, = plt.plot(tx, ty, 'o', color='gray')
+                        self.dots.append(d)
 
 
-            if self.mclick == 4: 
+                self.figure.canvas.draw_idle()
+
+            elif event.button == 1: 
+
+
+                self.clicked =0  
+                self.mclick = 0
                 self.cxs=[]
                 self.cys=[]
-                self.mclick=0
-                for dot in self.dots:
-                    dot.remove()
-                self.dots=[]
+                self.lxs=[]
+                self.lys=[]
 
+                for dot in self.dots: 
+                    dot.remove()
+                for line in self.lines: 
+                    line.remove()
                 for char in self.chars: 
                     char.set_visible(False)
-
+                for char in self.achars: 
+                    char.set_visible(False)
+                for cl in self.cline: 
+                    cl.remove()
+                for ch in self.llen:
+                    ch.set_visible(False)
                 for cl in self.circle:
                     cl.remove()
 
                 self.circle=[]
-            
-            elif self.mclick ==3:
-                
-                sameposition = 0 
-                for p1, p2 in zip(self.cxs, self.cys): 
-                    if p1 == tx and p2 == ty: 
-                        sameposition = 1 
-                        break 
-                if sameposition == 1: 
-                    self.mclick -= 1 
-                    return 
-                else:  
-                    self.cxs.append(tx)
-                    self.cys.append(ty)
 
-                    d, = plt.plot(tx, ty, 'o', color='gray')
-                    self.dots.append(d)
-                    
+                self.dots=[]
+                self.lines=[]
+                self.chars=[]
+                self.achars=[]
 
-                    x1 = self.cxs[0]; x2=self.cxs[1]; x3=self.cxs[2]
-                    y1 = self.cys[0]; y2=self.cys[1]; y3=self.cys[2]
-                    A = x1*(y2-y3) - y1 *(x2-x3) + x2*y3 - x3*y2
-                    B = (x1*x1 + y1*y1)*(y3-y2) +(x2**2 + y2**2)*(y1-y3) + (x3**2+y3**2)*(y2-y1)
-                    C = (x1**2 + y1**2)*(x2-x3)+(x2**2+y2**2)*(x3-x1) + (x3*x3 + y3*y3)*(x1-x2)
-                    D = (x1*x1 + y1*y1)*(x3*y2-x2*y3)+(x2*x2+y2*y2)*(x1*y3-x3*y1)+(x3*x3+y3*y3)*(x2*y1-x1*y2)
-                    SQRT = B*B + C*C - 4*A*D  
+                self.cline=[]
+                self.llen=[]
 
-                    # print ("A", A)
-                    # print ("B", B)
-                    # print ("C", C)
-                    # print ("D", D)
-                    # print ("S", SQRT)
+                self.figure.canvas.draw_idle()
 
-                    if A == 0 or SQRT < 0.0: 
-                        print (" The 3 nodes cannot make a circle.")
-                        print (" (%10.3E, %10.3E), (%10.3E, %10.3E)\n (%10.3E, %10.3E)"%(self.cxs[0]*1000,self.cys[0]*1000, self.cxs[1]*1000,self.cys[1]*1000, self.cxs[2]*1000,self.cys[2]*1000))
+            elif event.button ==3:
+                self.clicked += 1
 
-                        for dot in self.dots:
-                            dot.remove()
-                        self.dots=[]
-                        self.cxs=[]
-                        self.cys=[]
-                        self.mclick=0
-
+                if self.snap_mode == 1: 
+                    # indx = min(np.searchsorted(self.pointx, event.xdata), len(self.pointx)-1)
+                    ind = []
+                    indx1 = np.where(self.points[:,2]>=event.xdata-0.01)[0]
+                    indx2 = np.where(self.points[:,2]<=event.xdata+0.01)[0]
+                    indx = np.intersect1d(indx1, indx2)
+                    if len(indx) > 0: 
+                        indy1 = np.where(self.points[:,3]>=event.ydata-0.01)[0]
+                        indy2 = np.where(self.points[:,3]<=event.ydata+0.01)[0]
+                        indy = np.intersect1d(indy1, indy2)
+                        if len(indy) > 0: 
+                            ind = np.intersect1d(indx, indy) 
+                    if len(ind) > 0 : 
+                        mn = []
+                        for ix in ind: 
+                            l = sqrt( (event.xdata - self.points[ix][2])**2 + (event.ydata - self.points[ix][3])**2 )
+                            mn.append([ix, l])
+                        mn = np.array(mn)
+                        lmin = np.min(mn[:,1]) 
+                        lx = -1
+                        for l in mn: 
+                            if l[1] == lmin: 
+                                lx = int(l[0])
+                                break 
+                        if lx >=0: 
+                            tx = self.points[lx][2]
+                            ty = self.points[lx][3]
+                            # print ("B3", self.points[lx])
                     else: 
-                        cx = -B/A/2.0
-                        cy = -C/A/2.0
+                        tx = event.xdata; ty = event.ydata 
+
                         
-                        R = sqrt(SQRT) / 2/abs(A)
+                else: 
+                    tx = event.xdata; ty = event.ydata
 
-                        self.cxs.append(tx)
-                        self.cys.append(ty)
-                        d, = plt.plot(cx, cy, 'o', color='red')
-                        self.dots.append(d)
-
-                         
-                        ch = plt.text((self.cxs[0]+self.cxs[1])/2.0, (self.cys[0]+self.cys[1])/2.0, "R="+str(round(R*1000, 2)), size=self.fontsize, color='black')
-                        self.chars.append(ch)
-
-                        if R > 1E10: 
-                            print (" The circle cannot be drawn.")
-                            print (" Center = %.3E, %.3E"%(-B/A*500, -C/A*500))
-                            print (" Radius = %.3E"%(sqrt(SQRT) /abs(A)*500))
-                        else: 
-                            crcl = plt.Circle((cx, cy), R, color='gray', fill=False)
-                            self.ax.add_artist(crcl)
-                            self.circle.append(crcl)
-                    self.mclick = 0 
-                    self.cxs=[]
-                    self.cys=[]
-                        
-
-            else:
-                sameposition = 0 
-                for p1, p2 in zip(self.cxs, self.cys): 
-                    if p1 == tx and p2 == ty: 
-                        sameposition = 1 
+                prev = 0 
+                for xs,ys in zip(self.lxs, self.lys): 
+                    if tx == xs and ty == ys: 
+                        prev = 1 
                         break 
-                if sameposition == 1: 
-                    self.mclick -= 1 
-                else: 
-                    self.cxs.append(tx)
-                    self.cys.append(ty)
+                if prev == 1: 
+                    self.clicked -= 1
+                    return 
 
-                    d, = plt.plot(tx, ty, 'o', color='gray')
-                    self.dots.append(d)
+                self.lxs.append(tx)
+                self.lys.append(ty)
+                
+                d, = plt.plot(tx, ty, 'o', color='red')
+                self.dots.append(d)
+                N = len(self.lxs)-1
+                if N> 0: 
+                    self.distance = round( sqrt((self.lxs[N]-self.lxs[N-1])**2 + (self.lys[N]-self.lys[N-1])**2 ) *1000, 2)
+                    ch = plt.text((self.lxs[N]+self.lxs[N-1])/2.0, (self.lys[N]+self.lys[N-1])/2.0, str(self.distance), color="orange", size=self.fontsize)
+                    self.chars.append(ch)
 
+                    ln, = plt.plot([self.lxs[N-1], self.lxs[N]],[self.lys[N-1], self.lys[N]], color='orange')
+                    self.lines.append(ln)
 
-            self.figure.canvas.draw_idle()
+                    if self.clicked > 2: 
 
-        elif event.button == 1: 
+                        sx = 0; sy=0
+                        for x, y in zip(self.lxs, self.lys): 
+                            sx += x
+                            sy += y
+                        cx = sx/(float(N)+1)
+                        cy = sy/(float(N)+1)
 
+                        area = self.Area(ix=self.lxs, iy=self.lys)
+                        for achar in self.achars: 
+                            achar.set_visible(False)
+                        self.figure.canvas.draw_idle()
+                        ach= plt.text(cx, cy, "A="+ str(round(area*1_000_000, 1)), color='gray', size=self.fontsize)
+                        self.achars.append(ach)
 
-            self.clicked =0  
-            self.mclick = 0
-            self.cxs=[]
-            self.cys=[]
-            self.lxs=[]
-            self.lys=[]
+                        for char in self.llen:
+                            char.set_visible(False)
 
-            for dot in self.dots: 
-                dot.remove()
-            for line in self.lines: 
-                line.remove()
-            for char in self.chars: 
-                char.set_visible(False)
-            for char in self.achars: 
-                char.set_visible(False)
-            for cl in self.cline: 
-                cl.remove()
-            for ch in self.llen:
-                ch.set_visible(False)
-            for cl in self.circle:
-                cl.remove()
+                        for line in self.cline: 
+                            line.remove()
+                        self.cline=[]
+                        
+                        self.distance = round( sqrt((self.lxs[N]-self.lxs[0])**2 + (self.lys[N]-self.lys[0])**2 ) *1000, 2)
+                        ch = plt.text((self.lxs[N]+self.lxs[0])/2.0, (self.lys[N]+self.lys[0])/2.0, str(self.distance), color='gray', size=self.fontsize)
+                        self.llen.append(ch)
 
-            self.circle=[]
+                        ln, = plt.plot([self.lxs[0], self.lxs[N]],[self.lys[0], self.lys[N]], color='gray', linestyle="--" )
+                        self.cline.append(ln)
+                        n1 = [0, 0, self.lxs[N], self.lys[N]]
+                        n2 = [0, 0, self.lxs[N-1], self.lys[N-1]]
+                        n3 = [0, 0, self.lxs[N-2], self.lys[N-2]]
+                        print ("  Angle =%.3f"%(PTN.Angle_3nodes(n1, n2, n3)*180.0/3.14159))
 
-            self.dots=[]
-            self.lines=[]
-            self.chars=[]
-            self.achars=[]
-
-            self.cline=[]
-            self.llen=[]
-
-            self.figure.canvas.draw_idle()
-
-        elif event.button ==3:
-            self.clicked += 1
-
-            if self.snap_mode == 1: 
-                # indx = min(np.searchsorted(self.pointx, event.xdata), len(self.pointx)-1)
-                ind = []
-                indx1 = np.where(self.points[:,2]>=event.xdata-0.01)[0]
-                indx2 = np.where(self.points[:,2]<=event.xdata+0.01)[0]
-                indx = np.intersect1d(indx1, indx2)
-                if len(indx) > 0: 
-                    indy1 = np.where(self.points[:,3]>=event.ydata-0.01)[0]
-                    indy2 = np.where(self.points[:,3]<=event.ydata+0.01)[0]
-                    indy = np.intersect1d(indy1, indy2)
-                    if len(indy) > 0: 
-                        ind = np.intersect1d(indx, indy) 
-                if len(ind) > 0 : 
-                    mn = []
-                    for ix in ind: 
-                        l = sqrt( (event.xdata - self.points[ix][2])**2 + (event.ydata - self.points[ix][3])**2 )
-                        mn.append([ix, l])
-                    mn = np.array(mn)
-                    lmin = np.min(mn[:,1]) 
-                    lx = -1
-                    for l in mn: 
-                        if l[1] == lmin: 
-                            lx = int(l[0])
-                            break 
-                    if lx >=0: 
-                        tx = self.points[lx][2]
-                        ty = self.points[lx][3]
-                        # print ("B3", self.points[lx])
-                else: 
-                    tx = event.xdata; ty = event.ydata 
-
-                    
-            else: 
-                tx = event.xdata; ty = event.ydata
-
-            prev = 0 
-            for xs,ys in zip(self.lxs, self.lys): 
-                if tx == xs and ty == ys: 
-                    prev = 1 
-                    break 
-            if prev == 1: 
-                self.clicked -= 1
-                return 
-
-            self.lxs.append(tx)
-            self.lys.append(ty)
-            
-            d, = plt.plot(tx, ty, 'o', color='red')
-            self.dots.append(d)
-            N = len(self.lxs)-1
-            if N> 0: 
-                self.distance = round( sqrt((self.lxs[N]-self.lxs[N-1])**2 + (self.lys[N]-self.lys[N-1])**2 ) *1000, 2)
-                ch = plt.text((self.lxs[N]+self.lxs[N-1])/2.0, (self.lys[N]+self.lys[N-1])/2.0, str(self.distance), size=self.fontsize)
-                self.chars.append(ch)
-
-                ln, = plt.plot([self.lxs[N-1], self.lxs[N]],[self.lys[N-1], self.lys[N]], color='orange')
-                self.lines.append(ln)
-
-                if self.clicked > 2: 
-
-                    sx = 0; sy=0
-                    for x, y in zip(self.lxs, self.lys): 
-                        sx += x
-                        sy += y
-                    cx = sx/(float(N)+1)
-                    cy = sy/(float(N)+1)
-
-                    area = self.Area(ix=self.lxs, iy=self.lys)
-                    for achar in self.achars: 
-                        achar.set_visible(False)
-                    self.figure.canvas.draw_idle()
-                    ach= plt.text(cx, cy, "A="+ str(round(area*1_000_000, 1)), color='gray', size=self.fontsize)
-                    self.achars.append(ach)
-
-                    for char in self.llen:
-                        char.set_visible(False)
-
-                    for line in self.cline: 
-                        line.remove()
-                    self.cline=[]
-                    
-                    self.distance = round( sqrt((self.lxs[N]-self.lxs[0])**2 + (self.lys[N]-self.lys[0])**2 ) *1000, 2)
-                    ch = plt.text((self.lxs[N]+self.lxs[0])/2.0, (self.lys[N]+self.lys[0])/2.0, str(self.distance), color='gray', size=self.fontsize)
-                    self.llen.append(ch)
-
-                    ln, = plt.plot([self.lxs[0], self.lxs[N]],[self.lys[0], self.lys[N]], color='gray', linestyle="--" )
-                    self.cline.append(ln)
-                    n1 = [0, 0, self.lxs[N], self.lys[N]]
-                    n2 = [0, 0, self.lxs[N-1], self.lys[N-1]]
-                    n3 = [0, 0, self.lxs[N-2], self.lys[N-2]]
-                    print ("  Angle =%.3f"%(PTN.Angle_3nodes(n1, n2, n3)*180.0/3.14159))
-
-            self.figure.canvas.draw_idle()
+                self.figure.canvas.draw_idle()
 
     def Area(self, ix=[], iy=[]): 
         x =[]; y=[]
@@ -2696,6 +2706,7 @@ class myCanvas(FigureCanvas):
 
     def plot(self, layout=[], pattern=[], show='layout', layoutNo=0, search=[], flattened_tread=[], ptn_elset=[], bended=1, add2d=[]): 
         ## add2d >> only 2d layout element number(s)
+        self.Plot3D = 0 
         for pt in self.texts: 
             pt.set_visible(False)
         try: 
@@ -3122,6 +3133,8 @@ class myCanvas(FigureCanvas):
         self.figure.clear()
         # self.ax = self.figure.add_subplot(1,1,1, projection='3d')
         self.ax = Axes3D(self.figure)
+
+        self.Plot3D = 1 
         
         X = []
         Y = []
