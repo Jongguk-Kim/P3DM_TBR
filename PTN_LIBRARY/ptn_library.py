@@ -11,6 +11,8 @@ import subprocess
 
 from numpy.lib.arraysetops import intersect1d 
 
+import paramiko as FTP 
+
 PI = 3.14159265358979323846
 
 TireRubberComponents = [
@@ -73,12 +75,12 @@ TireCordComponents = [
     #'SWS'    # temporary component for Endurance simulation 
 ]
 
-def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='SOT', ga=1.0):
+def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='SOT', ga=1.0, innerGa=0.0, centerMinR=0):
     if group != 'TBR':
         lstCDD = [[12.,337.],[13.,310.],[14.,335.],[15.,360.],[16.,385.],[17.,417.],[18.,442.],[19.,465.],[20.,490.],[21.,516.],[22.,542.],[23.,567.],[24.,592.],[26.,643.],[28.,694.]]
         for cdd in lstCDD:
             if cdd[0] == inch: 
-                CcDia = cdd[1] + (layer * ga)
+                CcDia = cdd[1] + (layer * ga/2.0) + innerGa * (centerMinR/cdd[1])
                 return CcDia
     else: 
         if overtype == 'SOT': 
@@ -89,13 +91,13 @@ def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='SOT', ga=1.0):
         CcDia = 0 
         for cdd in lstCDD:
             if cdd[0] == inch: 
-                CcDia = cdd[1] + (layer * ga)
+                CcDia = cdd[1] + (layer * ga/2.0)+ innerGa * (centerMinR/cdd[1])
                 break 
         if CcDia ==0: 
             lstCDD = [[15.0,440.],[16.0,460.],[17.5,529.4],[18.0,526.],[20.0,571.5],[22.0,640.],[22.5,660.4],[24.0,686.],[24.5,711.2]]
             for cdd in lstCDD:
                 if cdd[0] == inch: 
-                    CcDia = cdd[1] + (layer * ga)
+                    CcDia = cdd[1] + (layer * ga/2.0)+ innerGa * (centerMinR/cdd[1])
                     break 
 
         return CcDia
@@ -1293,7 +1295,7 @@ def FindSolidElementBetweenMembrane(m1, m2, Elements):
             if cnt ==2: 
                 break 
     return between     
-def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000, no_tread=10**7, abaqus=0): 
+def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000, no_tread=10**7, abaqus=0, materialDir='', btAngles=[]): 
 
     tread=ELEMENT()
     body = ELEMENT()
@@ -1549,7 +1551,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     f.close()
     
     if abaqus ==0: 
-        SmartMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element)
+        SmartMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element, materialDir=materialDir, btAngles=btAngles)
     # else:
     #     AbaqusMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element)
 
@@ -1834,9 +1836,31 @@ def GetRimDia_Size(size=""):
         
     return rd 
 
-def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[]): 
-    print(" SMART Material Input ", layout)
+
+def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[], materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[]): 
+
+    equ_Density = 0 
     name_solids, name_cords = SolidComponents_checking(axi=axi, trd=trd, return_value=1)
+
+    localCordDB = 'ISLM_CordDB.txt'
+    fileListFile = 'ISLM_materialList.txt'
+    ISLM_cordDBFile="ISLM_CordDBName.dat"
+    host = '10.82.66.65'
+    user = 'h20200155'
+    pw = 'h20200155'
+    if not os.path.isfile(fileListFile) or not os.path.isfile(ISLM_cordDBFile) : 
+        try: 
+            Update_ISLM_Material(wdir=materialDir, cordSaveFile=localCordDB, fileListFile=fileListFile,  host=host, user=user, pw=pw, cordname=1, cordfile=ISLM_cordDBFile)
+            print ("* ISLM Mateiral DB was updated.")
+            
+        except:
+            ISLM_cordDB="/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt"
+            print ("* Cannot access ISLM Mateiral DB.")
+            pass 
+    if os.path.isfile(ISLM_cordDBFile): 
+        with open(ISLM_cordDBFile) as DB:
+            lines=DB.readlines()
+        ISLM_cordDB=lines[0].strip()
 
     tireGroup="PCR"
     mat_solids, mat_cords, tireGroup, BT_cord_Ga, BSD, RW, RD, SIZE, beltLift = Equivalent_density_calculation(layout)
@@ -1853,8 +1877,9 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[])
 
     beltHalfDia=[]
     reBtHalfDia=[]
+    cc1MaxR = 0.0
     for eset in elset: 
-        if "BT" in eset[0] or "SPC" in eset[0]: 
+        if ("BT" in eset[0] or "SPC" in eset[0]) and not "BTT" in eset[0]: 
             N = len(eset)
             zMax = 0
             for k in range(1, N): 
@@ -1872,30 +1897,34 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[])
                 if zMax < npn[nix][3]: 
                     zMax = npn[nix][3]
             reBtHalfDia.append([eset[0], zMax/beltLift*1000])
-
+        if "C01" in eset[0] or "CC1" in eset[0]: 
+            N = len(eset)
+            for k in range(1, N): 
+                ix =np.where(npel[:,0]==eset[k])[0][0]
+                nix = np.where(npn[:,0] == npel[ix][1])[0][0]
+                if cc1MaxR < npn[nix][3]: 
+                    cc1MaxR = npn[nix][3]
+    cc1MaxR *= 1000
+    ixn = np.where(npn[:,2]>-0.001)[0]
+    ixp = np.where(npn[:,2]< 0.001)[0]
+    ixs = np.intersect1d(ixn, ixp)
+    center_nodes = npn[ixs]
+    center_minR = np.min(center_nodes[:,3]) *1000
+    IL_Ga = (cc1MaxR-center_minR)
 
     f=open(axi[:-4]+"-material.dat", 'w')
-    f.write("*********************************************************\n")
-    f.write("*SOLID_SECTION, (SOL, MAT)\n")
-
+    
     if len(mat_solids) == 0: 
+
+        f.write("*********************************************************\n")
+        f.write("*SOLID_SECTION, (SOL, MAT)\n")
         for mat in name_solids: 
             f.write("%4s,    ,   120,  1.0\n"%(mat))
-
-        f.write("*REBAR_SECTION\n")
-        for mat in name_cords: 
-            if "BT" in mat:                           f.write("%4s,    BT, ES...., 120.0, 1.0, 1, Angle, Dia.OnDrum\n"%(mat))
-            elif "JEC" in mat or 'JFC' in mat :       f.write("%4s,    RB, ET...., 120.0, 1.0, 0, 0.0, Dia.OnDrum\n"%(mat))
-            elif ("C0" in mat or "CC" in mat ) and tireGroup != 'TBR':  f.write("%4s,    CC, ET...., 120.0, 1.0, 0, 90.0, Dia.OnDrum\n"%(mat))
-            elif ("C0" in mat or "CC" in mat ) and tireGroup == 'TBR':  f.write("%4s,    CC, ES...., 120.0, 1.0, 1, 90.0, Dia.OnDrum\n"%(mat))
-            elif "BD" in mat  :                       f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 45.0, 0.0\n"%(mat))
-            elif "CH1" in mat  or "SCF" in mat:                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 30.0, 0.0\n"%(mat))
-            elif "CH2" in mat  or "NCF" in mat:                      f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 30.0, 0.0\n"%(mat))
-            elif "SPC" in mat  :                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 0.0,  0.0\n"%(mat))
-
+        
         f.write("*********************************************************\n")
         f.write("*BELT_THICKNESS_SUBTRACTION,\n")
         f.write(" BETWEEN_BELTS, 4.61E-04\n")
+        
         bdwidth = 5.0
         with open('bead.tmp') as BDW:
             lines = BDW.readlines()
@@ -1911,77 +1940,69 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[])
 
             f.write("*********************************************************\n")
         except:
-            pass 
-        f.write("*CORD_FILE=/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt\n")
+            pass
+
+        f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
+        f.write("*REBAR_SECTION\n")
+        for mat in name_cords: 
+            if "BT" in mat:                           f.write("%4s,    BT, ES...., 120.0, 1.0, 1, Angle, Dia.OnDrum\n"%(mat))
+            elif "JEC" in mat or 'JFC' in mat :       f.write("%4s,    RB, ET...., 120.0, 1.0, 0, 0.0, Dia.OnDrum\n"%(mat))
+            elif ("C0" in mat or "CC" in mat ) and tireGroup != 'TBR':  f.write("%4s,    CC, ET...., 120.0, 1.0, 0, 90.0, Dia.OnDrum\n"%(mat))
+            elif ("C0" in mat or "CC" in mat ) and tireGroup == 'TBR':  f.write("%4s,    CC, ES...., 120.0, 1.0, 1, 90.0, Dia.OnDrum\n"%(mat))
+            elif "BD" in mat  :                       f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 45.0, 0.0\n"%(mat))
+            elif "CH1" in mat  or "SCF" in mat:                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 30.0, 0.0\n"%(mat))
+            elif "CH2" in mat  or "NCF" in mat:                      f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 30.0, 0.0\n"%(mat))
+            elif "SPC" in mat  :                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 0.0,  0.0\n"%(mat))
+        
+        f.write("*** Belt cord max radius lifted\n")
+        for bt in beltHalfDia: 
+            f.write("***  %5s, %.4f\n"%(bt[0], bt[1]*beltLift))
+        if len(reBtHalfDia) > 0: 
+            f.write("*** Reinforcement cord max radius lifted\n")
+            for bt in reBtHalfDia: 
+                f.write("***  %5s, %.4f\n"%(bt[0], bt[1]*beltLift))
+        f.write("*** Under carcass gauge =%.3f\n"%(IL_Ga))
+        f.write("*** Carcass drum Dia. %.3f\n"%(rimDia))
+
 
     else:
+        f.write("*********************************************************\n")
+        f.write("*SOLID_SECTION, (SOL, MAT)\n")
         name_compound=[]
-        for name in name_solids:
-            for mat in mat_solids: 
-                if  mat[0].strip() in name : 
-                    # mat_solids.append([name, compound, density, float(sd[2]) / 10**9, float(sd[3] ) ])
-                    if "CTR" in mat[0].strip() or "CTB" in mat[0].strip(): 
-                        f.write("%4s,      %s,   120,   1.0, %10.2f, 0.95, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
-                        name_compound.append(mat[1][-3:])
+        if equ_Density ==1: 
+            for name in name_solids:
+                for mat in mat_solids: 
+                    if  mat[0].strip() in name : 
+                        # mat_cords.append([name,1= code, 2=toping_density, 3=cord_density, 4=line_density, 5=wt * cf/(cf+rf), 6=Area, 7=topping compd, 8=ga])
+                        if "CTR" in mat[0].strip() or "CTB" in mat[0].strip(): 
+                            f.write("%4s,      %s,   120,   1.0, %10.2f, 0.95, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
+                            name_compound.append(mat[1][-3:])
 
-                    elif mat[0].strip() == 'BD1': 
-                        f.write("%4s,  ABW121A,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[2]*1000, mat[3], mat[4]))
-                    else: 
-                        f.write("%4s,      %s,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
-                        name_compound.append(mat[1][-3:])
-                    
-                    break 
-        f.write("*CORD_FILE=/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt\n")
-        f.write("*REBAR_SECTION\n")
-        for name in name_cords:
-            for mat in mat_cords:
-                if name == mat[0].strip():  
-                    ## mat_cords.append([name, code, toping_density, cord_density, line_density])
-                    name_compound.append(mat[7][-3:])
-                    if "BT" in mat[0]:
-                        for dia in beltHalfDia: 
-                            if dia[0] == mat[0].strip(): 
-                                bthalfDia = dia[1]
-                                break 
-                        f.write("%4s,    BT, %s, 120.0, 1.0, 1, Angle, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                   mat[0].strip(), mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
-                    elif "JEC" in mat[0] or 'JFC' in mat[0] :       
-                        for dia in reBtHalfDia: 
-                            if dia[0] == mat[0].strip(): 
-                                bthalfDia = dia[1]
-                                break 
-                        f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                mat[0].strip(), mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
-                    elif "C0" in mat[0] :
-                        nc = int(mat[0][-1])
-                        ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype="SOT", ga=mat[8])   ## TBR : Side over tread based carcass drum dia.
-                        if "ET" in mat[1]: 
-                            f.write("%4s,    CC, %s, 120.0, 1.0, 0,  90.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                    mat[0].strip(), mat[1], ccDia/2.0, mat[4], mat[2]*1000, mat[5], mat[6]))
-                        else:
-                            f.write("%4s,    CC, %s, 120.0, 1.0, 1,  90.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                    mat[0].strip(), mat[1], ccDia/2.0, mat[4], mat[2]*1000, mat[5], mat[6]))
-                                                                    
-                    elif "BDC" in mat[0]  :                       f.write("%4s,    NA, %s, 120.0, 1.0, 0,  45.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                    mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
-                    elif "CH" in mat[0]  :
-                        if "ES" in mat[1]:                       
-                            f.write("%4s,    NA, %s, 120.0, 1.0, 1,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                    mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
-                        else:
-                            f.write("%4s,    NA, %s, 120.0, 1.0, 0,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                    mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
-                    elif "SPC" in mat[0]  :
-                        for dia in beltHalfDia: 
-                            if dia[0] == mat[0].strip(): 
-                                bthalfDia = dia[1]
-                                break                       
-                        f.write("%4s,    BT, %s, 120.0, 1.0, 1,  0.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                mat[0].strip(), mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
+                        elif mat[0].strip() == 'BD1': 
+                            f.write("%4s,  ABW121A,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[2]*1000, mat[3], mat[4]))
+                        else: 
+                            f.write("%4s,      %s,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
+                            name_compound.append(mat[1][-3:])
+                        
+                        break 
+        else:
+            for name in name_solids:
+                for mat in mat_solids: 
+                    if  mat[0].strip() in name : 
+                        # mat_cords.append([name,1= code, 2=toping_density, 3=cord_density, 4=line_density, 5=wt * cf/(cf+rf), 6=Area, 7=topping compd, 8=ga])
+                        if "CTR" in mat[0].strip() or "CTB" in mat[0].strip(): 
+                            f.write("%4s,      %s,   120,   1.0\n"%(name, mat[1][-3:]))
+                            name_compound.append(mat[1][-3:])
 
-                    break 
-        if tireGroup == "TBR": f.write("*** Carcass is based on Side Over Tread, Belt Lift Ratio=%.3f\n"%(beltLift))
-        else: f.write("*** Belt Lift Ratio=%.3f\n"%(beltLift))
+                        elif mat[0].strip() == 'BD1': 
+                            f.write("%4s,  ABW121A,   120,   1.0\n"%(name))
+                        else: 
+                            f.write("%4s,      %s,   120,   1.0\n"%(name, mat[1][-3:]))
+                            name_compound.append(mat[1][-3:])
+                        
+                        break 
+
+
         f.write("*********************************************************\n")
         f.write("*BELT_THICKNESS_SUBTRACTION,\n")
         f.write(" BETWEEN_BELTS, %.2E\n"%(BT_cord_Ga))
@@ -1996,9 +2017,125 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[])
         else: 
             f.write("*IN_MOLDING_PCI_INFO, TYPE=1 ,LOWCURE=1, BSD=%.1f, PCIRIMW=%.1f, BDWIDTH=%.3f, PCIPRS=0\n"%(\
                 BSD, RW, bdwidth))
-
         f.write("*********************************************************\n")
-        
+
+        f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
+        f.write("*REBAR_SECTION\n")
+        cordCord = []
+        if equ_Density ==1: 
+            for name in name_cords:
+                for mat in mat_cords:
+                    if name == mat[0].strip():  
+                        ## mat_cords.append([name, code, toping_density, cord_density, line_density])
+                        name_compound.append(mat[7][-3:])
+                        if "BT" in mat[0]:
+                            for dia in beltHalfDia: 
+                                if dia[0] == mat[0].strip(): 
+                                    bthalfDia = dia[1]
+                                    break 
+                            if 'BT1' in mat[0]: angle = btAngles[0]
+                            if 'BT2' in mat[0]: angle = btAngles[1]
+                            if 'BT3' in mat[0]: angle = btAngles[2]
+                            if 'BT4' in mat[0]: angle = btAngles[3]
+                            f.write("%4s,    BT, %s, 120.0, 1.0, 1, %5.1f, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                    mat[0].strip(), mat[1], angle, bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
+                            cordCord.append(mat[1])
+                        elif "JEC" in mat[0] or 'JFC' in mat[0] :       
+                            for dia in reBtHalfDia: 
+                                if dia[0] == mat[0].strip(): 
+                                    bthalfDia = dia[1]
+                                    break 
+                            f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                    mat[0].strip(), mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
+                            cordCord.append(mat[1])
+                        elif "C0" in mat[0] :
+                            nc = float(mat[0][-1])
+                            ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype="SOT", ga=mat[8]*1000, innerGa=IL_Ga, centerMinR=center_minR)   ## TBR : Side over tread based carcass drum dia.
+                            if "ET" in mat[1]: 
+                                f.write("%4s,    CC, %s, 120.0, 1.0, 0,  90.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], ccDia/2.0, mat[4], mat[2]*1000, mat[5], mat[6]))
+                            else:
+                                f.write("%4s,    CC, %s, 120.0, 1.0, 1,  90.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], ccDia/2.0, mat[4], mat[2]*1000, mat[5], mat[6]))
+                            cordCord.append(mat[1])                                            
+                        elif "BDC" in mat[0]  :                       
+                            f.write("%4s,    NA, %s, 120.0, 1.0, 0,  45.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
+                            cordCord.append(mat[1])
+                        elif "CH" in mat[0]  :
+                            if "ES" in mat[1]:                       
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 1,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
+                            else:
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 0,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
+                            cordCord.append(mat[1])
+                        elif "SPC" in mat[0]  :
+                            for dia in beltHalfDia: 
+                                if dia[0] == mat[0].strip(): 
+                                    bthalfDia = dia[1]
+                                    break                       
+                            f.write("%4s,    BT, %s, 120.0, 1.0, 1,  0.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                    mat[0].strip(), mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
+                            cordCord.append(mat[1])
+
+                        break 
+        else:
+            for name in name_cords:
+                for mat in mat_cords:
+                    if name == mat[0].strip():  
+                        ## mat_cords.append([name, code, toping_density, cord_density, line_density])
+                        name_compound.append(mat[7][-3:])
+                        if "BT" in mat[0]:
+                            for dia in beltHalfDia: 
+                                if dia[0] == mat[0].strip(): 
+                                    bthalfDia = dia[1]
+                                    break 
+                            if 'BT1' in mat[0]: angle = btAngles[0]
+                            if 'BT2' in mat[0]: angle = btAngles[1]
+                            if 'BT3' in mat[0]: angle = btAngles[2]
+                            if 'BT4' in mat[0]: angle = btAngles[3]
+                            f.write("%4s,    BT, %s, 120.0, 1.0, 1, %5.1f, %10.4f\n"%(mat[0].strip(), mat[1], angle, bthalfDia))
+                            cordCord.append(mat[1])
+                        elif "JEC" in mat[0] or 'JFC' in mat[0] :       
+                            for dia in reBtHalfDia: 
+                                if dia[0] == mat[0].strip(): 
+                                    bthalfDia = dia[1]
+                                    break 
+                            f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f\n"%(\
+                                    mat[0].strip(), mat[1], bthalfDia))
+                            cordCord.append(mat[1])
+                        elif "C0" in mat[0] :
+                            nc = float(mat[0][-1])
+                            ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype="SOT", ga=mat[8]*1000, innerGa=IL_Ga, centerMinR=center_minR)   ## TBR : Side over tread based carcass drum dia.
+                            if "ET" in mat[1]: 
+                                f.write("%4s,    CC, %s, 120.0, 1.0, 0,  90.0, %10.4f\n"%(mat[0].strip(), mat[1], ccDia/2.0))
+                            else:
+                                f.write("%4s,    CC, %s, 120.0, 1.0, 1,  90.0, %10.4f\n"%(mat[0].strip(), mat[1], ccDia/2.0))
+                            cordCord.append(mat[1])                                            
+                        elif "BDC" in mat[0]  :                       
+                            f.write("%4s,    NA, %s, 120.0, 1.0, 0,  45.0,        0.0\n"%(mat[0].strip(), mat[1]))
+                            cordCord.append(mat[1])
+                        elif "CH" in mat[0]  :
+                            if "ES" in mat[1]:                       
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 1,  30.0,        0.0\n"%(mat[0].strip(), mat[1]))
+                            else:
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 0,  30.0,        0.0\n"%(mat[0].strip(), mat[1]))
+                            cordCord.append(mat[1])
+                        elif "SPC" in mat[0]  :
+                            for dia in beltHalfDia: 
+                                if dia[0] == mat[0].strip(): 
+                                    bthalfDia = dia[1]
+                                    break                       
+                            f.write("%4s,    BT, %s, 120.0, 1.0, 1,  0.0, %10.4f\n"%(mat[0].strip(), mat[1], bthalfDia))
+                            cordCord.append(mat[1])
+
+                        break 
+
+        if tireGroup == "TBR": f.write("*** Carcass is based on Side Over Tread, Belt Lift Ratio=%.3f\n"%(beltLift))
+        else: f.write("*** Belt Lift Ratio=%.3f\n"%(beltLift))
+        f.write("*** Under carcass gauge =%.3f\n"%(IL_Ga))
+        f.write("*********************************************************\n")
 
         name_compound = sorted(name_compound)
         i = 1 
@@ -2007,12 +2144,112 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[])
                 del(name_compound[i])
                 continue 
             i += 1 
-        
         for name in name_compound: 
-            f.write("*INCLUDE, INP=/home/fiper/ISLM_MAT/%s.PYN\n"%(name))
-        f.write("*INCLUDE, INP=/home/fiper/ISLM_MAT/ABW121A.COR\n")
+            f.write("*INCLUDE, INP=%s/%s.PYN\n"%(materialDir, name))
+        f.write("*INCLUDE, INP=%s/ABW121A.COR\n"%(materialDir))
+
+        f.write("*********************************************************\n")
+        f.write("*INCLUDE, INP=%s\n"%(axi.split("/")[-1]))
+        f.write("*INCLUDE, INP=%s\n"%(trd.split("/")[-1]))
+        f.write("*********************************************************\n")
+        f.write("*STEEL_BEAD_ELSET_FOR_SUB_CYCLING=BD1\n")
+        f.write("*GROOVE_DEPTH_FOR_FPC  =0.001\n")
+        f.write("*RIM_FRICTION          =1.000\n")
+        f.write("*ROAD_FRICTION (UO, ZP, KP, ZS, KS, ALPHA, TAUC, BETA)\n")
+        f.write("0.1, 0., 0., 0., 0., 0., 0., 0.\n")
+        f.write("*********************************************************\n")
+
+
+        
+
+        if os.path.isfile(fileListFile) : 
+            with open(fileListFile) as mf: 
+                lines = mf.readlines()
+            
+            List=[]
+            enter = 0 
+            for line in lines:
+                List.append(line.strip())
+            for name in name_compound: 
+                exist = 0 
+                for cd in List: 
+                    if cd == name.strip(): 
+                        exist = 1
+                        break 
+                if exist ==0: 
+                    f.write("*** %4s is not in the material DB\n"%(name))
+
+
+        if os.path.isfile(localCordDB) : 
+            
+            try: 
+                with open(localCordDB) as matf: 
+                    lines = matf.readlines()
+            except:
+                fp=open(localCordDB, 'r', encoding='UTF8')
+                lines = fp.readlines()
+                fp.close()
+
+            cordList=[]
+            enter = 0 
+            for i, line in enumerate(lines):
+                if "*" in line: 
+                    if "OLD_SPEC_CORD_NAME" in line: 
+                        enter = 1
+                    else: 
+                        enter = 0 
+                else:
+                    if enter ==1: 
+                        words = line.split(",")
+                        cordList.append(words[0].strip())
+            for name in cordCord: 
+                exist = 0 
+                for cd in cordList: 
+                    if cd == name.strip(): 
+                        exist = 1
+                        break 
+                if exist ==0: 
+                    f.write("*** %8s is not in the cord DB\n"%(name))
 
     f.close()
+def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', user='', pw='', cordname=0, cordfile=''): 
+    
+    # if cord =="":       cord = "/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt"
+    if wdir =="":       wdir =  "/home/fiper/ISLM_MAT/"
+    if cordSaveFile =="" :  cordSaveFile = 'ISLM_CordDB.txt'
+    if fileListFile =="" :  fileListFile = 'ISLM_materialList.txt'
+    
+    if host =="" :host = '10.82.66.65'
+    if user =="" :user = 'h20200155'
+    if pw =="" :pw = 'h20200155'
+
+    ftp = FTP.SSHClient()
+    ftp.set_missing_host_key_policy(FTP.AutoAddPolicy())
+    ftp.connect(host, username=user, password=pw)
+    sftp = ftp.open_sftp()
+
+    dirList =sftp.listdir(wdir)
+    
+    f = open(fileListFile, "w")
+    for name in dirList: 
+        if ".PYN" in name: 
+            f.write("%s\n"%(name[:-4]))
+        if "CordDB" in name and ".txt" in name and "SLM" in name: 
+            cord = wdir+"/"+name 
+            # print ("* Material Cord file", cord)
+            
+    f.close()
+    try: 
+        sftp.get(cord, cordSaveFile)
+    except:
+        print ("## Error to read:",cord)
+
+    sftp.close()
+    ftp.close()
+    
+    fp = open(cordfile, 'w')
+    fp.write("%s\n"%(cord))
+    fp.close()
 
 class MESH2D: 
     def __init__(self, filename):
@@ -4330,13 +4567,22 @@ class MESH2D:
                         if LastLeft_EL == up : 
                             adding =1 
                             break 
+                    sameEl = 0
+                    for up in checkups: 
+                        for u in ups: 
+                            if u==up: 
+                                sameEl+=1 
+                                break
+                    if sameEl > 1: 
+                        adding = 0 
+                    
                     if adding == 1: 
                         for up in checkups: 
                             deletes.append(up)
                             element_to_delete.append(up)
 
                 # print (" Tread Last EL to remove %d is in "%(LastLeft_EL), ups)
-                print ("  Profile Left Last Elements(%d)\n   to be deleted with"%(LastLeft_EL), ups)
+                print ("*  Profile Left Last Elements(%d)\n   to be deleted with"%(LastLeft_EL), ups)
                 break 
             if meetlast == 1: skip = 0 
             if nextsolid[5] == 4: EL3Next = 0
@@ -4345,6 +4591,7 @@ class MESH2D:
                 face -= 1 
                 if face ==0: face = 3 
                 nxsolid, nxface = self.SearchNextSolids(nextsolid, face=face, np_solid=solids, direction=1)
+
 
                 ups = [nextsolid[0]]
                 bf = nxface + 2 
@@ -4365,7 +4612,6 @@ class MESH2D:
             
             if ending == 1: 
                 break 
-
 
         element_to_delete = np.array(element_to_delete)
         element_to_delete = np.unique(element_to_delete)

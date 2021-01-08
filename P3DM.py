@@ -279,17 +279,70 @@ class Ui_MainWindow(object):
         self.textBrowser.setMaximumSize(QtCore.QSize(300, 16777215))
         self.textBrowser.setObjectName("textBrowser")
         self.verticalLayout.addWidget(self.textBrowser)
-        self.message = QtWidgets.QLabel(self.centralwidget)
-        self.message.setMaximumSize(QtCore.QSize(250, 20))
-        self.message.setSizeIncrement(QtCore.QSize(0, 20))
-        self.message.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
-        self.message.setObjectName("message")
-        self.verticalLayout.addWidget(self.message)
-        self.btn_exit = QtWidgets.QPushButton(self.centralwidget)
-        self.btn_exit.setMinimumSize(QtCore.QSize(0, 25))
-        self.btn_exit.setMaximumSize(QtCore.QSize(300, 25))
-        self.btn_exit.setObjectName("btn_exit")
-        self.verticalLayout.addWidget(self.btn_exit)
+
+        self.horizontalLayout_11 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_11.setObjectName("horizontalLayout_11")
+        self.label_bt1 = QtWidgets.QLabel(self.centralwidget)
+        self.label_bt1.setMaximumSize(QtCore.QSize(60, 15))
+        self.label_bt1.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_bt1.setObjectName("label_bt1")
+        self.horizontalLayout_11.addWidget(self.label_bt1)
+        self.lineEdit_bt1 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_bt1.setMaximumSize(QtCore.QSize(30, 20))
+        self.lineEdit_bt1.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit_bt1.setObjectName("lineEdit_bt1")
+        self.horizontalLayout_11.addWidget(self.lineEdit_bt1)
+        self.label_bt2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_bt2.setMaximumSize(QtCore.QSize(25, 15))
+        self.label_bt2.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_bt2.setObjectName("label_bt2")
+        self.horizontalLayout_11.addWidget(self.label_bt2)
+        self.lineEdit_bt2 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_bt2.setMaximumSize(QtCore.QSize(30, 20))
+        self.lineEdit_bt2.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit_bt2.setObjectName("lineEdit_bt2")
+        self.horizontalLayout_11.addWidget(self.lineEdit_bt2)
+        self.label_bt3 = QtWidgets.QLabel(self.centralwidget)
+        self.label_bt3.setMaximumSize(QtCore.QSize(25, 15))
+        self.label_bt3.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_bt3.setObjectName("label_bt3")
+        self.horizontalLayout_11.addWidget(self.label_bt3)
+        self.lineEdit_bt3 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_bt3.setMaximumSize(QtCore.QSize(30, 20))
+        self.lineEdit_bt3.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit_bt3.setObjectName("lineEdit_bt3")
+        self.horizontalLayout_11.addWidget(self.lineEdit_bt3)
+        self.label_bt4 = QtWidgets.QLabel(self.centralwidget)
+        self.label_bt4.setMaximumSize(QtCore.QSize(25, 15))
+        self.label_bt4.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_bt4.setObjectName("label_bt4")
+        self.horizontalLayout_11.addWidget(self.label_bt4)
+        self.lineEdit_bt4 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_bt4.setMaximumSize(QtCore.QSize(30, 20))
+        self.lineEdit_bt4.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit_bt4.setObjectName("lineEdit_bt4")
+        self.horizontalLayout_11.addWidget(self.lineEdit_bt4)
+        self.verticalLayout.addLayout(self.horizontalLayout_11)
+
+        # self.message = QtWidgets.QLabel(self.centralwidget)
+        # self.message.setMaximumSize(QtCore.QSize(250, 20))
+        # self.message.setSizeIncrement(QtCore.QSize(0, 20))
+        # self.message.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
+        # self.message.setObjectName("message")
+        # self.verticalLayout.addWidget(# self.message)
+
+        self.lineEdit_materialDir = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_materialDir.setMaximumSize(QtCore.QSize(300, 25))
+        self.lineEdit_materialDir.setObjectName("lineEdit_materialDir")
+        self.verticalLayout.addWidget(self.lineEdit_materialDir)
+
+        
+        
+        self.btn_material = QtWidgets.QPushButton(self.centralwidget)
+        self.btn_material.setMinimumSize(QtCore.QSize(0, 25))
+        self.btn_material.setMaximumSize(QtCore.QSize(300, 25))
+        self.btn_material.setObjectName("btn_exit")
+        self.verticalLayout.addWidget(self.btn_material)
         self.horizontalLayout.addLayout(self.verticalLayout)
         self.gridLayout.addLayout(self.horizontalLayout, 0, 0, 1, 1)
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
@@ -346,7 +399,7 @@ class Ui_MainWindow(object):
         MainWindow.setTabOrder(self.btn_showsolid, self.btn_PtnNodeCheck)
         MainWindow.setTabOrder(self.btn_PtnNodeCheck, self.btn_initialization)
         MainWindow.setTabOrder(self.btn_initialization, self.textBrowser)
-        MainWindow.setTabOrder(self.textBrowser, self.btn_exit)
+        MainWindow.setTabOrder(self.textBrowser, self.btn_material)
 
         self.dfile = "pdir.dir"
         cwd =getcwd()
@@ -398,7 +451,7 @@ class Ui_MainWindow(object):
         self.btn_expansion.clicked.connect(self.expansion_ptn)
         self.btn_generation.clicked.connect(self.generation_mesh)
         self.btn_initialization.clicked.connect(self.Initilize)
-        self.btn_exit.clicked.connect(self.exiting)
+        self.btn_material.clicked.connect(self.Update_ISLM_Material)
         self.btn_PtnNodeCheck.clicked.connect(self.ptn_checking)
         self.btn_showsolid.clicked.connect(self.showsolid)
         self.searchno.returnPressed.connect(self.showsolid)
@@ -563,11 +616,44 @@ class Ui_MainWindow(object):
         self.btn_initialization.setShortcut(_translate("MainWindow", "Ctrl+I"))
         self.btn_initialization.setToolTip("Shortcut to Initialize: Ctrl+I")
 
-        self.message.setText(_translate("MainWindow", ".."))
 
-        self.btn_exit.setText(_translate("MainWindow", "Quit"))
-        self.btn_exit.setShortcut(_translate("MainWindow", "Ctrl+Q"))
-        self.btn_exit.setToolTip("Shortcut to Quit: Ctrl+Q")
+        self.materialDirFile = "ISLM_materialDirectory.dat"
+        if not isfile(self.materialDirFile):
+            self.materialDir = "/home/fiper/ISLM_MAT"
+            self.AngleBT1 = str(0)
+            self.AngleBT2 = str(0)
+            self.AngleBT3 = str(0)
+            self.AngleBT4 = str(0)
+
+            self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4)
+            
+        with open(self.materialDirFile) as MD: 
+            lines = MD.readlines()
+
+        self.materialDir = lines[0].strip()
+        angles = lines[1].split(",")
+        self.AngleBT1 = angles[0].strip()
+        self.AngleBT2 = angles[1].strip()
+        self.AngleBT3 = angles[2].strip()
+        self.AngleBT4 = angles[3].strip()
+
+        self.label_bt1.setText(_translate("MainWindow", "Angle BT1"))
+        self.lineEdit_bt1.setText(_translate("MainWindow", self.AngleBT1))
+        self.label_bt2.setText(_translate("MainWindow", "BT2"))
+        self.lineEdit_bt2.setText(_translate("MainWindow", self.AngleBT2))
+        self.label_bt3.setText(_translate("MainWindow", "BT3"))
+        self.lineEdit_bt3.setText(_translate("MainWindow", self.AngleBT3))
+        self.label_bt4.setText(_translate("MainWindow", "BT4"))
+        self.lineEdit_bt4.setText(_translate("MainWindow", self.AngleBT4))
+
+        # self.message.setText(_translate("MainWindow", ".."))
+        
+        
+        self.lineEdit_materialDir.setText(_translate("MainWindow", self.materialDir))
+
+        self.btn_material.setText(_translate("MainWindow", "Update ISLM material DB"))
+        self.btn_material.setShortcut(_translate("MainWindow", "Ctrl+U"))
+        self.btn_material.setToolTip("Shortcut to Quit: Ctrl+U")
 
     def ptn_checking(self): 
         
@@ -626,7 +712,35 @@ class Ui_MainWindow(object):
         self.Initilize()
         sys.exit()
 
+    def WriteMaterialDirectory(self, directory, bt1, bt2, bt3, bt4): 
+        f=open(self.materialDirFile, 'w')
+        f.write("%s\n"%(directory))
+        f.write("%s, %s, %s, %s\n"%(bt1, bt2, bt3, bt4))
+        f.close()
 
+    def Update_ISLM_Material(self): 
+        self.materialDir = self.lineEdit_materialDir.text()
+        self.AngleBT1=self.lineEdit_bt1.text()
+        self.AngleBT2=self.lineEdit_bt2.text()
+        self.AngleBT3=self.lineEdit_bt3.text()
+        self.AngleBT4=self.lineEdit_bt4.text()
+        self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4)
+
+        localCordDB = 'ISLM_CordDB.txt'
+        fileListFile = 'ISLM_materialList.txt'
+        ISLM_cordDBFile="ISLM_CordDBName.dat"
+
+        host = '10.82.66.65'
+        user = 'h20200155'
+        pw = 'h20200155'
+        try : 
+            PTN.Update_ISLM_Material(wdir=self.materialDir,  cordSaveFile=localCordDB, fileListFile=fileListFile, \
+                host=host, user=user, pw=pw, cordfile=ISLM_cordDBFile)
+            # print ("* ISLM Mateiral DB was updated.")
+        except:
+            print ("## Cannot access ISLM Mateiral DB.")
+            print ("## Check the connection to ISLM")
+        
     def FricView_Checking(self): 
         if self.check_FricView.isChecked() == True: 
             writestatus(negSho=1)
@@ -807,7 +921,7 @@ class Ui_MainWindow(object):
         self.textBrowser.clear()
         self.figure.plot(show='none') 
         self.ShowingImage = 'none'
-        self.message.setText("Ready for another mesh generation")
+        # self.message.setText("Ready for another mesh generation")
         
 
     def autogeneration(self): 
@@ -835,7 +949,7 @@ class Ui_MainWindow(object):
         # print(w)
         
 
-        self.message.setText("Please Select Tire Layout mesh file (2D)")
+        # self.message.setText("Please Select Tire Layout mesh file (2D)")
         self.layoutmesh, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select layout mesh File", self.cwd, "Layout Mesh(*.inp)") 
         if self.layoutmesh : 
             if '/' in self.layoutmesh: self.layoutms = self.layoutmesh.split("/")[-1].split(".")[0]
@@ -850,7 +964,7 @@ class Ui_MainWindow(object):
         
         # win32gui.SetForegroundWindow(hwnd)
         
-        self.message.setText("Please Select 3D Pattern mesh file")
+        # self.message.setText("Please Select 3D Pattern mesh file")
         self.patternmesh, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select pattern mesh File", self.cwd, "Pattern Mesh(*.ptn)") 
         
         if self.patternmesh: 
@@ -916,15 +1030,16 @@ class Ui_MainWindow(object):
         elif self.patternmesh: 
             self.Initilize()
             self.open_pattern()
-            self.message.setText("Layout mesh file is not opened")
+            # self.message.setText("Layout mesh file is not opened")
             self.cwd=writeworkingdirectory(self.patternmesh, dfile=self.dfile)
         elif self.layoutmesh: 
             self.Initilize()
             self.open_layout()
-            self.message.setText("Pattern mesh file is not opened")
+            # self.message.setText("Pattern mesh file is not opened")
             self.cwd=writeworkingdirectory(self.layoutmesh, dfile=self.dfile)
         else:
-            self.message.setText("Pattern / layout mesh files are not opened")
+            # self.message.setText("Pattern / layout mesh files are not opened")
+            pass
 
     def read_layout(self): 
         if '/' in self.layoutmesh: self.layoutms = self.layoutmesh.split("/")[-1].split(".")[0]
@@ -934,7 +1049,7 @@ class Ui_MainWindow(object):
         self.savedirectory = self.cwd 
         try:      del(self.layout)
         except:   pass
-        self.message.setText(self.layoutmesh)
+        # self.message.setText(self.layoutmesh)
         self.P3DMLayout = 0 
         with open(self.layoutmesh) as LM: 
             lines = LM.readlines()
@@ -1026,7 +1141,7 @@ class Ui_MainWindow(object):
         self.patternfile.setText(self.ptnms)
 
         self.cwd=writeworkingdirectory(self.patternmesh, dfile=self.dfile)
-        self.message.setText(self.layoutmesh)
+        # self.message.setText(self.layoutmesh)
 
         try: del(self.pattern)
         except: pass 
@@ -1116,7 +1231,7 @@ class Ui_MainWindow(object):
             self.patternfile.setText(self.ptnms)
 
             self.cwd=writeworkingdirectory(self.patternmesh, dfile=self.dfile)
-            self.message.setText(self.layoutmesh)
+            # self.message.setText(self.layoutmesh)
 
             try: del(self.pattern)
             except: pass 
@@ -1181,7 +1296,7 @@ class Ui_MainWindow(object):
 
         else: 
             line = " Need to add function that removes  'str', 'utr' elset"
-            self.message.setText(line)
+            # self.message.setText(line)
 
         
         # if self.patternexpanded ==1: 
@@ -1209,7 +1324,7 @@ class Ui_MainWindow(object):
             self.patternexpanded = 1 
             self.radio_scaled.setChecked(True)
             line = "Pattern mesh is expanded."
-            self.message.setText(line)
+            # self.message.setText(line)
             self.ptn_expanded = PTN.COPYPTN(self.pattern)
 
             
@@ -1217,7 +1332,7 @@ class Ui_MainWindow(object):
 
         else: 
             line = " no need to expand"
-            self.message.setText(line)
+            # self.message.setText(line)
 
         if self.treadremoved ==1 and self.errorcode ==0 : 
             self.btn_generation.setEnabled(True)
@@ -1258,13 +1373,18 @@ class Ui_MainWindow(object):
                     abq = 1
                 else:
                     abq = 0 
-
+                self.AngleBT1=self.lineEdit_bt1.text()
+                self.AngleBT2=self.lineEdit_bt2.text()
+                self.AngleBT3=self.lineEdit_bt3.text()
+                self.AngleBT4=self.lineEdit_bt4.text()
+                BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
                 PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
-                self.layout.Surface, sectors=self.user_sector, offset=BodyOffset, abaqus=abq, mesh=self.layoutmesh)
+                self.layout.Surface, sectors=self.user_sector, offset=BodyOffset,\
+                     abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, btAngles=BT_angles)
                 print ("\n# Layout 3D mesh was saved.")
                 print (" %s\n"%(savefile))
                 line = "Full tire meshes were saved.\n"
-                self.message.setText(line)
+                # self.message.setText(line)
                 self.check_Direction.setEnabled(True)
             return 
 
@@ -1563,10 +1683,15 @@ class Ui_MainWindow(object):
                 surf_body=self.Bodysurf, ties=self.layout.Tie, txtelset=self.layout.TxtElset, start=BodyStartNo, offset=BodyOffset, abaqus=abq)
 
             # PTN.SolidComponents_checking(fname=savefile+"_solids.dat", trd=savefile +".trd", axi=savefile +".axi")
+            self.AngleBT1=self.lineEdit_bt1.text()
+            self.AngleBT2=self.lineEdit_bt2.text()
+            self.AngleBT3=self.lineEdit_bt3.text()
+            self.AngleBT4=self.lineEdit_bt4.text()
+            BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
             PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
-                elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element)
+                elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element, materialDir=self.materialDir, btAngles=BT_angles)
             line = "Full tire meshes were saved.\n"
-            self.message.setText(line)
+            # self.message.setText(line)
 
              ## writing pattern single pitch 
             filename = savefile+"-P3DM.ptn"
@@ -1633,7 +1758,7 @@ class Ui_MainWindow(object):
                 ptn = self.pattern
                 bending = 1 
                 
-            self.message.setText("Layout has been plotted.")
+            # self.message.setText("Layout has been plotted.")
             self.figure.plot(layout=self.layout, pattern=ptn, show='all', ptn_elset=self.ptn_elset, bended=bending)
             self.ShowingImage = 'layout'
             
@@ -1643,18 +1768,18 @@ class Ui_MainWindow(object):
                 self.figure.plot(layout=self.InitialLayout, show='layout')
                 self.ShowingImage = 'layout'
             except:
-                self.message.setText("Layout has not been plotted.")
+                # self.message.setText("Layout has not been plotted.")
                 self.figure.plot(show='none')
                 self.ShowingImage = 'none'
     def showlayout(self): 
         self.UncheckOverlayRadio()
         try:      
             # print ("initial el no=%d"%(len(self.InitialLayout.Element.Element)))
-            self.message.setText("Initial layout has been plotted.")
+            # self.message.setText("Initial layout has been plotted.")
             self.figure.plot(layout=self.InitialLayout, show='layout', layoutNo=self.LayoutNo)
             self.ShowingImage = 'layout'
         except:
-            self.message.setText("Initial layout has not been plotted.")
+            # self.message.setText("Initial layout has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showuntreaded(self): 
@@ -1662,12 +1787,12 @@ class Ui_MainWindow(object):
 
         try:
             # print ("initial el no=%d, removed=%d"%(len(self.InitialLayout.Element.Element), len(self.UntreadedLayout.Element.Element)))
-            self.message.setText("Layout without tread has been plotted")
+            # self.message.setText("Layout without tread has been plotted")
             self.figure.plot(layout=self.UntreadedLayout, show='layout', layoutNo=self.LayoutNo, flattened_tread = self.flattened_Tread_bottom_sorted)
             self.ShowingImage = 'layout'
 
         except:
-            self.message.setText("Layout without tread has not been plotted")
+            # self.message.setText("Layout without tread has not been plotted")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showsolid(self): 
@@ -1701,7 +1826,8 @@ class Ui_MainWindow(object):
                 self.figure.plot_error(solid, npn) 
                 self.ShowingImage = '3D'
             except: 
-                self.message.setText("Solid element cannot be plotted.")
+                pass 
+                # self.message.setText("Solid element cannot be plotted.")
         elif self.readlayout: 
             npp = []
             for el in self.InitialLayout.Element.Element: 
@@ -1740,7 +1866,7 @@ class Ui_MainWindow(object):
             # try: 
             #     self.figure.Add_layer(plane, np.array(self.InitialLayout.Node.Node), solid, npn)
             # except: 
-            #     self.message.setText(" Error to plot.") 
+            #     # self.message.setText(" Error to plot.") 
     def SearchElements(self, npp, id=1): 
                   
         solid = []
@@ -1971,10 +2097,10 @@ class Ui_MainWindow(object):
                 self.figure.plot(pattern=self.ptn_bended, show='pattern', search=self.searchsolid)
             else : 
                 self.figure.plot(pattern=self.ptn_bottomed, show='pattern', search=self.searchsolid)
-            self.message.setText("Pattern image has been plotted")
+            # self.message.setText("Pattern image has been plotted")
             self.ShowingImage = 'pattern'
         except:
-            self.message.setText("Cannot drawn pattern image")
+            # self.message.setText("Cannot drawn pattern image")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showTopSurface(self):   ## Pattern Top Surface
@@ -1999,10 +2125,10 @@ class Ui_MainWindow(object):
                 surface2plot = self.ptn_bottomed.freetop 
                 node2plot = self.ptn_bottomed.npn 
             self.figure.plot_surface(surface2plot, node2plot, search=self.searchsolid, number=number)
-            self.message.setText("Pattern Top Surface has been plotted.")
+            # self.message.setText("Pattern Top Surface has been plotted.")
             self.ShowingImage = 'pattern'
         except:
-            self.message.setText("Pattern Top Surface has not been plotted.")
+            # self.message.setText("Pattern Top Surface has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showBottomSurface(self):     ## Pattern Bottom Surface
@@ -2028,9 +2154,9 @@ class Ui_MainWindow(object):
                 node2plot = self.ptn_bottomed.npn 
             self.figure.plot_surface(surface2plot,node2plot, search=self.searchsolid, number=number)
             self.ShowingImage = 'pattern'
-            self.message.setText("Pattern Bottom Surface has been plotted.")
+            # self.message.setText("Pattern Bottom Surface has been plotted.")
         except:
-            self.message.setText("Pattern Bottom Surface has not been plotted.")
+            # self.message.setText("Pattern Bottom Surface has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showPitch(self):      ## Pattern Pitch up Surface
@@ -2061,12 +2187,12 @@ class Ui_MainWindow(object):
                 down = np.min(node2plot[:,1]) - 5E-03
                 up = np.max(node2plot[:,1]) + Ga + 0.001
                 self.figure.plot_pitch_surface(surface2plot,surface2plot1, node2plot, search=self.searchsolid, R=R, number=number , downpos=down, uppos=up)
-                self.message.setText("Pattern Pitch up Surface has been plotted.")
+                # self.message.setText("Pattern Pitch up Surface has been plotted.")
                 self.ShowingImage = 'pattern'
             else: 
                 print ("No Pitch UP surface")
         except:
-            self.message.setText("Pattern Pitch up Surface has not been plotted.")
+            # self.message.setText("Pattern Pitch up Surface has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showSide(self):      ## Pattern Side Surface 
@@ -2089,12 +2215,12 @@ class Ui_MainWindow(object):
                 node2plot = self.ptn_bottomed.npn 
             if len(surface2plot) > 0: 
                 self.figure.plot_surface(surface2plot, node2plot, search=self.searchsolid, surf_side=surface2plot1, number=number, position_shift=1)
-                self.message.setText("Pattern Side Surface has been plotted.")
+                # self.message.setText("Pattern Side Surface has been plotted.")
                 self.ShowingImage = 'pattern'
             else: 
                 print ("No Pitch side surface")
         except:
-            self.message.setText("Pattern Side Surface has not been plotted.")
+            # self.message.setText("Pattern Side Surface has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
 
@@ -2120,11 +2246,11 @@ class Ui_MainWindow(object):
                 if len(surface2plot) > 0:
                     # self.figure.plot_surface(surface2plot,node2plot, search=self.searchsolid, number=number, surf_side=grv_side, Second_plot=0)
                     self.figure.Add_surface(sf1=surface2plot, nodes=node2plot, search=self.searchsolid, number=number, sf2=grv_side)
-                    self.message.setText("Main Groove Bottom Surface has been plotted.")
+                    # self.message.setText("Main Groove Bottom Surface has been plotted.")
                 else: 
                     print ("No Groove bottom surface")
             except:
-                self.message.setText("Main Groove Bottom Surface has not been plotted.")
+                # self.message.setText("Main Groove Bottom Surface has not been plotted.")
                 self.figure.plot(show='none')
     def showSubGrvBtm(self):         ## Sub Groove Bottom Surface
         if self.ShowingImage == 'pattern':
@@ -2147,11 +2273,11 @@ class Ui_MainWindow(object):
                 if len(surface2plot) > 0: 
                     # self.figure.plot_surface(surface2plot, node2plot, search=self.searchsolid, number=number, surf_side=grv_side)
                     self.figure.Add_surface(sf1=surface2plot, nodes=node2plot, search=self.searchsolid, number=number, sf2=grv_side)
-                    self.message.setText("Sub Groove Bottom Surface has been plotted.")
+                    # self.message.setText("Sub Groove Bottom Surface has been plotted.")
                 else: 
                     print ("No Groove bottom surface")
             except:
-                self.message.setText("Sub Groove Bottom Surface has not been plotted.")
+                # self.message.setText("Sub Groove Bottom Surface has not been plotted.")
                 self.figure.plot(show='none')
     def showMainGroove(self):  ## Pattern full depth groove Surface 
         if self.ShowingImage == 'pattern':
@@ -2172,11 +2298,11 @@ class Ui_MainWindow(object):
                     node2plot = self.ptn_bottomed.npn 
                 if len(surface2plot) > 0: 
                     self.figure.Add_surface(sf2=surface2plot, nodes=node2plot, search=self.searchsolid, number=number)
-                    self.message.setText("Pattern full depth groove Surface has been plotted.")
+                    # self.message.setText("Pattern full depth groove Surface has been plotted.")
                 else: 
                     print ("No Groove Side surface")
             except:
-                self.message.setText("Pattern full depth groove Surface has not been plotted.")
+                # self.message.setText("Pattern full depth groove Surface has not been plotted.")
                 self.figure.plot(show='none')
     def showSubGroove(self):   ## Pattern sub groove side Surface
         if self.ShowingImage == 'pattern':
@@ -2197,11 +2323,11 @@ class Ui_MainWindow(object):
                     node2plot = self.ptn_bottomed.npn 
                 if len(surface2plot) > 0: 
                     self.figure.Add_surface(sf2=surface2plot, nodes=node2plot, search=self.searchsolid, number=number)
-                    self.message.setText("Pattern sub groove side Surface has been plotted.")
+                    # self.message.setText("Pattern sub groove side Surface has been plotted.")
                 else: 
                     print ("No Groove Side surface")
             except:
-                self.message.setText("Pattern sub groove side Surface has not been plotted.")
+                # self.message.setText("Pattern sub groove side Surface has not been plotted.")
                 self.figure.plot(show='none')
 
     ### #########################################
@@ -2225,7 +2351,7 @@ class Ui_MainWindow(object):
                 self.showDefault()
             self.ShowingImage = 'pattern'
         except:
-            self.message.setText("Model Pattern has not been plotted.")
+            # self.message.setText("Model Pattern has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showexpanded(self): 
@@ -2248,7 +2374,7 @@ class Ui_MainWindow(object):
                 self.showDefault()
             self.ShowingImage = 'pattern'
         except:
-            self.message.setText("Scaled Pattern has not been plotted.")
+            # self.message.setText("Scaled Pattern has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showgauged(self): 
@@ -2271,7 +2397,7 @@ class Ui_MainWindow(object):
                 self.showDefault()
             self.ShowingImage = 'pattern'
         except:
-            self.message.setText("Gauge Adjusted Pattern has not been plotted.")
+            # self.message.setText("Gauge Adjusted Pattern has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showbended(self): 
@@ -2294,7 +2420,7 @@ class Ui_MainWindow(object):
                 self.showDefault()
             self.ShowingImage = 'pattern'
         except:
-            self.message.setText("Bended Pattern has not been plotted.")
+            # self.message.setText("Bended Pattern has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showbottomed(self): 
@@ -2317,7 +2443,7 @@ class Ui_MainWindow(object):
                 self.showDefault()
             self.ShowingImage = 'pattern'
         except:
-            self.message.setText("Expanded Pattern has not been plotted.")
+            # self.message.setText("Expanded Pattern has not been plotted.")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
 
