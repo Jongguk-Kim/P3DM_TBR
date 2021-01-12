@@ -24,6 +24,7 @@ from time import time
 from math import sqrt 
 from operator import mul as OP_mul 
 import win32gui
+import SMART_Input_UI as SMART 
 
 class StdoutRedirect(QtCore.QObject):
     printOccur = QtCore.pyqtSignal(str, str, name="print")
@@ -280,6 +281,34 @@ class Ui_MainWindow(object):
         self.textBrowser.setObjectName("textBrowser")
         self.verticalLayout.addWidget(self.textBrowser)
 
+        self.horizontalLayout_12 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_12.setObjectName("horizontalLayout_12")
+        self.checkBox = QtWidgets.QCheckBox(self.centralwidget)
+        self.checkBox.setMaximumSize(QtCore.QSize(50, 15))
+        self.checkBox.setChecked(True)
+        self.checkBox.setObjectName("checkBox")
+        self.horizontalLayout_12.addWidget(self.checkBox)
+        self.line_PCI_Press = QtWidgets.QLineEdit(self.centralwidget)
+        self.line_PCI_Press.setMaximumSize(QtCore.QSize(30, 20))
+        self.line_PCI_Press.setAlignment(QtCore.Qt.AlignCenter)
+        self.line_PCI_Press.setObjectName("line_PCI_Press")
+        self.horizontalLayout_12.addWidget(self.line_PCI_Press)
+        self.label_OverType = QtWidgets.QLabel(self.centralwidget)
+        self.label_OverType.setMaximumSize(QtCore.QSize(65, 15))
+        self.label_OverType.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_OverType.setObjectName("label_OverType")
+        self.horizontalLayout_12.addWidget(self.label_OverType)
+        self.radio_SOT = QtWidgets.QRadioButton(self.centralwidget)
+        self.radio_SOT.setMaximumSize(QtCore.QSize(50, 15))
+        self.radio_SOT.setChecked(True)
+        self.radio_SOT.setObjectName("radio_SOT")
+        self.horizontalLayout_12.addWidget(self.radio_SOT)
+        self.radio_TOS = QtWidgets.QRadioButton(self.centralwidget)
+        self.radio_TOS.setMaximumSize(QtCore.QSize(50, 15))
+        self.radio_TOS.setObjectName("radio_TOS")
+        self.horizontalLayout_12.addWidget(self.radio_TOS)
+        self.verticalLayout.addLayout(self.horizontalLayout_12)
+
         self.horizontalLayout_11 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_11.setObjectName("horizontalLayout_11")
         self.label_bt1 = QtWidgets.QLabel(self.centralwidget)
@@ -324,6 +353,42 @@ class Ui_MainWindow(object):
         self.horizontalLayout_11.addWidget(self.lineEdit_bt4)
         self.verticalLayout.addLayout(self.horizontalLayout_11)
 
+
+        self.horizontalLayout_13 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_13.setObjectName("horizontalLayout_13")
+        self.label_BSD = QtWidgets.QLabel(self.centralwidget)
+        self.label_BSD.setMaximumSize(QtCore.QSize(30, 15))
+        self.label_BSD.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_BSD.setObjectName("label_BSD")
+        self.horizontalLayout_13.addWidget(self.label_BSD)
+        self.lineEdit_BSD = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_BSD.setMaximumSize(QtCore.QSize(35, 20))
+        self.lineEdit_BSD.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit_BSD.setObjectName("lineEdit_BSD")
+        self.horizontalLayout_13.addWidget(self.lineEdit_BSD)
+        self.label_BDWidth = QtWidgets.QLabel(self.centralwidget)
+        self.label_BDWidth.setMaximumSize(QtCore.QSize(60, 15))
+        self.label_BDWidth.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_BDWidth.setObjectName("label_BDWidth")
+        self.horizontalLayout_13.addWidget(self.label_BDWidth)
+        self.lineEdit_BDWidth = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_BDWidth.setMaximumSize(QtCore.QSize(35, 20))
+        self.lineEdit_BDWidth.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit_BDWidth.setObjectName("lineEdit_BDWidth")
+        self.horizontalLayout_13.addWidget(self.lineEdit_BDWidth)
+        self.label_DesignRW = QtWidgets.QLabel(self.centralwidget)
+        self.label_DesignRW.setMaximumSize(QtCore.QSize(60, 15))
+        self.label_DesignRW.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_DesignRW.setObjectName("label_DesignRW")
+        self.horizontalLayout_13.addWidget(self.label_DesignRW)
+        self.lineEdit_DesignRW = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_DesignRW.setMaximumSize(QtCore.QSize(40, 20))
+        self.lineEdit_DesignRW.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit_DesignRW.setObjectName("lineEdit_DesignRW")
+        self.horizontalLayout_13.addWidget(self.lineEdit_DesignRW)
+        self.verticalLayout.addLayout(self.horizontalLayout_13)
+        
+
         # self.message = QtWidgets.QLabel(self.centralwidget)
         # self.message.setMaximumSize(QtCore.QSize(250, 20))
         # self.message.setSizeIncrement(QtCore.QSize(0, 20))
@@ -360,6 +425,28 @@ class Ui_MainWindow(object):
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
+
+        ############################################################
+        ## MENU BAR 
+        self.menubar = QtWidgets.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1523, 31))
+        self.menubar.setObjectName("menubar")
+        self.menuFILE = QtWidgets.QMenu(self.menubar)
+        self.menuFILE.setObjectName("menuFILE")
+        MainWindow.setMenuBar(self.menubar)
+        self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        self.statusbar.setObjectName("statusbar")
+        MainWindow.setStatusBar(self.statusbar)
+        self.actionSMART = QtWidgets.QAction(MainWindow)
+        self.actionSMART.setObjectName("actionSMART")
+        self.menuFILE.addAction(self.actionSMART)
+        self.menubar.addAction(self.menuFILE.menuAction())
+
+        self.menuFILE.setTitle("INP")
+        self.actionSMART.setText("SMART")
+        self.actionSMART.triggered.connect(self.openInputWindow)
+        ############################################################
+
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -530,6 +617,26 @@ class Ui_MainWindow(object):
         self.P3DMPattern = 0  
         self.ShowingImage = 'none'
 
+        
+        self.ISLM_cordDBFile = "ISLM_CordDBName.dat"
+
+        # self.layout.GD = 0.003
+        # self.fullmeshSave = "materialTest_new"
+
+    def openInputWindow(self):
+        if self.fullmeshSave != "": 
+            try:
+                Dialog = QtWidgets.QDialog()
+                dlg = SMART.Ui_Dialog(self.materialDir, self.ISLM_cordDBFile, self.fullmeshSave, self.layout.GD)
+                dlg.setupUi(Dialog)
+                Dialog.exec_()
+            except:
+                print ("## You Should generate 3D Full meshes")
+        else:
+            print("## You should create 3D mesh.")
+
+
+
     def _append_text(self, msg):
         self.textBrowser.moveCursor(QtGui.QTextCursor.End)
         self.textBrowser.insertPlainText(msg)
@@ -651,7 +758,30 @@ class Ui_MainWindow(object):
         
         self.lineEdit_materialDir.setText(_translate("MainWindow", self.materialDir))
 
-        self.btn_material.setText(_translate("MainWindow", "Update ISLM material DB"))
+
+        self.checkBox.setText(_translate("MainWindow", "PCI"))
+        self.line_PCI_Press.setText(_translate("MainWindow", "2.0"))
+        self.label_OverType.setText(_translate("MainWindow", "TBR Type :"))
+        self.radio_SOT.setText(_translate("MainWindow", "SOT"))
+        self.radio_TOS.setText(_translate("MainWindow", "TOS"))
+        self.label_bt1.setText(_translate("MainWindow", "Angle BT1"))
+        self.lineEdit_bt1.setText(_translate("MainWindow", "0"))
+        self.label_bt2.setText(_translate("MainWindow", "BT2"))
+        self.lineEdit_bt2.setText(_translate("MainWindow", "0"))
+        self.label_bt3.setText(_translate("MainWindow", "BT3"))
+        self.lineEdit_bt3.setText(_translate("MainWindow", "0"))
+        self.label_bt4.setText(_translate("MainWindow", "BT4"))
+        self.lineEdit_bt4.setText(_translate("MainWindow", "0"))
+        self.label_BSD.setText(_translate("MainWindow", "BSD"))
+        self.lineEdit_BSD.setText(_translate("MainWindow", "0"))
+        self.label_BDWidth.setText(_translate("MainWindow", "BD Width"))
+        self.lineEdit_BDWidth.setText(_translate("MainWindow", "0"))
+        self.label_DesignRW.setText(_translate("MainWindow", "Design RW"))
+        self.lineEdit_DesignRW.setText(_translate("MainWindow", "0"))
+
+
+
+        self.btn_material.setText(_translate("MainWindow", "Update material DB"))
         self.btn_material.setShortcut(_translate("MainWindow", "Ctrl+U"))
         self.btn_material.setToolTip("Shortcut to Quit: Ctrl+U")
 
@@ -729,6 +859,7 @@ class Ui_MainWindow(object):
         localCordDB = 'ISLM_CordDB.txt'
         fileListFile = 'ISLM_materialList.txt'
         ISLM_cordDBFile="ISLM_CordDBName.dat"
+        
 
         host = '10.82.66.65'
         user = 'h20200155'
@@ -1378,10 +1509,13 @@ class Ui_MainWindow(object):
                 self.AngleBT3=self.lineEdit_bt3.text()
                 self.AngleBT4=self.lineEdit_bt4.text()
                 BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
+                if self.radio_SOT.isChecked(): overtype = "SOT"
+                else:  overtype = "TOS"
                 PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
                 self.layout.Surface, sectors=self.user_sector, offset=BodyOffset,\
-                     abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, btAngles=BT_angles)
+                     abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype)
                 print ("\n# Layout 3D mesh was saved.")
+                self.fullmeshSave=savefile[:-4]
                 print (" %s\n"%(savefile))
                 line = "Full tire meshes were saved.\n"
                 # self.message.setText(line)
@@ -1664,6 +1798,7 @@ class Ui_MainWindow(object):
         if savefile and len(solid_err) == 0:
 
             savefile = savefile[:-4]
+            
 
             isCtb=0
             isSut=0 
@@ -1688,20 +1823,27 @@ class Ui_MainWindow(object):
             self.AngleBT3=self.lineEdit_bt3.text()
             self.AngleBT4=self.lineEdit_bt4.text()
             BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
+            if self.radio_SOT.isChecked(): overtype = "SOT"
+            else:  overtype = "TOS"
             PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
-                elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element, materialDir=self.materialDir, btAngles=BT_angles)
+                elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element,\
+                     materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype)
             line = "Full tire meshes were saved.\n"
+            self.fullmeshSave=savefile 
             # self.message.setText(line)
 
              ## writing pattern single pitch 
             filename = savefile+"-P3DM.ptn"
-            P0_TOP, P0_SelfContact = PTN.Creating_pattern_pitch(self.ptn_bottomed, self.pattern, self.layout.LeftProfile, self.layout.RightProfile, \
-                self.layout.L_curves, self.layout.R_curves, self.layout.OD, self.layout.GD, TDW=self.layout.TDW, \
-                fname=filename, PN=self.pattern.NoPitch, pitch_up=self.pattern.surf_pitch_up, pitch_down=self.pattern.surf_pitch_down, \
-                pitch_side_pos=self.pattern.surf_pattern_pos_side, pitch_side_neg=self.pattern.surf_pattern_neg_side, \
-                bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, revPtn=self.check_Direction.isChecked())
-            print ("\n## Single Pitch Mesh is created.")
-            print ("  %s"%(filename.split("/")[-1]))
+            try: 
+                P0_TOP, P0_SelfContact = PTN.Creating_pattern_pitch(self.ptn_bottomed, self.pattern, self.layout.LeftProfile, self.layout.RightProfile, \
+                    self.layout.L_curves, self.layout.R_curves, self.layout.OD, self.layout.GD, TDW=self.layout.TDW, \
+                    fname=filename, PN=self.pattern.NoPitch, pitch_up=self.pattern.surf_pitch_up, pitch_down=self.pattern.surf_pitch_down, \
+                    pitch_side_pos=self.pattern.surf_pattern_pos_side, pitch_side_neg=self.pattern.surf_pattern_neg_side, \
+                    bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, revPtn=self.check_Direction.isChecked())
+                print ("\n## Single Pitch Mesh is created.")
+                print ("  %s"%(filename.split("/")[-1]))
+            except:
+                print ("\n Single pitch mesh was not created.")
             filename = savefile+"-L2DM.inp"
             PTN.Creating_tread_removed_layout(fname=filename, nodes=self.layout.body_nodes, elements=self.layout.Element, elsets=self.layout.Elset,\
              surfaces=self.layout.Surface, ties=self.layout.Tie, treads=self.layout.Tread, all_nodes=self.layout.Node)

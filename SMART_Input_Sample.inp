@@ -1,0 +1,63 @@
+*****************************************************************************************************************************
+*SIMULATION_TYPE  = 0       ( 0:TIRE, 1:LAT100, 2:NPT)
+*SIMULATION_TIME  = 0.25, 1.02, 1.0 { PHYSICAL TIME, MASS_SCALE(>=1, DEFAULT=1.02), DT_RATIO( IF =1.0=>VARIABLE, IF < 1.0 => FIXED FOR FFT ) }
+*OUTPUT_CONTROL   = 0.01, 0.05    ( DEL_T FOR FRAME FRICVIEW OUTPUT, DEL_T FOR TIME HISTORY AVERAGING)
+*****************************************************************************************************************************
+*INFLATION_TIME               = 0.01, 0.015,  0.0 (First Inflation End, Section Inflation End, Tire Velocity(kph) for Dyn. Profile)
+*SELF_CONTACT_ACTIVATION      = 0, 0  (INNER CAVITY ON, OFF (1, 0:DEFAULT) , TREAD KERF ON, OFF (1, 0:DEFAULT))
+*GROOVE_DEPTH_FOR_KERF_CONTACT= 0.0075
+*TEMPERATURE_ANALYSIS         = 1, 0.04, 25.0, 25.0   (OFF:0, ON:1), IF ON, (T_COMPUTATION_START_TIME, AIR_T, ROAD_T)
+*TEMPERATURE_OUT_IN           = 0, ../TEMP/C100_NB08.TEMPER   !(0:NO_IN_OUT, 1:OUT_TEMP, 2:READ_TEMP), IF 2 READ IN FILENAME
+*PRESSURE_VARIANCE            = 1, 0.04, 0.1D0, 0.05D0  (FOR TEMPERATURE OFF:0, ON:1), ( PRS_V VARIANCE START TIME-IF .LT. 3RD TIME SET TO 3RD TIME), RIM_ADDED_WIDTH, RIM_ADDED_DEPTH)
+*****************************************************************************************************************************
+*STIFFNESS        =  24.6, 20.03, 30.0  (KV, KL, KT)
+*CONDITION_LOAD   =  2.14, 2.14, 400.0, 100.0
+*CAMBER_ANGLE     =  0
+*LATERAL_CONTROL  =  1, 0.0
+*ROTATION_CONTROL =  1, 1.0, 85.42980
+*ROAD_GEOM        =  0.000 ( road=0, drum or disc.=diameter in meter: RR(1.707), CLEAT(2.50), Wear(3.048), LAT100(0.317) )
+*RIM_GEOM         =  218.3, 89.0, /home/fiper/ISLM_RIM/RIM_PCLT.GEOM
+*RIM_OR_HUB_REAL_MASS =1.00   (RIM=1.0, LAT100=0.05, NPT=1.0)
+*****************************************************************************************************************************
+*SURFACES_FOR_CONTACT_AND_LOAD=XTRD1001, TIREBODY, PRESS, RIC_L, RIC_R        (TREAD, TBODY, PRESS, RICL, RICR FOR TIRE  )
+*****************************************************************************************************************************
+*SOLID_SECTION, (SOL, MAT)
+BSW,      S24,  120.0, 1.0
+RIC,      B89,  120.0, 1.0
+IL1,      H61,  120.0, 1.0
+BDF,      B66,  120.0, 1.0
+CTR,      P27,  120.0, 1.0
+BTT,      C54,  120.0, 1.0
+CCT,      C48,  120.0, 1.0
+BD1,  ABW121A,  120.0, 1.0
+*BELT_THICKNESS_SUBTRACTION,
+ BETWEEN_BELTS, 4.61E-04
+*CORD_FILE=/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt
+*IN_MOLDING_PCI_INFO, TYPE=1 ,LOWCURE=0, BSD=400.0, PCIRIMW=176.0, BDWIDTH=7.0, PCIPRS=2.0
+*REBAR_SECTION
+ BT1,   BT, ES00002, 120.0, 1.0, 1,  24.0, 309.0821
+ BT2,   BT, ES00002, 120.0, 1.0, 1, -24.0, 310.2821
+ JFC,   RB, ET00013, 120.0, 1.0, 0,  0.0,  311.0821
+ CC1,   CC, ET00025, 120.0, 1.0, 0,  90.0, 209.0000
+ CC2,   CC, ET00025, 120.0, 1.0, 0,  90.0, 210.0000
+*****************************************************************************************************************************
+*INCLUDE, INP=/home/fiper/ISLM_MAT/S24.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/B89.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/H61.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/U33.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/B66.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/P27.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/C54.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/C48.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/C51.PYN
+*INCLUDE, INP=/home/fiper/ISLM_MAT/ABW121A.COR
+*****************************************************************************************************************************
+*INCLUDE, INP=Layout_MC_215-55R17_PRIMACY-Pattern_K117A_0_5mm.trd
+*INCLUDE, INP=Layout_MC_215-55R17_PRIMACY-Pattern_K117A_0_5mm.axi
+*****************************************************************************************************************************
+*STEEL_BEAD_ELSET_FOR_SUB_CYCLING=BD1
+*GROOVE_DEPTH_FOR_FPC  =0.001
+*RIM_FRICTION          =1.000
+*ROAD_FRICTION (UO, ZP, KP, ZS, KS, ALPHA, TAUC, BETA)
+1.69, 0.60, 0.15, 0.00, 0.04, 5.98, 0.91, 1.77
+*****************************************************************************************************************************

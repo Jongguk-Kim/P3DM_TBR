@@ -76,11 +76,12 @@ TireCordComponents = [
 ]
 
 def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='SOT', ga=1.0, innerGa=0.0, centerMinR=0):
+
     if group != 'TBR':
         lstCDD = [[12.,337.],[13.,310.],[14.,335.],[15.,360.],[16.,385.],[17.,417.],[18.,442.],[19.,465.],[20.,490.],[21.,516.],[22.,542.],[23.,567.],[24.,592.],[26.,643.],[28.,694.]]
         for cdd in lstCDD:
             if cdd[0] == inch: 
-                CcDia = cdd[1] + (layer * ga/2.0) + innerGa * (centerMinR/cdd[1])
+                CcDia = cdd[1] + ga*(layer-0.5) + innerGa * (centerMinR/cdd[1])
                 return CcDia
     else: 
         if overtype == 'SOT': 
@@ -91,13 +92,13 @@ def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='SOT', ga=1.0, inne
         CcDia = 0 
         for cdd in lstCDD:
             if cdd[0] == inch: 
-                CcDia = cdd[1] + (layer * ga/2.0)+ innerGa * (centerMinR/cdd[1])
+                CcDia = cdd[1] + ga*(layer-0.5)+ innerGa * (centerMinR/cdd[1])
                 break 
         if CcDia ==0: 
             lstCDD = [[15.0,440.],[16.0,460.],[17.5,529.4],[18.0,526.],[20.0,571.5],[22.0,640.],[22.5,660.4],[24.0,686.],[24.5,711.2]]
             for cdd in lstCDD:
                 if cdd[0] == inch: 
-                    CcDia = cdd[1] + (layer * ga/2.0)+ innerGa * (centerMinR/cdd[1])
+                    CcDia = cdd[1] + ga*(layer-0.5) + innerGa * (centerMinR/cdd[1])
                     break 
 
         return CcDia
@@ -1295,7 +1296,7 @@ def FindSolidElementBetweenMembrane(m1, m2, Elements):
             if cnt ==2: 
                 break 
     return between     
-def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000, no_tread=10**7, abaqus=0, materialDir='', btAngles=[]): 
+def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000, no_tread=10**7, abaqus=0, materialDir='', btAngles=[], overtype="SOT"): 
 
     tread=ELEMENT()
     body = ELEMENT()
@@ -1551,7 +1552,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     f.close()
     
     if abaqus ==0: 
-        SmartMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element, materialDir=materialDir, btAngles=btAngles)
+        SmartMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element, materialDir=materialDir, btAngles=btAngles, overtype=overtype)
     # else:
     #     AbaqusMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element)
 
@@ -1837,7 +1838,7 @@ def GetRimDia_Size(size=""):
     return rd 
 
 
-def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[], materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[]): 
+def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[], materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[], overtype='SOT'): 
 
     equ_Density = 0 
     name_solids, name_cords = SolidComponents_checking(axi=axi, trd=trd, return_value=1)
@@ -1868,6 +1869,17 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     if "TB" in tireGroup: tireGroup="TBR"
 
     rimDia = GetRimDia_Size(SIZE)
+    if tireGroup != 'TBR':
+        lstCDD = [[12.,337.],[13.,310.],[14.,335.],[15.,360.],[16.,385.],[17.,417.],[18.,442.],[19.,465.],[20.,490.],[21.,516.],[22.,542.],[23.,567.],[24.,592.],[26.,643.],[28.,694.]]
+    else: 
+        if overtype == 'SOT': 
+            lstCDD = [[16.0,377.2],[17.5,407.4],[19.5,458.4],[20.0,483.8],[22.5,528.4],[24.5,576.1]]
+        else:
+            lstCDD = [[15.0,440.],[16.0,460.],[17.5,529.4],[18.0,526.],[20.0,571.5],[22.0,640.],[22.5,660.4],[24.0,686.],[24.5,711.2]]
+    for rd in lstCDD: 
+        if rd[0] == rimDia: 
+            Ccd_Dia = rd[1]
+            break 
 
     npel = []
     for el in element: 
@@ -1912,6 +1924,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     center_minR = np.min(center_nodes[:,3]) *1000
     IL_Ga = (cc1MaxR-center_minR)
 
+
     f=open(axi[:-4]+"-material.dat", 'w')
     
     if len(mat_solids) == 0: 
@@ -1945,7 +1958,12 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
         f.write("*REBAR_SECTION\n")
         for mat in name_cords: 
-            if "BT" in mat:                           f.write("%4s,    BT, ES...., 120.0, 1.0, 1, Angle, Dia.OnDrum\n"%(mat))
+            if "BT" in mat:
+                if 'BT1' in mat: angle = btAngles[0]
+                if 'BT2' in mat: angle = btAngles[1]
+                if 'BT3' in mat: angle = btAngles[2]
+                if 'BT4' in mat: angle = btAngles[3]
+                f.write("%4s,    BT, ES...., 120.0, 1.0, 1, %.1f, Dia.OnDrum\n"%(mat, angle))
             elif "JEC" in mat or 'JFC' in mat :       f.write("%4s,    RB, ET...., 120.0, 1.0, 0, 0.0, Dia.OnDrum\n"%(mat))
             elif ("C0" in mat or "CC" in mat ) and tireGroup != 'TBR':  f.write("%4s,    CC, ET...., 120.0, 1.0, 0, 90.0, Dia.OnDrum\n"%(mat))
             elif ("C0" in mat or "CC" in mat ) and tireGroup == 'TBR':  f.write("%4s,    CC, ES...., 120.0, 1.0, 1, 90.0, Dia.OnDrum\n"%(mat))
@@ -1954,15 +1972,20 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
             elif "CH2" in mat  or "NCF" in mat:                      f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 30.0, 0.0\n"%(mat))
             elif "SPC" in mat  :                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 0.0,  0.0\n"%(mat))
         
-        f.write("*** Belt cord max radius lifted\n")
+        # f.write("*** Belt cord max radius lifted\n")
         for bt in beltHalfDia: 
-            f.write("***  %5s, %.4f\n"%(bt[0], bt[1]*beltLift))
+            f.write("*** Belt cord max radius lifted, %5s=%.4f\n"%(bt[0], bt[1]*beltLift))
         if len(reBtHalfDia) > 0: 
-            f.write("*** Reinforcement cord max radius lifted\n")
+            # f.write("*** Reinforcement cord max radius lifted\n")
             for bt in reBtHalfDia: 
-                f.write("***  %5s, %.4f\n"%(bt[0], bt[1]*beltLift))
+                f.write("*** Reinforcement cord max radius lifted, %5s=%.4f\n"%(bt[0], bt[1]*beltLift))
         f.write("*** Under carcass gauge =%.3f\n"%(IL_Ga))
-        f.write("*** Carcass drum Dia. %.3f\n"%(rimDia))
+        f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
+        f.write("*** Tire Center Min.Radius=%.3f\n"%(center_minR))
+        f.write("*********************************************************\n")
+        f.write("*INCLUDE, INP=%s\n"%(axi.split("/")[-1]))
+        f.write("*INCLUDE, INP=%s\n"%(trd.split("/")[-1]))
+        f.write("*********************************************************\n")
 
 
     else:
@@ -2050,7 +2073,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                             cordCord.append(mat[1])
                         elif "C0" in mat[0] :
                             nc = float(mat[0][-1])
-                            ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype="SOT", ga=mat[8]*1000, innerGa=IL_Ga, centerMinR=center_minR)   ## TBR : Side over tread based carcass drum dia.
+                            ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype=overtype, ga=mat[8]*1000, innerGa=IL_Ga, centerMinR=center_minR)   ## TBR : Side over tread based carcass drum dia.
                             if "ET" in mat[1]: 
                                 f.write("%4s,    CC, %s, 120.0, 1.0, 0,  90.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
                                                                         mat[0].strip(), mat[1], ccDia/2.0, mat[4], mat[2]*1000, mat[5], mat[6]))
@@ -2107,6 +2130,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                             cordCord.append(mat[1])
                         elif "C0" in mat[0] :
                             nc = float(mat[0][-1])
+                            carcassGa = mat[8]*1000
                             ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype="SOT", ga=mat[8]*1000, innerGa=IL_Ga, centerMinR=center_minR)   ## TBR : Side over tread based carcass drum dia.
                             if "ET" in mat[1]: 
                                 f.write("%4s,    CC, %s, 120.0, 1.0, 0,  90.0, %10.4f\n"%(mat[0].strip(), mat[1], ccDia/2.0))
@@ -2132,9 +2156,17 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
 
                         break 
 
-        if tireGroup == "TBR": f.write("*** Carcass is based on Side Over Tread, Belt Lift Ratio=%.3f\n"%(beltLift))
+        if tireGroup == "TBR": f.write("*** Belt Lift Ratio=%.3f\n"%(beltLift))
         else: f.write("*** Belt Lift Ratio=%.3f\n"%(beltLift))
+        for bt in beltHalfDia: 
+            f.write("*** Belt cord max radius lifted, %5s=%.4f\n"%(bt[0], bt[1]*beltLift))
+        if len(reBtHalfDia) > 0: 
+            for bt in reBtHalfDia: 
+                f.write("*** Reinforcement cord max radius lifted, %5s=%.4f\n"%(bt[0], bt[1]*beltLift))
         f.write("*** Under carcass gauge =%.3f\n"%(IL_Ga))
+        f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
+        f.write("*** #1 Carcass gauge =%.3f\n"%(carcassGa))
+        f.write("*** Tire Center Min.Radius=%.3f\n"%(center_minR))
         f.write("*********************************************************\n")
 
         name_compound = sorted(name_compound)
@@ -4099,13 +4131,34 @@ class MESH2D:
 
             if cnt == 2 and max(ht) > topmembrane[3]: 
                 solid_on_membrane = e 
-                if e[6] == 3 and f == 3: btm_face = 1
-                if e[6] == 3 and f == 5: btm_face = 2
-                if e[6] == 3 and f == 4: btm_face = 3
-                if e[6] == 4 and f == 2: btm_face = 1
-                if e[6] == 4 and f == 5: btm_face = 2
-                if e[6] == 4 and f == 7: btm_face = 3
-                if e[6] == 4 and f == 4: btm_face = 4
+                ix = np.where(npn[:,0]==e[1])[0][0]; n1=npn[ix]
+                ix = np.where(npn[:,0]==e[2])[0][0]; n2=npn[ix]
+                ix = np.where(npn[:,0]==e[3])[0][0]; n3=npn[ix]
+                if e[6] ==3: 
+                    b1 = (n1[3] + n2[2])/2.0
+                    b2 = (n2[3] + n3[2])/2.0
+                    b3 = (n3[3] + n1[2])/2.0
+                    if b1 < b2 and b1 < b3: 
+                        btm_face = 1 
+                    elif b2 < b1 and b2 < b3: 
+                        btm_face = 2 
+                    else: 
+                        btm_face = 3 
+                else:
+                    ix = np.where(npn[:,0]==e[4])[0][0]; n4=npn[ix]
+                    b1 = (n1[3] + n2[2])/2.0
+                    b2 = (n2[3] + n3[2])/2.0
+                    b3 = (n3[3] + n4[2])/2.0
+                    b4 = (n4[3] + n1[2])/2.0
+                    if b1 < b2 and b1 < b3 and b1 < b4: 
+                        btm_face = 1 
+                    elif b2 < b1 and b2 < b3 and b2 < b4 : 
+                        btm_face = 2 
+                    elif b3 < b1 and b3 < b2 and b3 < b4: 
+                        btm_face = 3 
+                    else: 
+                        btm_face = 4 
+
 
                 pos = btm_face -1 
                 neg = btm_face + 1
@@ -4384,8 +4437,32 @@ class MESH2D:
 
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
-        #############################################################       
+        #############################################################
+        # 
+        #        
         # element_to_delete.append(nextsolid[0])
+
+        ix = np.where(npn[:,0]==nextsolid[1])[0][0]; n1=npn[ix]
+        ix = np.where(npn[:,0]==nextsolid[2])[0][0]; n2=npn[ix]
+        ix = np.where(npn[:,0]==nextsolid[3])[0][0]; n3=npn[ix]
+        ix = np.where(npn[:,0]==nextsolid[4])[0][0]; n4=npn[ix]
+        b1 = (n1[3] + n2[2])/2.0
+        b2 = (n2[3] + n3[2])/2.0
+        b3 = (n3[3] + n4[2])/2.0
+        b4 = (n4[3] + n1[2])/2.0
+        if b1 < b2 and b1 < b3 and b1 < b4: 
+            btm_face = 1 
+        elif b2 < b1 and b2 < b3 and b2 < b4 : 
+            btm_face = 2 
+        elif b3 < b1 and b3 < b2 and b3 < b4: 
+            btm_face = 3 
+        else: 
+            btm_face = 4 
+        
+        neg = btm_face + 1
+        if neg > e[6] : neg = 1 
+
+
 
         ending = 0
         nf = neg 
@@ -4423,11 +4500,11 @@ class MESH2D:
                 if nmy < self.left_end[0]- 1.0e-03 : break 
             ## WARNING!! if there is a tie surface on the element, errer may occur  ###########################
             if ps[0] == nextsolid[0]:
-                print ("###########################")
-                print (nextsolid, next_face)
+                # print ("###########################")
+                # print (nextsolid, next_face)
                 nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=-1) 
-                print (" >> ", nextsolid, next_face)
-                print ("###########################")
+                # print (" >> ", nextsolid, next_face)
+                # print ("###########################")
                 
             ps = nextsolid       
             preface = next_face 
@@ -6342,6 +6419,23 @@ class PATTERN:
                 if len(ix) >    0 :             SF_fulldepthgroove.append(sf)
                 else:                           SF_subgroove.append(sf)
             self.SF_fulldepthgroove = np.array(SF_fulldepthgroove)
+            
+            
+            ###############
+            ## Error eccurs when the main groove bottom surface is also on the pattern side
+            ## this removes the surfaces on the pattern side from main groove bottom 
+            sideSolidIds = self.SF_pitchside[:,0]
+            sideSolidIds = np.unique(sideSolidIds)
+
+            i = 0 
+            while i < len( self.SF_fulldepthgroove):
+                idx = np.where(sideSolidIds[:]==self.SF_fulldepthgroove[i][0])[0]
+                if len(idx): 
+                    self.SF_fulldepthgroove = np.delete(self.SF_fulldepthgroove, i, axis=0 )
+                    continue 
+                i += 1
+            #############################################################
+
             SmoothPattern = 0 
             if len(self.SF_fulldepthgroove) ==0: 
                 btmn = []
@@ -12035,7 +12129,7 @@ class PATTERN:
             if indx[0] == indx[N]: continue 
             ## if the edges are closed, the 1st and the last node is the same. 
             ## in this case, we don't need to re-position the nodes 
-                
+            # print("3")
             trans=self.MoveNodesBetween2Nodes(N00=orgn[indx[0]], NN0=orgn[indx[N]], N01=self.npn[indx[0]], NN1=self.npn[indx[N]], orgn=orgn, indexes=indx)
 
             iN = len(indx)
@@ -12131,21 +12225,25 @@ class PATTERN:
                     indx.append(ndn)
                     trans0.append([orgn[ndn][0], orgn[ndn][1], orgn[ndn][2], orgn[ndn][3]])
                     # if orgn[ndn][0] == 3505+10**7: print ("**** 3505")
-
+                # print ("2")
+                if orgn[indx[0]][0]== orgn[indx[N]][0]: 
+                    continue 
                 trans=self.MoveNodesBetween2Nodes(N00=orgn[indx[0]], NN0=orgn[indx[N]], N01=self.npn[indx[0]], NN1=self.npn[indx[N]], orgn=orgn, indexes=indx)
-                pN=len(trans)
-                if N > 1: 
-                    for k in range(1, pN+1): 
-                        self.npn[indx[k]][1] = trans[k-1][1]
-                        self.npn[indx[k]][2] = trans[k-1][2]
-                        trans1.append(self.npn[indx[k]])
-                elif N == 1 and len(trans) ==1 :    ## 1 node
-                    # print ("  trans")
-                    ix = np.where(self.npn[:,0] == trans[0][0])[0][0]
-                    self.npn[ix][1] = trans[0][1]
-                    self.npn[ix][2] = trans[0][2]
-                    trans1.append(self.npn[ix])
-
+                try: 
+                    pN=len(trans)
+                    if N > 1: 
+                        for k in range(1, pN+1): 
+                            self.npn[indx[k]][1] = trans[k-1][1]
+                            self.npn[indx[k]][2] = trans[k-1][2]
+                            trans1.append(self.npn[indx[k]])
+                    elif N == 1 and len(trans) ==1 :    ## 1 node
+                        # print ("  trans")
+                        ix = np.where(self.npn[:,0] == trans[0][0])[0][0]
+                        self.npn[ix][1] = trans[0][1]
+                        self.npn[ix][2] = trans[0][2]
+                        trans1.append(self.npn[ix])
+                except:
+                    return 
         
         #######################################################################################
         ## if nodes are on main groove bottom(allbottomedges) but one of them does not translated, they should be moved. 
@@ -12711,7 +12809,7 @@ class PATTERN:
                 print ("%6d, %7.3f, %7.3f, %7.3f"%(NN0[0]-10**7, NN0[1]*1000, NN0[2]*1000, NN0[3]*1000))
                 for idx in indexes: 
                     print (" Node ID=%d"%(orgn[idx][0]-10**7))
-                sys.exit()
+                
 
             for i, ix in enumerate(indx): 
                 nix = N01[1] + (orgn[ix][1]- N00[1]) * ratio 
@@ -13302,7 +13400,7 @@ class PATTERN:
         for idx in edge_edge_index: 
             print (edge_group[idx[0]][0][3]-10**3, " ::", edge_group[idx[1]][0][3]-10**3)
 
-        sys.exit()
+        # sys.exit()
 
     def DivideEdgegroupByDistance(self, index, groups, nodes, distmargin, debug=0): 
         # if index == 0:      debug =1 
