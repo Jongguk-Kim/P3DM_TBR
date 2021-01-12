@@ -765,13 +765,13 @@ class Ui_MainWindow(object):
         self.radio_SOT.setText(_translate("MainWindow", "SOT"))
         self.radio_TOS.setText(_translate("MainWindow", "TOS"))
         self.label_bt1.setText(_translate("MainWindow", "Angle BT1"))
-        self.lineEdit_bt1.setText(_translate("MainWindow", "0"))
+        # self.lineEdit_bt1.setText(_translate("MainWindow", "0"))
         self.label_bt2.setText(_translate("MainWindow", "BT2"))
-        self.lineEdit_bt2.setText(_translate("MainWindow", "0"))
+        # self.lineEdit_bt2.setText(_translate("MainWindow", "0"))
         self.label_bt3.setText(_translate("MainWindow", "BT3"))
-        self.lineEdit_bt3.setText(_translate("MainWindow", "0"))
+        # self.lineEdit_bt3.setText(_translate("MainWindow", "0"))
         self.label_bt4.setText(_translate("MainWindow", "BT4"))
-        self.lineEdit_bt4.setText(_translate("MainWindow", "0"))
+        # self.lineEdit_bt4.setText(_translate("MainWindow", "0"))
         self.label_BSD.setText(_translate("MainWindow", "BSD"))
         self.lineEdit_BSD.setText(_translate("MainWindow", "0"))
         self.label_BDWidth.setText(_translate("MainWindow", "BD Width"))
@@ -847,7 +847,64 @@ class Ui_MainWindow(object):
         f.write("%s\n"%(directory))
         f.write("%s, %s, %s, %s\n"%(bt1, bt2, bt3, bt4))
         f.close()
-
+    def ChangeBTAngle(self, fname): 
+        with open(fname) as DB: 
+            lines = DB.readlines()
+        cmd = ''
+        NewLines=[]
+        for line in lines:
+            if "**" in line: 
+                NewLines.append(line)
+                continue 
+            if "*" in line:
+                NewLines.append(line)
+                if "REBAR_SECTION" in line: 
+                    cmd = "REBAR"
+                else:
+                    cmd = ''
+            else:
+                if cmd == "REBAR": 
+                    if "BT1" in line.upper():
+                        words = line.split(",")
+                        strAngle = "%6.1f"%(float(self.AngleBT1))
+                        words[6] =  strAngle
+                        nline = ""
+                        for wd in words:
+                            nline += wd+","
+                        NewLines.append(nline[:-2]+"\n")
+                    elif "BT2" in line.upper():
+                        words = line.split(",")
+                        strAngle = "%6.1f"%(float(self.AngleBT2))
+                        words[6] =  strAngle
+                        nline = ""
+                        for wd in words:
+                            nline += wd+","
+                        NewLines.append(nline[:-2]+"\n")
+                    elif "BT3" in line.upper():
+                        words = line.split(",")
+                        strAngle = "%6.1f"%(float(self.AngleBT3))
+                        words[6] =  strAngle
+                        nline = ""
+                        for wd in words:
+                            nline += wd+","
+                        NewLines.append(nline[:-2]+"\n")
+                    elif "BT4" in line.upper():
+                        words = line.split(",")
+                        strAngle = "%6.1f"%(float(self.AngleBT4))
+                        words[6] =  strAngle
+                        nline = ""
+                        for wd in words:
+                            nline += wd+","
+                        NewLines.append(nline[:-2]+"\n")
+                    else: 
+                        NewLines.append(line)
+                    
+                else:
+                    NewLines.append(line)
+        f = open(fname, 'w')
+        for line in NewLines:
+            f.write(line)
+        f.close()
     def Update_ISLM_Material(self): 
         self.materialDir = self.lineEdit_materialDir.text()
         self.AngleBT1=self.lineEdit_bt1.text()
@@ -860,6 +917,13 @@ class Ui_MainWindow(object):
         fileListFile = 'ISLM_materialList.txt'
         ISLM_cordDBFile="ISLM_CordDBName.dat"
         
+        
+        try:
+            matFile = self.fullmeshSave + "-material.dat"
+            self.ChangeBTAngle(matFile)
+        except:
+            # print("## No material file")
+            pass 
 
         host = '10.82.66.65'
         user = 'h20200155'

@@ -1291,14 +1291,6 @@ class Ui_Dialog(object):
     def readDefault(self, fname)    : 
         with open(fname) as fp: 
             lines = fp.readlines()
-
-        # f = open(fname, 'r')
-        # lines =[]
-        # line = f.readline()
-        # while line: 
-        #     lines.append(line) 
-        #     line = f.readline()
-        # f.close()
         
         for line in lines: 
             words = line.split("=")
@@ -1323,8 +1315,6 @@ class Ui_Dialog(object):
                     data = words[1].split(",")
                     self.kerfContact = int(data[0])
                     self.cavityContact = int(data[1].strip())
-                # if "groove depth" in line : 
-                #     self.GD = float(words[1].strip())
                 
                 if "Temperature Analysis" in line : 
                     self.TemperatureAnalysis = float(words[1].strip())
