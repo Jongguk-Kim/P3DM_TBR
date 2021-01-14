@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>900</height>
+    <height>905</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -799,47 +799,15 @@
            </widget>
           </item>
           <item>
-           <widget class="QLabel" name="label_OverType">
+           <widget class="QCheckBox" name="checkBox_overType">
             <property name="maximumSize">
              <size>
-              <width>65</width>
-              <height>15</height>
+              <width>180</width>
+              <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>Over Type :</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="radio_SOT">
-            <property name="maximumSize">
-             <size>
-              <width>50</width>
-              <height>15</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>SOT</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="radio_TOS">
-            <property name="maximumSize">
-             <size>
-              <width>50</width>
-              <height>15</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>TOS</string>
+             <string>TBR : Tread Over Side</string>
             </property>
            </widget>
           </item>
@@ -1052,7 +1020,7 @@
              </size>
             </property>
             <property name="text">
-             <string>Design RW</string>
+             <string>PCI RW</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>

@@ -17,6 +17,7 @@ class Ui_Dialog(object):
             lines = In.readlines()
         self.solid=[]
         self.NoMaterial=[]
+        self.includingMaterial=[]
         self.rebar = []
         self.beltRadius=[]
         self.underCcGa=1.0
@@ -85,6 +86,14 @@ class Ui_Dialog(object):
                     data = line.split(",")
                     self.trd = data[1].split("=")[1].strip()
                     mat = ""
+                if "INCLUDE, INP" in line and (".pyn" in line.lower() or ".cor" in line.lower()): 
+                    data = line.split(",")
+                    data = data[1].split("=")[1].strip()
+                    data = data.split("/")[-1]
+                    self.includingMaterial.append(data)
+                    mat = ""
+                
+                
             else: 
                 if mat == "SOLID": 
                     data = line.split(",")
@@ -106,8 +115,7 @@ class Ui_Dialog(object):
                     self.Between=data[0]
                     self.btSubtraction=float(data[1].strip())
 
-
-    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD): 
+    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw): 
         
 
         self.saveFile = fullmeshSave + "-SMART.inp"
@@ -158,10 +166,7 @@ class Ui_Dialog(object):
 
         self.PCI = 1 
         self.LowCure = 0 
-        self.BSD = 0 
-        self.BDWidth = 0.0 
-        self.PCIPress = 0.0 
-        self.PCIRW = 0.0
+        
         
         self.rimFriction = 1.0 
         self.roadFriction=[0, 0, 0, 0, 0, 0, 0, 0]
@@ -188,8 +193,13 @@ class Ui_Dialog(object):
         self.materialFile = fullmeshSave + "-material.dat"
         self.readMaterial(self.materialFile)
 
+        self.BSD = bsd 
+        self.BDWidth = bdw 
+        self.PCIPress = pciPress 
+        self.PCIRW = drw 
 
-    def setupUi(self, Dialog):
+
+    def setupUi(self, Dialog, pciPress):
         Dialog.setObjectName("Dialog")
         Dialog.resize(1172, 1044)
         self.groupBox = QtWidgets.QGroupBox(Dialog)
@@ -731,7 +741,7 @@ class Ui_Dialog(object):
         self.Edit_materialPosition = QtWidgets.QLineEdit(self.groupBox_9)
         self.Edit_materialPosition.setGeometry(QtCore.QRect(63, 22, 261, 20))
         self.Edit_materialPosition.setObjectName("Edit_materialPosition")
-        self.Edit_materialPosition.setDisabled(True)
+        # self.Edit_materialPosition.setDisabled(True)
 
         self.label_74 = QtWidgets.QLabel(self.groupBox_9)
         self.label_74.setGeometry(QtCore.QRect(13, 22, 51, 16))
@@ -740,9 +750,9 @@ class Ui_Dialog(object):
         self.Edit_cordFile.setGeometry(QtCore.QRect(370, 23, 341, 20))
         self.Edit_cordFile.setObjectName("Edit_cordFile")
         self.label_75 = QtWidgets.QLabel(self.groupBox_9)
-        self.label_75.setGeometry(QtCore.QRect(310, 23, 61, 16))
+        self.label_75.setGeometry(QtCore.QRect(330, 23, 61, 16))
         self.label_75.setObjectName("label_75")
-        self.Edit_cordFile.setDisabled(True)
+        # self.Edit_cordFile.setDisabled(True)
 
 
         self.Edit_beltLift = QtWidgets.QLineEdit(self.groupBox_9)
@@ -945,10 +955,13 @@ class Ui_Dialog(object):
         self.Edit_BSD.setText(str(self.BSD))
         self.Edit_coreWidth.setText(str(self.BDWidth))
         
+        
         self.Edit_PCI_RW_mm.setText(str(self.PCIRIMW))
         self.Edit_PCI_RW_inch.setText(str(round(self.PCIRIMW/25.4, 1)))
         self.Edit_axiFile.setText(self.axi)
         self.Edit_trdFile.setText(self.trd)
+        
+        self.PCIPress = pciPress 
         self.Edit_PCI_press_kPa.setText( str(round(self.PCIPress*98.07, 2)))
         self.Edit_PCI_press_psi.setText( str(round(self.PCIPress*14.22, 2)))
         self.Edit_PCI_press_kgf.setText( str(self.PCIPress))
@@ -990,6 +1003,8 @@ class Ui_Dialog(object):
 
         self.Edit_PCI_RW_mm.returnPressed.connect(self.PCIRWmm)
         self.Edit_PCI_RW_inch.returnPressed.connect(self.PCIRWInch)
+
+        self.TempReadInOut()
 
     def tireGroupChange(self): 
         if self.radio_PCR.isChecked(): 
@@ -1037,7 +1052,9 @@ class Ui_Dialog(object):
                 sd[7] = round(rad, 4)
             if "C0" in sd[0] or "CC" in sd[0]: 
                 layer = float(sd[0][-1])
-                rad = self.carcassDrumDia/2.0 + self.underCcGa * (self.tireCenterMinR/self.carcassDrumDia) + self.carcassGa*(layer - 0.5)
+                ccr = self.carcassDrumDia/2.0
+                rad = ccr + self.underCcGa * (self.tireCenterMinR/ccr) + self.carcassGa*(layer - 0.5)
+                # print (self.carcassDrumDia, "*inner Ga=", self.underCcGa, layer, "cc ga", self.carcassGa, "lift", self.tireCenterMinR/self.carcassDrumDia)
                 sd[7] = round(rad, 4)
             self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
             self.tableWidget.setItem(i+ nSD, 7,  QtWidgets.QTableWidgetItem( str(sd[5])) )
@@ -1098,17 +1115,19 @@ class Ui_Dialog(object):
             f.write("*CONDITION_LOAD   =  %s, %s, %s, %s\n"%(self.Edit_pressKgf.text(), self.Edit_pressKgf.text(), self.Edit_loadKgf.text(),self.Edit_velocity.text()))
         
         f.write("*CAMBER_ANGLE     =  %s\n"%(self.Edit_camber.text()))
-        if self.check_lateralForce.isChecked(): 
-            f.write("*LATERAL_CONTROL  =  0, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
+        if not self.check_lateralForce.isChecked(): 
+            f.write("*LATERAL_CONTROL  =  0, %s\n"%(self.Edit_lateral.text()))
         else:
-            f.write("*LATERAL_CONTROL  =  1, %s\n"%(self.Edit_lateral.text()))
-        if float(self.Edit_angularVelocity.text()) == 0: 
-            f.write("*ROTATION_CONTROL =  0, 0.0\n")
+            f.write("*LATERAL_CONTROL  =  1, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
+
+        if not self.check_rotationForce.isChecked():
+            if float(self.Edit_angularVelocity.text()) == 0: 
+                f.write("*ROTATION_CONTROL =  0, 0.0\n")
+            else: 
+                f.write("*ROTATION_CONTROL =  0, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
         else:
-            if self.check_rotationForce.isChecked(): 
-                f.write("*ROTATION_CONTROL =  0, %.1f, %s\n"%(float(self.Edit_Rotation.text())*9.81, self.Edit_angularVelocity.text()))
-            else:
-                f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+            # f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+            f.write("*ROTATION_CONTROL =  1, %.1f\n"%(float(self.Edit_Rotation.text())*9.81))
 
         f.write("*ROAD_GEOM        =  %.3f ( road=0, drum or disc.=diameter in meter: RR(1.707), CLEAT(2.50), Wear(3.048), LAT100(0.317) )\n"%(float(self.Edit_RoadDia.text())))
         f.write("*RIM_GEOM         =  %.1f, %.1f, %s\n"%(float(self.Edit_RDmm.text())/2.0, float(self.Edit_RWmm.text())/2.0, self.Edit_RimGeo.text()))
@@ -1196,20 +1215,9 @@ class Ui_Dialog(object):
                 f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] ))
         f.write("*****************************************************************************************************************************\n")
         
-        i = 0 
-        while i < len(compounds): 
-            j = i+1 
-            while j < len(compounds): 
-                if compounds[i]==compounds[j]: 
-                    del(compounds[j])
-                    continue 
-                j += 1
-            i += 1
-
-        position = self.Edit_materialPosition.text()
-        if position[-1] =='/': position = position[:-1]
-        for solid in compounds: 
-            f.write("*INCLUDE, INP=%s/%s.PYN\n"%(self.Edit_materialPosition.text(), solid ))
+        for solid in self.includingMaterial:
+            f.write("*INCLUDE, INP=%s/%s\n"%(self.Edit_materialPosition.text(), solid ))
+        
         f.write("*****************************************************************************************************************************\n")
         f.write("*INCLUDE, INP=%s\n"%(self.Edit_axiFile.text()))
         f.write("*INCLUDE, INP=%s\n"%(self.Edit_trdFile.text()))
@@ -1679,9 +1687,9 @@ class Ui_Dialog(object):
         self.label_64.setText(_translate("Dialog", "m"))
         self.groupBox_9.setTitle(_translate("Dialog", "Material Properties"))
         self.Edit_materialPosition.setText(_translate("Dialog",  str(self.material)))
-        self.label_74.setText(_translate("Dialog", "Position"))
+        self.label_74.setText(_translate("Dialog", "Comp'd"))
         self.Edit_cordFile.setText(_translate("Dialog",  str(self.cord)))
-        self.label_75.setText(_translate("Dialog", "Cord File"))
+        self.label_75.setText(_translate("Dialog", "Cord"))
 
         self.label_76.setText(_translate("Dialog", "Belt Thickness Subtraction"))
         self.Edit_beltThickSubtraction.setText(_translate("Dialog", str(self.btSubtraction)))
@@ -1701,6 +1709,19 @@ class Ui_Dialog(object):
         self.label_camber.setText(_translate("Dialog", "Camber"))
 
         self.Edit_RimGeo.setText(_translate("Dialog", "/home/fiper/ISLM_RIM/RIM_PCLT.GEOM"))
+
+        ###########################################################
+        ## Tips..
+        self.Edit_RoadDia.setToolTip(_translate("Dialog", "<html><head/><body><p>Flat = 0.0</p><p>RR = 1.707</p><p>Cleat = 2.5 </p><p>Wear = 3.048 </p><p>LAT100 = 0.317</p></body></html>"))
+        self.Edit_totalTime.setToolTip(_translate("Dialog", "<html><head/><body><p>Physical simulation time</p></body></html>"))
+        self.Edit_DT_ratio.setToolTip(_translate("Dialog", "<html><head/><body><p>IF =1.0=&gt;VARIABLE</p><p>IF &lt; 1.0 =&gt; FIXED FOR FFT</p></body></html>"))
+        self.Edit_massScale.setToolTip(_translate("Dialog", "<html><head/><body><p>Default : 1.02</p></body></html>"))
+        self.Edit_grooveDepth.setToolTip(_translate("Dialog", "<html><head/><body><p>Unit: [mm]</p></body></html>"))
+        self.Edit_rimCavityHeight.setToolTip(_translate("Dialog", "<html><head/><body><p>Rim Added Depth</p></body></html>"))
+        self.Edit_rimCavityWidth.setToolTip(_translate("Dialog", "<html><head/><body><p>Rim Added Width</p></body></html>"))
+        self.Edit_RimMass.setToolTip(_translate("Dialog", "<html><head/><body><p>RIM=1.0</p><p>LAT100=0.05</p><p>NPT=1.0</p></body></html>"))
+        self.Edit_beltThickSubtraction.setToolTip(_translate("Dialog", "<html><head/><body><p>Unit :[m]</p></body></html>"))
+        ###########################################################
 
 if __name__ == "__main__":
     import sys

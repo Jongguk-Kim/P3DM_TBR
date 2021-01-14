@@ -75,33 +75,33 @@ TireCordComponents = [
     #'SWS'    # temporary component for Endurance simulation 
 ]
 
-def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='SOT', ga=1.0, innerGa=0.0, centerMinR=0):
-
+def GetCarcassDrumDia(group="PCR", inch=16.0, overtype=''): 
     if group != 'TBR':
         lstCDD = [[12.,337.],[13.,310.],[14.,335.],[15.,360.],[16.,385.],[17.,417.],[18.,442.],[19.,465.],[20.,490.],[21.,516.],[22.,542.],[23.,567.],[24.,592.],[26.,643.],[28.,694.]]
         for cdd in lstCDD:
             if cdd[0] == inch: 
-                CcDia = cdd[1] + ga*(layer-0.5) + innerGa * (centerMinR/cdd[1])
-                return CcDia
+                return cdd[1]
     else: 
         if overtype == 'SOT': 
             lstCDD = [[16.0,377.2],[17.5,407.4],[19.5,458.4],[20.0,483.8],[22.5,528.4],[24.5,576.1]]
         else:
             lstCDD = [[15.0,440.],[16.0,460.],[17.5,529.4],[18.0,526.],[20.0,571.5],[22.0,640.],[22.5,660.4],[24.0,686.],[24.5,711.2]]
-        
         CcDia = 0 
         for cdd in lstCDD:
             if cdd[0] == inch: 
-                CcDia = cdd[1] + ga*(layer-0.5)+ innerGa * (centerMinR/cdd[1])
-                break 
+                return cdd[1]
         if CcDia ==0: 
             lstCDD = [[15.0,440.],[16.0,460.],[17.5,529.4],[18.0,526.],[20.0,571.5],[22.0,640.],[22.5,660.4],[24.0,686.],[24.5,711.2]]
             for cdd in lstCDD:
                 if cdd[0] == inch: 
-                    CcDia = cdd[1] + ga*(layer-0.5) + innerGa * (centerMinR/cdd[1])
-                    break 
+                    return cdd[1]
 
-        return CcDia
+def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='', ga=1.0, innerGa=0.0, centerMinR=0):
+    cdd = GetCarcassDrumDia(group=group, inch=inch, overtype=overtype)
+    ccr = cdd/2 
+    CcDia = (ccr + ga*(layer-0.5) + innerGa * (centerMinR/ccr))*2.0
+    # print (cdd, "inner Ga=", innerGa, layer, "cc ga", ga, "lift", centerMinR/cdd)
+    return CcDia
 
 
 # def Printlist(List, **kwargs): 
@@ -1296,7 +1296,8 @@ def FindSolidElementBetweenMembrane(m1, m2, Elements):
             if cnt ==2: 
                 break 
     return between     
-def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000, no_tread=10**7, abaqus=0, materialDir='', btAngles=[], overtype="SOT"): 
+def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000,\
+     no_tread=10**7, abaqus=0, materialDir='', btAngles=[], overtype="SOT", PCIPress="", bdw=0 ): 
 
     tread=ELEMENT()
     body = ELEMENT()
@@ -1552,7 +1553,8 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     f.close()
     
     if abaqus ==0: 
-        SmartMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element, materialDir=materialDir, btAngles=btAngles, overtype=overtype)
+        SmartMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element,\
+             materialDir=materialDir, btAngles=btAngles, overtype=overtype, PCIPress=PCIPress, bdw=bdw)
     # else:
     #     AbaqusMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element)
 
@@ -1679,7 +1681,7 @@ def Equivalent_density_calculation(cute_mesh, filename=""):
     # f.write("** CMP, CODE, density, Volume(m3), Weight(kg)\n")
 
     # f.write("*REBAR\n")
-    CCT = [];     BTT = [];     JEC = []; JFC=[]
+    CCT = [];     BTT = [];     JEC = []; JFC=[]; OJFC=[]
     BDC = [];     SCT = [];     NCT = []
     if len(roll) > 0: 
         for sd in roll: 
@@ -1687,40 +1689,67 @@ def Equivalent_density_calculation(cute_mesh, filename=""):
             name = name[2:]
             code =sd[1]
             structure = sd[2]
+            # try: 
+            EPI = float(sd[3])
+            dia = float(sd[4])/1000.0
+            topping = sd[5]
+            ga = float(sd[6]) /1000
+            cf = float(sd[7])
+            rf = float(sd[8])
+            
             try: 
-                EPI = float(sd[3])
-                dia = float(sd[4])/1000.0
-                topping = sd[5]
-                ga = float(sd[6]) /1000
-                cf = float(sd[7])
-                rf = float(sd[8])
                 wt = float(sd[11])
-                if "ES" in code: 
-                    Area = Area_steel_cord(structure)
-                else: 
-                    Area = PI * dia**2 / 4.0 
-
-                toping_density = rf*10.0 / ga /1000
-                cord_density =  cf / 100.0 / Area / 39.37 / EPI
-                line_density = cf * 10.0 /39.37 / EPI 
-                real_rubber_volume = ga - Area * 39.37 * EPI 
-                topping_real_density = rf*10 / real_rubber_volume /1000
-
-                # f.write("%6s, %8s, %.5f, %.5f, %.5e, %.5f, %.5f, %.5f, %.3f, %.3f, %.3e\n"%(\
-                #         name, code, toping_density, cord_density, line_density, topping_real_density, rf, cf, wt * cf/(cf+rf), wt * rf/(cf+rf), Area))
-                mat_cords.append([name, code, toping_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
-                if "C01" in name:   CCT = [name, topping, toping_density, float(sd[10])/10**9, wt * rf/(cf+rf)]
-                if "BT2" in name:   
-                    BTT = [name, topping, toping_density, float(sd[10])/10**9, wt * rf/(cf+rf)]
-                    bt_gauge = dia / 2.0 * 1.772454
-                if "JEC" in name:   JEC = [name, topping, toping_density, float(sd[10])/10**9, wt * rf/(cf+rf)]
-                if "JFC" in name:   JFC = [name, topping, toping_density, float(sd[10])/10**9, wt * rf/(cf+rf)]
-                # if "BDC" in name:   BDC = [name, topping, toping_density, float(sd[10])/10**9, wt * rf/(cf+rf)]
-                if "CH1" in name:   SCT = [name, topping, toping_density, float(sd[10])/10**9, wt * rf/(cf+rf)]
-                if "CH2" in name:   NCT = [name, topping, toping_density, float(sd[10])/10**9, wt * rf/(cf+rf)]
-                
             except:
-                pass 
+                wt = 1.0
+            if "ES" in code: 
+                Area = Area_steel_cord(structure)
+            else: 
+                if dia ==0: 
+                    dia = ga - 0.7e-3
+                Area = PI * dia**2 / 4.0 
+                
+
+            toping_density = rf*10.0 / ga /1000
+            if Area != 0.0 : 
+                cord_density =  cf / 100.0 / Area / 39.37 / EPI
+            else: 
+                cord_density =  cf / 100.0 / Area / 39.37 / EPI
+
+            line_density = cf * 10.0 /39.37 / EPI 
+            real_rubber_volume = ga - Area * 39.37 * EPI 
+            topping_real_density = rf*10 / real_rubber_volume /1000
+
+            
+
+            # f.write("%6s, %8s, %.5f, %.5f, %.5e, %.5f, %.5f, %.5f, %.3f, %.3f, %.3e\n"%(\
+            #         name, code, toping_density, cord_density, line_density, topping_real_density, rf, cf, wt * cf/(cf+rf), wt * rf/(cf+rf), Area))
+            
+            if cf + rf == 0.0: 
+                mat_cords.append([name, code, toping_density, cord_density, line_density, 0.0, Area, topping, ga])
+                rubber_weight = 0.0
+                cord_weight =0.0
+            else: 
+                mat_cords.append([name, code, toping_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
+                rubber_weight = wt * rf/(cf+rf)
+                cord_weight = wt * cf/(cf+rf)
+
+            # print ("%6s, %8s, %.5f, %.5f, %.5e, %.5f, %.5f, %.5f, %.3f, %.3f, %.3e\n"%(\
+            #          name, code, toping_density, cord_density, line_density, topping_real_density, rf, cf, cord_weight, rubber_weight, Area))
+
+
+            if "C01" in name:   CCT = [name, topping, toping_density, float(sd[10])/10**9, rubber_weight]
+            if "BT2" in name:   
+                BTT = [name, topping, toping_density, float(sd[10])/10**9, rubber_weight]
+                bt_gauge = dia / 2.0 * 1.772454
+            if "JEC" in name:   JEC = [name, topping, toping_density, float(sd[10])/10**9,  rubber_weight]
+            if "JFC" in name:   JFC = [name, topping, toping_density, float(sd[10])/10**9, rubber_weight]
+            if "OJFC" in name:   OJFC = [name, topping, toping_density, float(sd[10])/10**9, rubber_weight]
+            # if "BDC" in name:   BDC = [name, topping, toping_density, float(sd[10])/10**9, rubber_weight]
+            if "CH1" in name:   SCT = [name, topping, toping_density, float(sd[10])/10**9, rubber_weight]
+            if "CH2" in name:   NCT = [name, topping, toping_density, float(sd[10])/10**9, rubber_weight]
+                
+            # except:
+            #     pass 
 
     # f.write("** CMP, CODE, Equi-Toping Density, Equi-Cord Dentidy, Line Density, Real-topping density, Rubber factor, cord factor, volume, cord_wt, rubber_wt, area\n")
 
@@ -1734,9 +1763,12 @@ def Equivalent_density_calculation(cute_mesh, filename=""):
     if len(JEC) > 0 and len(JFC) ==0 : 
         mat_solids.append(['JBT', JEC[1], JEC[2], JEC[3], JEC[4]])
         # f.write("%6s, %7s, %.5f, %.3e, %.5f\n"%('JBT', JEC[1], JEC[2], JEC[3], JEC[4] ))
-    if len(JFC) > 0: 
+    if len(JFC) > 0  and len(OJFC) ==0 : 
         # f.write("%6s, %7s, %.5f, %.3e, %.5f\n"%('JBT', JFC[1], JFC[2], JFC[3], JFC[4] ))
-        mat_solids.append(['JBT', JEC[1], JEC[2], JEC[3], JEC[4]])
+        mat_solids.append(['JBT', JFC[1], JFC[2], JFC[3], JFC[4]])
+    if len(OJFC) > 0: 
+        # f.write("%6s, %7s, %.5f, %.3e, %.5f\n"%('JBT', JFC[1], JFC[2], JFC[3], JFC[4] ))
+        mat_solids.append(['JBT', OJFC[1], OJFC[2], OJFC[3], OJFC[4]])
     # if len(BDC) > 0: f.write("%6s, %7s, %.5f, %.3e, %.5f\n"%("BDT", BDC[1], BDC[2], BDC[3], BDC[4] ))
     if len(SCT) > 0: 
         mat_solids.append(['SCT', SCT[1], SCT[2], SCT[3], SCT[4] ])
@@ -1838,7 +1870,9 @@ def GetRimDia_Size(size=""):
     return rd 
 
 
-def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[], materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[], overtype='SOT'): 
+def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[], \
+    materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[], overtype='',\
+         PCIPress="", bdw=0): 
 
     equ_Density = 0 
     name_solids, name_cords = SolidComponents_checking(axi=axi, trd=trd, return_value=1)
@@ -1869,17 +1903,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     if "TB" in tireGroup: tireGroup="TBR"
 
     rimDia = GetRimDia_Size(SIZE)
-    if tireGroup != 'TBR':
-        lstCDD = [[12.,337.],[13.,310.],[14.,335.],[15.,360.],[16.,385.],[17.,417.],[18.,442.],[19.,465.],[20.,490.],[21.,516.],[22.,542.],[23.,567.],[24.,592.],[26.,643.],[28.,694.]]
-    else: 
-        if overtype == 'SOT': 
-            lstCDD = [[16.0,377.2],[17.5,407.4],[19.5,458.4],[20.0,483.8],[22.5,528.4],[24.5,576.1]]
-        else:
-            lstCDD = [[15.0,440.],[16.0,460.],[17.5,529.4],[18.0,526.],[20.0,571.5],[22.0,640.],[22.5,660.4],[24.0,686.],[24.5,711.2]]
-    for rd in lstCDD: 
-        if rd[0] == rimDia: 
-            Ccd_Dia = rd[1]
-            break 
+    Ccd_Dia = GetCarcassDrumDia(group=tireGroup, inch=rimDia, overtype=overtype) 
 
     npel = []
     for el in element: 
@@ -1900,7 +1924,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 if zMax < npn[nix][3]: 
                     zMax = npn[nix][3]
             beltHalfDia.append([eset[0], zMax/beltLift*1000])
-        if "JEC" in eset[0] or "JFC" in eset[0]: 
+        if "JEC" in eset[0] or "JFC" in eset[0] or "OJF" in eset[0]: 
             N = len(eset)
             zMax = 0
             for k in range(1, N): 
@@ -1916,6 +1940,25 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 nix = np.where(npn[:,0] == npel[ix][1])[0][0]
                 if cc1MaxR < npn[nix][3]: 
                     cc1MaxR = npn[nix][3]
+
+    ## check OJFC is or not 
+    f1 = 0; f2 = 0; f3 = 0
+    for re in reBtHalfDia: 
+        if "OJFC1" in re[0]: f1 = re[1]
+        if "OJFC2" in re[0]: f2 = re[1]
+        if "OJFC3" in re[0]: f3 = re[1]
+    if f1 > 0: 
+        for i, re in enumerate(reBtHalfDia): 
+            if "JFC1" == re[0] : reBtHalfDia[i][1] = f1 
+    if f2 > 0: 
+        for i, re in enumerate(reBtHalfDia): 
+            if "JFC2" == re[0] : reBtHalfDia[i][1] = f2 
+    if f3 > 0: 
+        for i, re in enumerate(reBtHalfDia): 
+            if "JFC3" == re[0] : reBtHalfDia[i][1] = f3 
+
+
+            
     cc1MaxR *= 1000
     ixn = np.where(npn[:,2]>-0.001)[0]
     ixp = np.where(npn[:,2]< 0.001)[0]
@@ -1932,21 +1975,21 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*********************************************************\n")
         f.write("*SOLID_SECTION, (SOL, MAT)\n")
         for mat in name_solids: 
-            f.write("%4s,    ,   120,  1.0\n"%(mat))
+            if "BD1" in mat : 
+                f.write("%4s, ABW121A,   120,  1.0\n"%(mat))
+            else: 
+                f.write("%4s,        ,   120,  1.0\n"%(mat))
         
         f.write("*********************************************************\n")
         f.write("*BELT_THICKNESS_SUBTRACTION,\n")
         f.write(" BETWEEN_BELTS, 4.61E-04\n")
         
-        bdwidth = 5.0
-        with open('bead.tmp') as BDW:
-            lines = BDW.readlines()
-        bdwidth = float(lines[0].strip())
+        bdwidth = bdw
 
         try:
             if tireGroup != 'TBR': 
-                f.write("*IN_MOLDING_PCI_INFO, TYPE=0 ,LOWCURE=0, BSD=   , PCIRIMW=%.1f, BDWIDTH=%.3f, PCIPRS=2.0\n"%(\
-                    RW, bdwidth))
+                f.write("*IN_MOLDING_PCI_INFO, TYPE=0 ,LOWCURE=0, BSD=   , PCIRIMW=%.1f, BDWIDTH=%.3f, PCIPRS=%s\n"%(\
+                    RW, bdwidth, PCIPress))
             else: 
                 f.write("*IN_MOLDING_PCI_INFO, TYPE=1 ,LOWCURE=1, BSD=   , PCIRIMW=%.1f, BDWIDTH=%.3f, PCIPRS=0\n"%(\
                     RW, bdwidth))
@@ -1957,6 +2000,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
 
         f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
         f.write("*REBAR_SECTION\n")
+        
         for mat in name_cords: 
             if "BT" in mat:
                 if 'BT1' in mat: angle = btAngles[0]
@@ -1964,7 +2008,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 if 'BT3' in mat: angle = btAngles[2]
                 if 'BT4' in mat: angle = btAngles[3]
                 f.write("%4s,    BT, ES...., 120.0, 1.0, 1, %.1f, Dia.OnDrum\n"%(mat, angle))
-            elif "JEC" in mat or 'JFC' in mat :       f.write("%4s,    RB, ET...., 120.0, 1.0, 0, 0.0, Dia.OnDrum\n"%(mat))
+            elif "JEC" in mat or 'JFC' in mat or 'OJF' in mat:       f.write("%4s,    RB, ET...., 120.0, 1.0, 0, 0.0, Dia.OnDrum\n"%(mat))
             elif ("C0" in mat or "CC" in mat ) and tireGroup != 'TBR':  f.write("%4s,    CC, ET...., 120.0, 1.0, 0, 90.0, Dia.OnDrum\n"%(mat))
             elif ("C0" in mat or "CC" in mat ) and tireGroup == 'TBR':  f.write("%4s,    CC, ES...., 120.0, 1.0, 1, 90.0, Dia.OnDrum\n"%(mat))
             elif "BD" in mat  :                       f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 45.0, 0.0\n"%(mat))
@@ -2028,11 +2072,11 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
 
         f.write("*********************************************************\n")
         f.write("*BELT_THICKNESS_SUBTRACTION,\n")
-        f.write(" BETWEEN_BELTS, %.2E\n"%(BT_cord_Ga))
-        bdwidth = 5.0
-        with open('bead.tmp') as BDW:
-            lines = BDW.readlines()
-        bdwidth = float(lines[0].strip())
+        if BT_cord_Ga !=0: 
+            f.write(" BETWEEN_BELTS, %.2E\n"%(BT_cord_Ga))
+        else: 
+            f.write(" BETWEEN_BELTS, %.2E\n"%(4.61e-04))
+        bdwidth = bdw
         
         if tireGroup != 'TBR': 
             f.write("*IN_MOLDING_PCI_INFO, TYPE=0 ,LOWCURE=0, BSD=%.1f, PCIRIMW=%.1f, BDWIDTH=%.3f, PCIPRS=2.0\n"%(\
@@ -2045,10 +2089,11 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
         f.write("*REBAR_SECTION\n")
         cordCord = []
+        carcassGa = 1.0
         if equ_Density ==1: 
             for name in name_cords:
                 for mat in mat_cords:
-                    if name == mat[0].strip():  
+                    if name == mat[0].strip() or ( "OJF" in name  and "JFC" in mat[0]):  
                         ## mat_cords.append([name, code, toping_density, cord_density, line_density])
                         name_compound.append(mat[7][-3:])
                         if "BT" in mat[0]:
@@ -2063,13 +2108,17 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                             f.write("%4s,    BT, %s, 120.0, 1.0, 1, %5.1f, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
                                     mat[0].strip(), mat[1], angle, bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
                             cordCord.append(mat[1])
-                        elif "JEC" in mat[0] or 'JFC' in mat[0] :       
+                        elif "JEC" in mat[0] or 'JFC' in mat[0] or 'OJF' in mat[0]:  
                             for dia in reBtHalfDia: 
-                                if dia[0] == mat[0].strip(): 
+                                if dia[0] == mat[0].strip()  or ( "OJF" in dia[0] and "JFC" in mat[0]): 
                                     bthalfDia = dia[1]
                                     break 
-                            f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                    mat[0].strip(), mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
+                            if "OJF" in name: 
+                                f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                        dia[0], mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
+                            else:
+                                f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                        mat[0], mat[1], bthalfDia, mat[4], mat[2]*1000, mat[5], mat[6]))
                             cordCord.append(mat[1])
                         elif "C0" in mat[0] :
                             nc = float(mat[0][-1])
@@ -2106,7 +2155,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         else:
             for name in name_cords:
                 for mat in mat_cords:
-                    if name == mat[0].strip():  
+                    if name == mat[0].strip() or ("OJF" in name and "JFC" in mat[0]):  
                         ## mat_cords.append([name, code, toping_density, cord_density, line_density])
                         name_compound.append(mat[7][-3:])
                         if "BT" in mat[0]:
@@ -2120,18 +2169,22 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                             if 'BT4' in mat[0]: angle = btAngles[3]
                             f.write("%4s,    BT, %s, 120.0, 1.0, 1, %5.1f, %10.4f\n"%(mat[0].strip(), mat[1], angle, bthalfDia))
                             cordCord.append(mat[1])
-                        elif "JEC" in mat[0] or 'JFC' in mat[0] :       
+                        elif "JEC" in mat[0] or 'JFC' in mat[0] or 'OJF' in mat[0] : 
                             for dia in reBtHalfDia: 
-                                if dia[0] == mat[0].strip(): 
+                                if dia[0] == mat[0].strip()  or ("OJF" in dia[0] and "JFC" in mat[0]): 
                                     bthalfDia = dia[1]
                                     break 
-                            f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f\n"%(\
-                                    mat[0].strip(), mat[1], bthalfDia))
+                            if "OJF" in name: 
+                                f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f\n"%(\
+                                        dia[0], mat[1], bthalfDia))
+                            else: 
+                                f.write("%4s,    RB, %s, 120.0, 1.0, 0,   0.0, %10.4f\n"%(\
+                                        mat[0], mat[1], bthalfDia))
                             cordCord.append(mat[1])
                         elif "C0" in mat[0] :
                             nc = float(mat[0][-1])
                             carcassGa = mat[8]*1000
-                            ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype="SOT", ga=mat[8]*1000, innerGa=IL_Ga, centerMinR=center_minR)   ## TBR : Side over tread based carcass drum dia.
+                            ccDia = GetCarcassDia(group=tireGroup, inch=rimDia, layer=nc, overtype=overtype, ga=mat[8]*1000, innerGa=IL_Ga, centerMinR=center_minR)   ## TBR : Side over tread based carcass drum dia.
                             if "ET" in mat[1]: 
                                 f.write("%4s,    CC, %s, 120.0, 1.0, 0,  90.0, %10.4f\n"%(mat[0].strip(), mat[1], ccDia/2.0))
                             else:
@@ -2170,7 +2223,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*********************************************************\n")
 
         name_compound = sorted(name_compound)
-        i = 1 
+        i = 1
         while i < len(name_compound):
             if name_compound[i] == name_compound[i-1]: 
                 del(name_compound[i])
@@ -2179,6 +2232,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         for name in name_compound: 
             f.write("*INCLUDE, INP=%s/%s.PYN\n"%(materialDir, name))
         f.write("*INCLUDE, INP=%s/ABW121A.COR\n"%(materialDir))
+        
 
         f.write("*********************************************************\n")
         f.write("*INCLUDE, INP=%s\n"%(axi.split("/")[-1]))
@@ -2190,8 +2244,6 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*ROAD_FRICTION (UO, ZP, KP, ZS, KS, ALPHA, TAUC, BETA)\n")
         f.write("0.1, 0., 0., 0., 0., 0., 0., 0.\n")
         f.write("*********************************************************\n")
-
-
         
 
         if os.path.isfile(fileListFile) : 
@@ -2317,6 +2369,7 @@ class MESH2D:
         self.RimContact = []
         self.IsError = 0 
         self.TieError = []
+        self.beadWidth = 0.0
 
         self.Edge_TireProfile=[] ## outer profile 
         self.shoulderType ='R' ## R:round, S:square
@@ -2443,11 +2496,13 @@ class MESH2D:
                     del(Elset[i])
 
         BDmin, BDMax, Center = BeadWidth(Element, self.Node.Node)
-        beadcorefile = "bead.tmp"
-        bd=open(beadcorefile, "w")
-        bd.writelines("%6.3f" %((BDMax-Center)*2000))
-        print ("* Bead Core Width (HK-SMART) =%.3fmm"%((BDMax-Center)*2000))
-        bd.close()
+        self.beadWidth = (BDMax-Center)*2
+        # beadcorefile = "bead.tmp"
+        # bd=open(beadcorefile, "w")
+        # bd.writelines("%6.3f" %((BDMax-Center)*2000))
+        # print ("* Bead Core Width (HK-SMART) =%.3fmm"%((BDMax-Center)*2000))
+        
+        # bd.close()
 
         MasterEdge, SlaveEdge, OutEdges, CenterNodes, FreeEdges, AllEdges, self.TieError = TieSurface(Element, self.Node.Node)
 
@@ -3356,12 +3411,24 @@ class MESH2D:
                 for i, w in enumerate(word): 
                     word[i] = w.strip()
                 if cmd == "ND":
+                    if float(word[3]) ==0 and float(word[2]) ==0 and float(word[1]) ==0: 
+                        print ("## ERROR: ", line[:-1])
+                        continue 
                     Node.Add([int(word[0]), float(word[3]), float(word[2]), float(word[1])])
                 if cmd == "EL2": 
+                    if int(word[1]) == 0 or int(word[2]) == 0 : 
+                        print ("## ERROR: ", line[:-1])
+                        continue 
                     Element.Add([int(word[0]), int(word[1]), int(word[2]), 0, 0, "", 2, 0, 0, 0])
                 if cmd == "EL3": 
+                    if int(word[1]) == 0 or int(word[2]) == 0 or int(word[3]) == 0 : 
+                        print ("## ERROR: ", line[:-1])
+                        continue 
                     Element.Add([int(word[0]), int(word[1]), int(word[2]), int(word[3]), 0, "", 3, 0, 0, 0])
                 if cmd == "EL4": 
+                    if int(word[1]) == 0 or int(word[2]) == 0 or int(word[3]) == 0 or int(word[4]) == 0 : 
+                        print ("## ERROR: ", line[:-1])
+                        continue 
                     Element.Add([int(word[0]), int(word[1]), int(word[2]), int(word[3]), int(word[4]), "", 4, 0, 0, 0])
                 if cmd == "ES": 
                     try: 
@@ -3406,7 +3473,11 @@ class MESH2D:
         nodes = np.array(Node.Node)
         tN = NODE()
         for nd in nids: 
-            ix = np.where(nodes[:,0] == nd)[0][0]
+            try:
+                ix = np.where(nodes[:,0] == nd)[0][0]
+            except:
+                print(nd, " Node is not found!!! ")
+                continue 
             tN.Add(Node.Node[ix]) 
         # t1 = time.time()
         # print ("sorting nodes %.2f"%(t1-t))

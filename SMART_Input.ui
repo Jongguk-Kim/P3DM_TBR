@@ -575,6 +575,9 @@
       <height>20</height>
      </rect>
     </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Flat = 0.0&lt;/p&gt;&lt;p&gt;RR = 1.707&lt;/p&gt;&lt;p&gt;Cleat = 2.5 &lt;/p&gt;&lt;p&gt;Wear = 3.048 &lt;/p&gt;&lt;p&gt;LAT100 = 0.317&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
     <property name="text">
      <string>0</string>
     </property>
@@ -1117,6 +1120,9 @@
       <height>20</height>
      </rect>
     </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Physical simulation time&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
     <property name="text">
      <string>0.0</string>
     </property>
@@ -1246,6 +1252,9 @@
       <height>20</height>
      </rect>
     </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;IF =1.0=&amp;gt;VARIABLE&lt;/p&gt;&lt;p&gt;IF &amp;lt; 1.0 =&amp;gt; FIXED FOR FFT&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
     <property name="text">
      <string>1.0</string>
     </property>
@@ -1261,6 +1270,9 @@
       <width>71</width>
       <height>20</height>
      </rect>
+    </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Default : 1.02&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
     <property name="text">
      <string>1.02</string>
@@ -1341,6 +1353,9 @@
        <width>71</width>
        <height>20</height>
       </rect>
+     </property>
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Unit: [mm]&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="text">
       <string>0.0</string>
@@ -1529,6 +1544,9 @@
        <height>20</height>
       </rect>
      </property>
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Rim Added Depth&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
      <property name="text">
       <string>0.5</string>
      </property>
@@ -1570,6 +1588,9 @@
        <width>71</width>
        <height>20</height>
       </rect>
+     </property>
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Rim Added Width&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="text">
       <string>0.1</string>
@@ -2015,6 +2036,9 @@
       <height>20</height>
      </rect>
     </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;RIM=1.0&lt;/p&gt;&lt;p&gt;LAT100=0.05&lt;/p&gt;&lt;p&gt;NPT=1.0&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
     <property name="text">
      <string>1.0</string>
     </property>
@@ -2128,7 +2152,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>Position</string>
+      <string>Comp'd</string>
      </property>
     </widget>
     <widget class="QLineEdit" name="Edit_cordFile">
@@ -2154,7 +2178,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>Cord File</string>
+      <string>Cord</string>
      </property>
     </widget>
     <widget class="QTableWidget" name="tableWidget">
@@ -2514,6 +2538,9 @@
       <width>71</width>
       <height>20</height>
      </rect>
+    </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Unit :[m]&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
     <property name="text">
      <string>4.61E-04</string>

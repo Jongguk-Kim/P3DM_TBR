@@ -293,20 +293,12 @@ class Ui_MainWindow(object):
         self.line_PCI_Press.setAlignment(QtCore.Qt.AlignCenter)
         self.line_PCI_Press.setObjectName("line_PCI_Press")
         self.horizontalLayout_12.addWidget(self.line_PCI_Press)
-        self.label_OverType = QtWidgets.QLabel(self.centralwidget)
-        self.label_OverType.setMaximumSize(QtCore.QSize(65, 15))
-        self.label_OverType.setAlignment(QtCore.Qt.AlignCenter)
-        self.label_OverType.setObjectName("label_OverType")
-        self.horizontalLayout_12.addWidget(self.label_OverType)
-        self.radio_SOT = QtWidgets.QRadioButton(self.centralwidget)
-        self.radio_SOT.setMaximumSize(QtCore.QSize(50, 15))
-        self.radio_SOT.setChecked(True)
-        self.radio_SOT.setObjectName("radio_SOT")
-        self.horizontalLayout_12.addWidget(self.radio_SOT)
-        self.radio_TOS = QtWidgets.QRadioButton(self.centralwidget)
-        self.radio_TOS.setMaximumSize(QtCore.QSize(50, 15))
-        self.radio_TOS.setObjectName("radio_TOS")
-        self.horizontalLayout_12.addWidget(self.radio_TOS)
+        
+        self.checkBox_overType = QtWidgets.QCheckBox(self.centralwidget)
+        self.checkBox_overType.setMaximumSize(QtCore.QSize(180, 20))
+        self.checkBox_overType.setObjectName("checkBox_overType")
+        self.horizontalLayout_12.addWidget(self.checkBox_overType)
+
         self.verticalLayout.addLayout(self.horizontalLayout_12)
 
         self.horizontalLayout_11 = QtWidgets.QHBoxLayout()
@@ -622,13 +614,45 @@ class Ui_MainWindow(object):
 
         # self.layout.GD = 0.003
         # self.fullmeshSave = "materialTest_new"
+        self.fullmeshSave=""
 
     def openInputWindow(self):
         if self.fullmeshSave != "": 
             try:
+                try: 
+                    PCIPress = float(self.line_PCI_Press.text())
+                    PCIPress = PCIPress
+                except:
+                    print ("# Check PCI Press")
+                    PCIPress = 0.0
+                    return 
+                try: 
+                    bsd = float(self.lineEdit_BSD.text())
+                    bsd = bsd
+                except:
+                    print ("# Check BSD")
+                    bsd = 0.0
+                    return 
+                try: 
+                    bdw = float(self.lineEdit_BDWidth.text())
+                    bdw = bdw
+                except:
+                    print ("# Check Bead Core Width")
+                    bdw = 0.0
+                    return 
+                try: 
+                    dRW = float(self.lineEdit_DesignRW.text())
+                    dRW = dRW
+                except:
+                    print ("# Check PCI RW")
+                    dRW = 0.0
+                    return 
+
+                
                 Dialog = QtWidgets.QDialog()
-                dlg = SMART.Ui_Dialog(self.materialDir, self.ISLM_cordDBFile, self.fullmeshSave, self.layout.GD)
-                dlg.setupUi(Dialog)
+                dlg = SMART.Ui_Dialog(self.materialDir, self.ISLM_cordDBFile, self.fullmeshSave, self.layout.GD,\
+                    PCIPress, bsd, bdw, dRW)
+                dlg.setupUi(Dialog, PCIPress)
                 Dialog.exec_()
             except:
                 print ("## You Should generate 3D Full meshes")
@@ -731,8 +755,9 @@ class Ui_MainWindow(object):
             self.AngleBT2 = str(0)
             self.AngleBT3 = str(0)
             self.AngleBT4 = str(0)
+            self.PCIPress = "0"
 
-            self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4)
+            self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4, self.PCIPress)
             
         with open(self.materialDirFile) as MD: 
             lines = MD.readlines()
@@ -743,6 +768,7 @@ class Ui_MainWindow(object):
         self.AngleBT2 = angles[1].strip()
         self.AngleBT3 = angles[2].strip()
         self.AngleBT4 = angles[3].strip()
+        self.PCIPress =  lines[2].strip()
 
         self.label_bt1.setText(_translate("MainWindow", "Angle BT1"))
         self.lineEdit_bt1.setText(_translate("MainWindow", self.AngleBT1))
@@ -760,10 +786,9 @@ class Ui_MainWindow(object):
 
 
         self.checkBox.setText(_translate("MainWindow", "PCI"))
-        self.line_PCI_Press.setText(_translate("MainWindow", "2.0"))
-        self.label_OverType.setText(_translate("MainWindow", "TBR Type :"))
-        self.radio_SOT.setText(_translate("MainWindow", "SOT"))
-        self.radio_TOS.setText(_translate("MainWindow", "TOS"))
+        # self.line_PCI_Press.setText(_translate("MainWindow", "2.0"))
+        self.line_PCI_Press.setText(_translate("MainWindow", self.PCIPress))
+        self.checkBox_overType.setText(_translate("MainWindow", "TBR : Tread Over Side"))
         self.label_bt1.setText(_translate("MainWindow", "Angle BT1"))
         # self.lineEdit_bt1.setText(_translate("MainWindow", "0"))
         self.label_bt2.setText(_translate("MainWindow", "BT2"))
@@ -776,7 +801,7 @@ class Ui_MainWindow(object):
         self.lineEdit_BSD.setText(_translate("MainWindow", "0"))
         self.label_BDWidth.setText(_translate("MainWindow", "BD Width"))
         self.lineEdit_BDWidth.setText(_translate("MainWindow", "0"))
-        self.label_DesignRW.setText(_translate("MainWindow", "Design RW"))
+        self.label_DesignRW.setText(_translate("MainWindow", "PCI RW"))
         self.lineEdit_DesignRW.setText(_translate("MainWindow", "0"))
 
 
@@ -842,88 +867,72 @@ class Ui_MainWindow(object):
         self.Initilize()
         sys.exit()
 
-    def WriteMaterialDirectory(self, directory, bt1, bt2, bt3, bt4): 
+    def WriteMaterialDirectory(self, directory, bt1, bt2, bt3, bt4, pciPress): 
         f=open(self.materialDirFile, 'w')
         f.write("%s\n"%(directory))
         f.write("%s, %s, %s, %s\n"%(bt1, bt2, bt3, bt4))
+        f.write("%s\n"%(pciPress))
         f.close()
     def ChangeBTAngle(self, fname): 
-        with open(fname) as DB: 
-            lines = DB.readlines()
-        cmd = ''
-        NewLines=[]
-        for line in lines:
-            if "**" in line: 
-                NewLines.append(line)
-                continue 
-            if "*" in line:
-                NewLines.append(line)
-                if "REBAR_SECTION" in line: 
-                    cmd = "REBAR"
-                else:
-                    cmd = ''
-            else:
-                if cmd == "REBAR": 
-                    if "BT1" in line.upper():
-                        words = line.split(",")
-                        strAngle = "%6.1f"%(float(self.AngleBT1))
-                        words[6] =  strAngle
-                        nline = ""
-                        for wd in words:
-                            nline += wd+","
-                        NewLines.append(nline[:-2]+"\n")
-                    elif "BT2" in line.upper():
-                        words = line.split(",")
-                        strAngle = "%6.1f"%(float(self.AngleBT2))
-                        words[6] =  strAngle
-                        nline = ""
-                        for wd in words:
-                            nline += wd+","
-                        NewLines.append(nline[:-2]+"\n")
-                    elif "BT3" in line.upper():
-                        words = line.split(",")
-                        strAngle = "%6.1f"%(float(self.AngleBT3))
-                        words[6] =  strAngle
-                        nline = ""
-                        for wd in words:
-                            nline += wd+","
-                        NewLines.append(nline[:-2]+"\n")
-                    elif "BT4" in line.upper():
-                        words = line.split(",")
-                        strAngle = "%6.1f"%(float(self.AngleBT4))
-                        words[6] =  strAngle
-                        nline = ""
-                        for wd in words:
-                            nline += wd+","
-                        NewLines.append(nline[:-2]+"\n")
-                    else: 
-                        NewLines.append(line)
-                    
-                else:
-                    NewLines.append(line)
-        f = open(fname, 'w')
-        for line in NewLines:
-            f.write(line)
-        f.close()
-    def Update_ISLM_Material(self): 
-        self.materialDir = self.lineEdit_materialDir.text()
+        # with open(fname) as DB: 
+        #     lines = DB.readlines()
+        savefile = fname[:-13]
+
         self.AngleBT1=self.lineEdit_bt1.text()
         self.AngleBT2=self.lineEdit_bt2.text()
         self.AngleBT3=self.lineEdit_bt3.text()
         self.AngleBT4=self.lineEdit_bt4.text()
-        self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4)
+        self.PCIPress=self.line_PCI_Press.text()
+        BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
+        if self.checkBox_overType.isChecked(): overtype = "TOS"
+        else:  overtype = "SOT"
+        PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
+            elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element,\
+                    materialDir=self.materialDir, btAngles=BT_angles, \
+                        overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
+
+                
+    def Update_ISLM_Material(self): 
+        self.materialDir = self.lineEdit_materialDir.text()
+        try:
+            data = float(self.lineEdit_bt1.text())
+        except:
+            print(" # Check the Angle of #1 Belt")
+            return 
+        try:
+            data = float(self.lineEdit_bt2.text())
+        except:
+            print(" # Check the Angle of #2 Belt")
+            return 
+        try:
+            data = float(self.lineEdit_bt3.text())
+        except:
+            print(" # Check the Angle of #3 Belt")
+            return 
+        try:
+            data = float(self.lineEdit_bt4.text())
+        except:
+            print(" # Check the Angle of #4 Belt")
+            return 
+        try:
+            data = float(self.line_PCI_Press.text())
+        except:
+            print(" # Check PCI Pressure")
+            return 
+        self.AngleBT1=self.lineEdit_bt1.text()
+        self.AngleBT2=self.lineEdit_bt2.text()
+        self.AngleBT3=self.lineEdit_bt3.text()
+        self.AngleBT4=self.lineEdit_bt4.text()
+        self.PCIPress=self.line_PCI_Press.text()
+        self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4, self.PCIPress)
 
         localCordDB = 'ISLM_CordDB.txt'
         fileListFile = 'ISLM_materialList.txt'
         ISLM_cordDBFile="ISLM_CordDBName.dat"
         
         
-        try:
-            matFile = self.fullmeshSave + "-material.dat"
-            self.ChangeBTAngle(matFile)
-        except:
-            # print("## No material file")
-            pass 
+        matFile = self.fullmeshSave + "-material.dat"
+        self.ChangeBTAngle(matFile)
 
         host = '10.82.66.65'
         user = 'h20200155'
@@ -1248,7 +1257,17 @@ class Ui_MainWindow(object):
         self.P3DMLayout = 0 
         with open(self.layoutmesh) as LM: 
             lines = LM.readlines()
+        self.lineEdit_DesignRW.setText("0")
+        self.lineEdit_BSD.setText("0")
+        self.lineEdit_BDWidth.setText("0")
         for i, line in enumerate(lines): 
+            if "LAYOUT RIM WIDTH" in line and "**" in line: 
+                data = line.split(":")[1].strip()
+                self.lineEdit_DesignRW.setText(data)
+            if "BEAD SET DISTANCE" in line and "**" in line: 
+                data = float(line.split(":")[1].strip())
+                data = "%.1f"%(data)
+                self.lineEdit_BSD.setText(data)
             if i < 100: 
                 if "TREAD REMOVED LAYOUT MESH BY P3DM" in line: 
                     print ("* The mesh without tread was generated by P3DM")
@@ -1258,6 +1277,7 @@ class Ui_MainWindow(object):
                 break 
         
         self.layout = PTN.MESH2D(self.layoutmesh)
+        self.lineEdit_BDWidth.setText(str(round(self.layout.beadWidth*1000,2)))
 
         if self.layout.IsError == 100: 
             del(self.layout)
@@ -1572,12 +1592,14 @@ class Ui_MainWindow(object):
                 self.AngleBT2=self.lineEdit_bt2.text()
                 self.AngleBT3=self.lineEdit_bt3.text()
                 self.AngleBT4=self.lineEdit_bt4.text()
+                self.PCIPress=self.line_PCI_Press.text()
                 BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
-                if self.radio_SOT.isChecked(): overtype = "SOT"
-                else:  overtype = "TOS"
+                # if self.radio_TOS.isChecked(): overtype = "TOS"
+                if self.checkBox_overType.isChecked(): overtype = "TOS"
+                else:  overtype = "SOT"
                 PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
                 self.layout.Surface, sectors=self.user_sector, offset=BodyOffset,\
-                     abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype)
+                     abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
                 print ("\n# Layout 3D mesh was saved.")
                 self.fullmeshSave=savefile[:-4]
                 print (" %s\n"%(savefile))
@@ -1886,12 +1908,13 @@ class Ui_MainWindow(object):
             self.AngleBT2=self.lineEdit_bt2.text()
             self.AngleBT3=self.lineEdit_bt3.text()
             self.AngleBT4=self.lineEdit_bt4.text()
+            self.PCIPress=self.line_PCI_Press.text()
             BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
-            if self.radio_SOT.isChecked(): overtype = "SOT"
-            else:  overtype = "TOS"
+            if self.checkBox_overType.isChecked(): overtype = "TOS"
+            else:  overtype = "SOT"
             PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
                 elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element,\
-                     materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype)
+                     materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
             line = "Full tire meshes were saved.\n"
             self.fullmeshSave=savefile 
             # self.message.setText(line)
