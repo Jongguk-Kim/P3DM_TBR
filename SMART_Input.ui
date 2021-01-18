@@ -694,6 +694,9 @@
     <property name="text">
      <string>1.0</string>
     </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
    </widget>
    <widget class="QLabel" name="label_50">
     <property name="geometry">
@@ -778,13 +781,13 @@
       </rect>
      </property>
      <property name="text">
-      <string>Inch</string>
+      <string>mm</string>
      </property>
     </widget>
     <widget class="QLineEdit" name="Edit_PCI_RW_inch">
      <property name="geometry">
       <rect>
-       <x>130</x>
+       <x>270</x>
        <y>45</y>
        <width>71</width>
        <height>20</height>
@@ -858,7 +861,7 @@
     <widget class="QLineEdit" name="Edit_PCI_RW_mm">
      <property name="geometry">
       <rect>
-       <x>270</x>
+       <x>130</x>
        <y>45</y>
        <width>71</width>
        <height>20</height>
@@ -881,7 +884,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>mm</string>
+      <string>inch</string>
      </property>
     </widget>
     <widget class="QLabel" name="label_71">
@@ -1028,6 +1031,32 @@
     </property>
     <property name="alignment">
      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="check_GroupTBR">
+    <property name="geometry">
+     <rect>
+      <x>397</x>
+      <y>182</y>
+      <width>51</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>TBR</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="check_Tube">
+    <property name="geometry">
+     <rect>
+      <x>457</x>
+      <y>182</y>
+      <width>91</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Tube Type</string>
     </property>
    </widget>
   </widget>
@@ -2484,7 +2513,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>Calculate</string>
+      <string>Update</string>
      </property>
     </widget>
     <widget class="QLineEdit" name="Edit_CcGa">
@@ -2592,14 +2621,27 @@
   <widget class="QPushButton" name="pushDefault">
    <property name="geometry">
     <rect>
-     <x>980</x>
+     <x>970</x>
      <y>10</y>
-     <width>181</width>
+     <width>91</width>
      <height>31</height>
     </rect>
    </property>
    <property name="text">
     <string>Save Default</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="push_openSample">
+   <property name="geometry">
+    <rect>
+     <x>1070</x>
+     <y>10</y>
+     <width>91</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Open Sample</string>
    </property>
   </widget>
  </widget>

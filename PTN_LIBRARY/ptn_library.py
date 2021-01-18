@@ -12,6 +12,7 @@ import subprocess
 from numpy.lib.arraysetops import intersect1d 
 
 import paramiko as FTP 
+import PTN_LIBRARY.ptn_library as PTN 
 
 PI = 3.14159265358979323846
 
@@ -1701,7 +1702,7 @@ def Equivalent_density_calculation(cute_mesh, filename=""):
                 wt = float(sd[11])
             except:
                 wt = 1.0
-            if "ES" in code: 
+            if "ES" in code and not "D/" in structure: 
                 Area = Area_steel_cord(structure)
             else: 
                 if dia ==0: 
@@ -1885,7 +1886,8 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     pw = 'h20200155'
     if not os.path.isfile(fileListFile) or not os.path.isfile(ISLM_cordDBFile) : 
         try: 
-            Update_ISLM_Material(wdir=materialDir, cordSaveFile=localCordDB, fileListFile=fileListFile,  host=host, user=user, pw=pw, cordname=1, cordfile=ISLM_cordDBFile)
+            Update_ISLM_Material(wdir=materialDir, cordSaveFile=localCordDB, fileListFile=fileListFile, \
+                 host=host, user=user, pw=pw, cordname=1, cordfile=ISLM_cordDBFile)
             print ("* ISLM Mateiral DB was updated.")
             
         except:
@@ -2296,7 +2298,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                     f.write("*** %8s is not in the cord DB\n"%(name))
 
     f.close()
-def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', user='', pw='', cordname=0, cordfile=''): 
+def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', user='', pw='', cordname=0, cordfile='', cordDBFile=''): 
     
     # if cord =="":       cord = "/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt"
     if wdir =="":       wdir =  "/home/fiper/ISLM_MAT/"
@@ -2316,13 +2318,14 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
     
     f = open(fileListFile, "w")
     for name in dirList: 
-        if ".PYN" in name: 
+        if ".PYN" in name.upper() or ".COR" in name.upper(): 
             f.write("%s\n"%(name[:-4]))
         if "CordDB" in name and ".txt" in name and "SLM" in name: 
             cord = wdir+"/"+name 
-            # print ("* Material Cord file", cord)
-            
     f.close()
+    if cordDBFile !='': 
+        cord = cordDBFile  ## if input by user 
+
     try: 
         sftp.get(cord, cordSaveFile)
     except:
@@ -2334,6 +2337,8 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
     fp = open(cordfile, 'w')
     fp.write("%s\n"%(cord))
     fp.close()
+
+    # print ("Update material, cordfile", cordfile)
 
 class MESH2D: 
     def __init__(self, filename):
@@ -4206,9 +4211,9 @@ class MESH2D:
                 ix = np.where(npn[:,0]==e[2])[0][0]; n2=npn[ix]
                 ix = np.where(npn[:,0]==e[3])[0][0]; n3=npn[ix]
                 if e[6] ==3: 
-                    b1 = (n1[3] + n2[2])/2.0
-                    b2 = (n2[3] + n3[2])/2.0
-                    b3 = (n3[3] + n1[2])/2.0
+                    b1 = (n1[3] + n2[3])/2.0
+                    b2 = (n2[3] + n3[3])/2.0
+                    b3 = (n3[3] + n1[3])/2.0
                     if b1 < b2 and b1 < b3: 
                         btm_face = 1 
                     elif b2 < b1 and b2 < b3: 
@@ -4217,10 +4222,10 @@ class MESH2D:
                         btm_face = 3 
                 else:
                     ix = np.where(npn[:,0]==e[4])[0][0]; n4=npn[ix]
-                    b1 = (n1[3] + n2[2])/2.0
-                    b2 = (n2[3] + n3[2])/2.0
-                    b3 = (n3[3] + n4[2])/2.0
-                    b4 = (n4[3] + n1[2])/2.0
+                    b1 = (n1[3] + n2[3])/2.0
+                    b2 = (n2[3] + n3[3])/2.0
+                    b3 = (n3[3] + n4[3])/2.0
+                    b4 = (n4[3] + n1[3])/2.0
                     if b1 < b2 and b1 < b3 and b1 < b4: 
                         btm_face = 1 
                     elif b2 < b1 and b2 < b3 and b2 < b4 : 
@@ -4235,7 +4240,6 @@ class MESH2D:
                 neg = btm_face + 1
                 if pos == 0 : pos = e[6]
                 if neg > e[6] : neg = 1 
-
 
                 if e[5] != 'CTB' and e[5] != 'CTR' and e[5] != 'SUT' and e[5] != 'UTR'  and e[5] != 'TRW' and e[5] != 'BSW': 
                     nf = btm_face + 2 
@@ -4263,7 +4267,7 @@ class MESH2D:
 
                 break 
 
-        print ("  Center EL above membrane", solid_on_membrane[0])
+        print ("  Center EL above membrane", solid_on_membrane[0], "Bottom F%d"%(btm_face))
 
         debug =1
          
@@ -4311,9 +4315,7 @@ class MESH2D:
             ps = nextsolid
             preface = next_face 
             nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
-            # print ("*ps", ps, preface)
-            # print (" ns", nextsolid, next_face)
-            
+            # print ("*ps", ps, "preface",  preface, "next face", next_face)
 
             if len(nextsolid) ==0: ## element has tie surface on the right (positive).. 
                 # print (" MEET TIE>>", ps, preface)
@@ -4504,23 +4506,19 @@ class MESH2D:
                 break 
 
             #############################################################            
-        
-
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
         #############################################################
-        # 
-        #        
         # element_to_delete.append(nextsolid[0])
 
         ix = np.where(npn[:,0]==nextsolid[1])[0][0]; n1=npn[ix]
         ix = np.where(npn[:,0]==nextsolid[2])[0][0]; n2=npn[ix]
         ix = np.where(npn[:,0]==nextsolid[3])[0][0]; n3=npn[ix]
         ix = np.where(npn[:,0]==nextsolid[4])[0][0]; n4=npn[ix]
-        b1 = (n1[3] + n2[2])/2.0
-        b2 = (n2[3] + n3[2])/2.0
-        b3 = (n3[3] + n4[2])/2.0
-        b4 = (n4[3] + n1[2])/2.0
+        b1 = (n1[3] + n2[3])/2.0
+        b2 = (n2[3] + n3[3])/2.0
+        b3 = (n3[3] + n4[3])/2.0
+        b4 = (n4[3] + n1[3])/2.0
         if b1 < b2 and b1 < b3 and b1 < b4: 
             btm_face = 1 
         elif b2 < b1 and b2 < b3 and b2 < b4 : 
@@ -4532,7 +4530,6 @@ class MESH2D:
         
         neg = btm_face + 1
         if neg > e[6] : neg = 1 
-
 
 
         ending = 0
@@ -17010,6 +17007,8 @@ def Unbending_layoutTread(nodes, Tread, LProfile, RProfile, Lcurves, Rcurves, OD
         if nodes[ix][2] >=0: 
             nds3p.append(nodes[ix][3])
             npos.append(nodes[ix])
+            # print ("pos", nodes[ix])
+            # print ("pos, %.3f, %.3f"%(nodes[ix][2], nodes[ix][3]))
         else: 
             nds3n.append(nodes[ix][3])
             nneg.append(nodes[ix])

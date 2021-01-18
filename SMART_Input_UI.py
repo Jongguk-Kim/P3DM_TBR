@@ -10,7 +10,45 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 import os 
+import PTN_LIBRARY.ptn_library as PTN 
 
+def RimWidth(rw, group='PCR', rimType='Tubeless'): 
+    if group == 'TBR': 
+        if rimType.lower() == "tubeless" or rimType.lower() == 'tl':
+            rwDB = [[4.5, 114.3],[5.25,133.5],[6.0,152.5],[6.75,171.5],[7.5,190.5],[8.25,209.5],\
+                        [9.0,228.5],[9.75,247.5],[10.5,266.7],[11.0,279.4],[11.25,285.8],\
+                        [11.5,291.1],[11.75,298.5],[12.25,311.0],[12.5,317.5],[13.0,330.0],\
+                        [13.25,336.6],[13.75,349.25],[14.0,355.5],[14.25,362.0],[14.75,374.7],[15.0,381.0],\
+                        [15.25,387.4],[15.75,400.1],[16.0,406.5],[16.25,412.8],[16.75,425.5],[17.0,432.0],\
+                        [17.25,438.2],[17.75,450.85],[18.0,457.0],[18.75,476.25]]
+        else:
+            rwDB = [[4.5,114.3],[5.0,127.0],[5.5,139.5],[6.0,152.5],[6.5,165.0],[7.0,178.0],[7.5,190.5],\
+                [8.0,203.0],[8.5,216.0],[9.0,228.5],[9.5, 241.3],[10.0,254.0],[10.5,266.7],[11.0,279.4],\
+                [11.5,292.1],[12.0,304.8],[12.5,317.5],[13.0,330.2],[13.5,342.9],[14.0,355.6],[14.5,368.3]]
+    else:
+        rwDB = [[2.5,63.5],[3.0,76.0],[3.5,89.0],[4.0,101.5],[4.5,114.5],[5.0,127.0],[5.5,139.5],\
+                [6.0,152.5],[6.5,165.0],[7.0,178.0],[7.5,190.5],[8.0,203.0],[8.5,216.0],\
+                [9.0,228.5],[9.5,241.5],[10.0,254.0],[10.5,266.5],[11.0,279.5],[11.5,292.0],\
+                [12.0,305.0],[12.5,317.5],[13.0,330.0],[13.5,343.0],[14.0,355.5]]
+    for w in rwDB : 
+        if  w[0] == rw: 
+            return w[1] 
+    return 0.0
+def RimDiameter(rd, group='PCR', rimType='Tubeless'): 
+    if group == 'TBR': 
+        if rimType.lower() == "tubeless" or rimType.lower() == 'tl':
+            rdDB = [[17.5,444.5],[19.5,495.3],[22.5,571.5],[24.5,622.3],[26.5,673.1]]
+        else:
+            rdDB = [[15.0,387.4],[18.0,461.8],[20.0,514.4],[24.0,616.0]]
+    else:
+        rdDB = [[10.0,253.2],[12.0,304.0],[13.0,329.4],[14.0,354.8],[15.0,380.2],[16.0,405.6],[17.0,436.6],\
+            [18.0,462.0],[19.0,487.4],[20.0,512.8],[21.0,538.2],[22.0,563.6],[23.0,589.0],[24.0,614.4],\
+                [25.0,639.8],[26.0,665.2],[28.0,716.0],[30.0,766.8]]
+    for r in rdDB : 
+        if r[0] == rd: 
+            return r[1] 
+    return 0.0
+		
 class Ui_Dialog(object):
     def readMaterial(self, fName): 
         with open(fName) as In: 
@@ -115,11 +153,235 @@ class Ui_Dialog(object):
                     self.Between=data[0]
                     self.btSubtraction=float(data[1].strip())
 
-    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw): 
+    def openSample(self): 
+        if os.path.isfile(self.sampleSaveFile): 
+            with open(self.sampleSaveFile) as SF: 
+                lines = SF.readlines()
+            sampleFileDirectiory = lines[0].strip()
+        else: 
+            root  =self.saveFile.split("/")
+            N = len(root)
+            sampleFileDirectiory = ""
+            for i, wd in enumerate(root) : 
+                if i == N-1: 
+                    break 
+                sampleFileDirectiory += wd +"/"
         
+        self.sampleSMART, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select SMART Input File",sampleFileDirectiory , "File(*.inp)") 
 
+        if self.sampleSMART: 
+            root  =self.sampleSMART.split("/")
+            N = len(root)
+            sampleFileDirectiory = ""
+            for i, wd in enumerate(root) : 
+                if i == N-1: 
+                    break 
+                sampleFileDirectiory += wd+"/"
+            sf = open(self.sampleSaveFile, 'w')
+            sf.write("%s\n"%(sampleFileDirectiory))
+            sf.close()
+            
+
+            with open (self.sampleSMART) as SM: 
+                lines = SM.readlines()
+            cmd = ''
+            for line in lines: 
+                if "**" in line: 
+                    continue 
+                if "*" in line:  
+                    if "SIMULATION_TIME" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        self.Edit_totalTime.setText(data[0].strip())
+                        self.Edit_massScale.setText(data[1].strip())
+                        dt = data[2].split(" ")
+                        for d in dt: 
+                            if d=="": continue 
+                            ratio = d.strip() 
+                            break 
+                        self.Edit_DT_ratio.setText(ratio) 
+                    elif "OUTPUT_CONTROL" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        self.Edit_stepTime.setText(data[0].strip())
+                        dt = data[1].split(" ")
+                        for d in dt: 
+                            if d=="": continue 
+                            value = d.strip() 
+                            break 
+                        self.Edit_averageTime.setText(value) 
+                    elif "INFLATION_TIME" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        self.Edit_Inflation_Time1.setText(data[0].strip())
+                        self.Edit_Inflation_Time2.setText(data[1].strip())
+                        dt = data[2].split(" ")
+                        for d in dt: 
+                            if d=="": continue 
+                            value = d.strip() 
+                            break 
+                        vel = float(value)
+                        if vel > 0: 
+                            self.Edit_velocity.setText(value) 
+                            self.check_freespin.setChecked(True)
+                    elif "SELF_CONTACT_ACTIVATION" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        if data[0].strip() == "0": 
+                            self.check_Cavity.setChecked(False)
+                        else: 
+                            self.check_Cavity.setChecked(True)
+                        dt = data[1].split(" ")
+                        for d in dt: 
+                            if d=="": continue 
+                            value = d.strip() 
+                            break 
+
+                        if value == "0": 
+                            self.check_kerf.setChecked(False)
+                        else: 
+                            self.check_kerf.setChecked(True)
+                    elif "TEMPERATURE_ANALYSIS" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        if data[0].strip() == '1': self.groupBox_4.setChecked(True) 
+                        else:  self.groupBox_4.setChecked(False) 
+                        self.Edit_TempStartTime.setText(data[1].strip())
+                        self.Edit_Temp_Air.setText(data[2].strip())
+                        dt = data[3].split(" ")
+                        for d in dt:
+                            if d=="": continue 
+                            value = d.strip() 
+                            break 
+                        self.Edit_Temp_Road.setText(value)
+                    elif "PRESSURE_VARIANCE" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        if data[0].strip() == "0": 
+                            self.check_pressVariance.setChecked(False)
+                        else: 
+                            self.check_pressVariance.setChecked(True)
+                        
+                        self.Edit_PressVarianceStartTime.setText(data[1].strip())
+                        value = data[2].split("D")[0].strip()
+                        self.Edit_rimCavityWidth.setText(value)
+                        value = data[3].split("D")[0].strip()
+                        self.Edit_rimCavityHeight.setText(value)
+                    elif "RIM_OR_HUB_REAL_MASS" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        dt = words.split(" ")
+                        for d in dt: 
+                            if d=="": continue 
+                            value = d.strip() 
+                            break 
+                        self.Edit_RimMass.setText(value)
+                    elif "STEEL_BEAD_ELSET_FOR_SUB_CYCLING" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        self.Edit_SubCycling.setText(words.strip())
+                    elif "GROOVE_DEPTH_FOR_FPC" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        self.Edit_FPC_depth.setText(words.strip())
+                    elif "RIM_FRICTION" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        self.Edit_RimFriction.setText(words.strip())
+                    elif "ROAD_FRICTION" in line: 
+                        cmd = "FRIC"
+                    elif "CONDITION_LOAD" in line:
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        self.Edit_pressKgf.setText(data[0].strip())
+                        self.pressureKgf()
+                        self.Edit_loadKgf.setText(data[2].strip())
+                        self.loadKgf()
+                        if not self.check_freespin.isChecked(): 
+                            self.Edit_velocity.setText(data[3].strip())
+                    elif "CAMBER_ANGLE" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        self.Edit_camber.setText(data[0].strip())
+                    elif "LATERAL_CONTROL" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        self.Edit_lateral.setText(data[1].strip())
+                        if data[0].strip() == '1': 
+                            self.check_lateralForce.setChecked(True)
+                        else:
+                            self.check_lateralForce.setChecked(False)
+                    elif "ROTATION_CONTROL" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        self.Edit_Rotation.setText(data[1].strip())
+                        if data[0].strip() == '1': 
+                            self.check_rotationForce.setChecked(True)
+                            self.Edit_angularVelocity.setText("0")
+                        else:
+                            self.check_rotationForce.setChecked(False)
+                            try:
+                                self.Edit_angularVelocity.setText(data[2].strip())
+                            except:
+                                pass 
+                    
+                    elif "ROAD_GEOM" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(" ")
+                        for dt in data: 
+                            if dt=="": continue 
+                            value = dt 
+                            break 
+                        self.Edit_RoadDia.setText(value)
+                    
+                    elif "RIM_GEOM" in line: 
+                        cmd = ''
+                        words = line.split("=")[1]
+                        data = words.split(",")
+                        rd = float(data[0].strip())*2
+                        self.Edit_RDmm.setText("%.1f"%(rd))
+                        self.Edit_RDinch.setText("%.1f"%(rd/25.4))
+
+                        rw = float(data[1].strip())*2
+                        self.Edit_RWmm.setText("%.1f"%(rw))
+                        self.Edit_RWInch.setText("%.1f"%(rw/25.4))
+
+                        self.Edit_RimGeo.setText(data[2].strip())
+                    else:
+                        cmd = ''
+                    
+                else:
+                    if cmd == "FRIC": 
+                        data = line.split(",")
+                        self.Edit_fric1.setText(data[0].strip())
+                        self.Edit_fric2.setText(data[1].strip())
+                        self.Edit_fric3.setText(data[2].strip())
+                        self.Edit_fric4.setText(data[3].strip())
+                        self.Edit_fric5.setText(data[4].strip())
+                        self.Edit_fric6.setText(data[5].strip())
+                        self.Edit_fric7.setText(data[6].strip())
+                        self.Edit_fric8.setText(data[7].strip())
+                    
+                        
+                    # if "" in line: 
+                        
+                    # if "" in line: 
+
+    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw, solidList, localCordDBFileName): 
         self.saveFile = fullmeshSave + "-SMART.inp"
         self.saveDefaultFile="SMART_Default.dat"
+        self.sampleSaveFile = "saveSampleDir.dat"
         self.tireGroup=1
         self.PCITime1 = 0.01 
         self.PCITime2 = 0.015 
@@ -197,6 +459,10 @@ class Ui_Dialog(object):
         self.BDWidth = bdw 
         self.PCIPress = pciPress 
         self.PCIRW = drw 
+
+        self.cordDB = cordDB 
+        self.solidListFile = solidList 
+        self.localCordDBFile = localCordDBFileName
 
 
     def setupUi(self, Dialog, pciPress):
@@ -379,6 +645,7 @@ class Ui_Dialog(object):
         self.label_41.setObjectName("label_41")
         self.Edit_RimFriction = QtWidgets.QLineEdit(self.groupBox)
         self.Edit_RimFriction.setGeometry(QtCore.QRect(130, 351, 71, 20))
+        self.Edit_RimFriction.setAlignment(QtCore.Qt.AlignCenter)
         self.Edit_RimFriction.setObjectName("Edit_RimFriction")
         self.label_50 = QtWidgets.QLabel(self.groupBox)
         self.label_50.setGeometry(QtCore.QRect(10, 351, 81, 16))
@@ -417,6 +684,13 @@ class Ui_Dialog(object):
         self.Edit_RimGeo.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         self.Edit_RimGeo.setObjectName("Edit_RimGeo")
 
+        self.check_GroupTBR = QtWidgets.QCheckBox(self.groupBox)
+        self.check_GroupTBR.setGeometry(QtCore.QRect(397, 182, 51, 16))
+        self.check_GroupTBR.setObjectName("check_GroupTBR")
+        self.check_Tube = QtWidgets.QCheckBox(self.groupBox)
+        self.check_Tube.setGeometry(QtCore.QRect(457, 182, 91, 16))
+        self.check_Tube.setObjectName("check_Tube")
+
 
 
         self.groupBox_Check = QtWidgets.QGroupBox(self.groupBox)
@@ -437,10 +711,7 @@ class Ui_Dialog(object):
         self.label_67 = QtWidgets.QLabel(self.groupBox_Check)
         self.label_67.setGeometry(QtCore.QRect(210, 45, 51, 16))
         self.label_67.setObjectName("label_67")
-        self.Edit_PCI_RW_inch = QtWidgets.QLineEdit(self.groupBox_Check)
-        self.Edit_PCI_RW_inch.setGeometry(QtCore.QRect(130, 45, 71, 20))
-        self.Edit_PCI_RW_inch.setAlignment(QtCore.Qt.AlignCenter)
-        self.Edit_PCI_RW_inch.setObjectName("Edit_PCI_RW_inch")
+        
         self.Edit_PCI_press_psi = QtWidgets.QLineEdit(self.groupBox_Check)
         self.Edit_PCI_press_psi.setGeometry(QtCore.QRect(390, 20, 71, 20))
         self.Edit_PCI_press_psi.setAlignment(QtCore.Qt.AlignCenter)
@@ -455,10 +726,19 @@ class Ui_Dialog(object):
         self.label_69 = QtWidgets.QLabel(self.groupBox_Check)
         self.label_69.setGeometry(QtCore.QRect(210, 20, 51, 16))
         self.label_69.setObjectName("label_69")
+
+        self.Edit_PCI_RW_inch = QtWidgets.QLineEdit(self.groupBox_Check)
+        self.Edit_PCI_RW_inch.setGeometry(QtCore.QRect(270, 45, 71, 20))
+        # self.Edit_PCI_RW_mm.setGeometry(QtCore.QRect(270, 45, 71, 20))
+        self.Edit_PCI_RW_inch.setAlignment(QtCore.Qt.AlignCenter)
+        self.Edit_PCI_RW_inch.setObjectName("Edit_PCI_RW_inch")
+
         self.Edit_PCI_RW_mm = QtWidgets.QLineEdit(self.groupBox_Check)
-        self.Edit_PCI_RW_mm.setGeometry(QtCore.QRect(270, 45, 71, 20))
+        self.Edit_PCI_RW_mm.setGeometry(QtCore.QRect(130, 45, 71, 20))
+        # self.Edit_PCI_RW_inch.setGeometry(QtCore.QRect(130, 45, 71, 20))
         self.Edit_PCI_RW_mm.setAlignment(QtCore.Qt.AlignCenter)
         self.Edit_PCI_RW_mm.setObjectName("Edit_PCI_RW_mm")
+        
         self.label_70 = QtWidgets.QLabel(self.groupBox_Check)
         self.label_70.setGeometry(QtCore.QRect(350, 45, 31, 16))
         self.label_70.setObjectName("label_70")
@@ -888,8 +1168,12 @@ class Ui_Dialog(object):
         self.pushSave.setGeometry(QtCore.QRect(10, 10, 251, 31))
         self.pushSave.setObjectName("pushSave")
         self.pushDefault = QtWidgets.QPushButton(Dialog)
-        self.pushDefault.setGeometry(QtCore.QRect(980, 10, 181, 31))
+        self.pushDefault.setGeometry(QtCore.QRect(970, 10, 91, 31))
         self.pushDefault.setObjectName("pushDefault")
+        self.push_openSample = QtWidgets.QPushButton(Dialog)
+        self.push_openSample.setGeometry(QtCore.QRect(1070, 10, 91, 31))
+        self.push_openSample.setObjectName("push_openSample")
+        self.push_openSample.clicked.connect(self.openSample)
 
         if os.path.isfile(self.saveDefaultFile): 
             self.readDefault(self.saveDefaultFile)
@@ -905,6 +1189,9 @@ class Ui_Dialog(object):
         self.radio_PCR.clicked.connect(self.tireGroupChange)
         self.radio_LTR.clicked.connect(self.tireGroupChange)
         self.radio_TBR.clicked.connect(self.tireGroupChange)
+
+        self.check_GroupTBR.toggled.connect(self.RimInfoChanged)
+        self.check_Tube.toggled.connect(self.RimInfoChanged)
 
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
@@ -1011,23 +1298,32 @@ class Ui_Dialog(object):
             self.Edit_stiffness_KV.setText("24.6")
             self.Edit_stiffness_KL.setText("20.03")
             self.Edit_stiffness_KT.setText("30.0")
+            self.check_GroupTBR.setChecked(False)
         if self.radio_LTR.isChecked(): 
             self.Edit_stiffness_KV.setText("24.6")
             self.Edit_stiffness_KL.setText("20.03")
             self.Edit_stiffness_KT.setText("30.0")
+            self.check_GroupTBR.setChecked(False)
         if self.radio_TBR.isChecked(): 
             self.Edit_stiffness_KV.setText("114.0")
             self.Edit_stiffness_KL.setText("38.0")
             self.Edit_stiffness_KT.setText("72.0")
-    def reCalculationDrumRadius(self): 
-        self.beltLift = float(self.Edit_beltLift.text())
-        self.carcassDrumDia = float(self.Edit_CcDrumDia.text())
-        self.carcassGa = float(self.Edit_CcGa.text())
+            self.check_GroupTBR.setChecked(True)
+    def reCalculationDrumRadius(self):
+        try:  
+            self.beltLift = float(self.Edit_beltLift.text())
+            self.carcassDrumDia = float(self.Edit_CcDrumDia.text())
+            self.carcassGa = float(self.Edit_CcGa.text())
         ## self.underCcGa, self.tireCenterMinR
+        except:
+            return 
+        
 
         nSD = self.rebarStartRow
         for i, sd in enumerate(self.rebar):
             self.tableWidget.setItem(i + nSD , 0,  QtWidgets.QTableWidgetItem( str(sd[0])) )
+            sd[2] = self.tableWidget.item(i+nSD,1).text().strip()
+
             no_mat = 0 
             for mat in self.NoMaterial: 
                 if mat.strip() in sd[2]: 
@@ -1064,6 +1360,103 @@ class Ui_Dialog(object):
                 self.tableWidget.setItem(i+ nSD, 9,  QtWidgets.QTableWidgetItem( str(sd[9])) )
                 self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(sd[11])) )
                 self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(sd[10])) )
+
+        self.materialDBCheck()
+        
+    def materialDBCheck(self): 
+        ## (wdir='', cordSaveFile='', fileListFile='', host='', user='', pw='', cordname=0, cordfile=''):
+        
+
+        PTN.Update_ISLM_Material(wdir=self.Edit_materialPosition.text(), cordSaveFile=self.cordDB, fileListFile=self.solidListFile, \
+            cordfile=self.localCordDBFile, cordDBFile=self.Edit_cordFile.text())
+
+        try: 
+            with open(self.cordDB) as matf: 
+                lines = matf.readlines()
+        except:
+            fp=open(self.cordDB, 'r', encoding='UTF8')
+            lines = fp.readlines()
+            fp.close()
+
+        cordList=[]
+        enter = 0 
+        for i, line in enumerate(lines):
+            if "*" in line: 
+                if "OLD_SPEC_CORD_NAME" in line: 
+                    enter = 1
+                else: 
+                    enter = 0 
+            else:
+                if enter ==1: 
+                    words = line.split(",")
+                    cordList.append([words[0].strip(), words[2].strip()])
+
+        solidList = []
+        with open(self.solidListFile) as SL: 
+            lines = SL.readlines()
+        for line in lines:
+            solidList.append(line.strip())
+
+        
+        # self.tableWidget.setItem(i + nSD , 0,  QtWidgets.QTableWidgetItem( str(sd[0])) )
+        #  self.tableWidget.item(i,0).text().strip()
+        i = 0 
+        try: 
+            name = self.tableWidget.item(0, 0).text().strip()
+        except:
+            name = None 
+
+        currentSolidList = []
+        toppingList=[]
+        while name: 
+            code = self.tableWidget.item(i, 1).text().strip()
+            if code !="" and not "..." in code: 
+                if "- Not available" in code: 
+                    code = code.split("-")[0].strip()
+                found = 0 
+                if "ES" in code.upper() or "ET" in code.upper(): 
+                    for cl in cordList: 
+                        if cl[0] == code: 
+                            found = 1 
+                            currentSolidList.append(cl[1])  ## topping compound 
+                            break 
+                else:
+                    for cl in solidList: 
+                        if cl == code: 
+                            found = 1 
+                            currentSolidList.append(cl)
+                            break 
+
+                if found ==0 : 
+                    self.tableWidget.setItem(i, 1, QtWidgets.QTableWidgetItem(code +"- Not available"))
+                else:
+                    self.tableWidget.setItem(i, 1, QtWidgets.QTableWidgetItem(code))
+
+            i += 1
+            try : 
+                name = self.tableWidget.item(i, 0).text().strip()
+            except: 
+                break 
+
+
+        # for solid in self.includingMaterial:
+        compoundNeedToAdd=[]
+        k = 0 
+        while k < len(currentSolidList): 
+            m = k + 1 
+            while m < len(currentSolidList) : 
+                if currentSolidList[m] == currentSolidList[k]: 
+                    del(currentSolidList[m])
+                    continue 
+                m +=1 
+            k += 1
+        
+        self.includingMaterial=[]
+        for sl in currentSolidList: 
+            if "ABW" in sl: 
+                self.includingMaterial.append(sl+".COR")
+            else: 
+                self.includingMaterial.append(sl+".PYN")
             
 
     def generateSMART_Inp(self): 
@@ -1089,7 +1482,10 @@ class Ui_Dialog(object):
         else: ic = 0 
         f.write("*SELF_CONTACT_ACTIVATION      = %d, %d  (INNER CAVITY ON, OFF (1, 0:DEFAULT) , TREAD KERF ON, OFF (1, 0:DEFAULT))\n"%(ic, kf))
         if self.check_kerf.isChecked(): 
-            f.write("*GROOVE_DEPTH_FOR_KERF_CONTACT= %.5f\n"%(float(self.Edit_grooveDepth.text())/1000.0))
+            try: 
+                f.write("*GROOVE_DEPTH_FOR_KERF_CONTACT= %.5f\n"%(float(self.Edit_grooveDepth.text())/1000.0))
+            except:
+                return 
         if self.groupBox_4.isChecked(): 
             f.write("*TEMPERATURE_ANALYSIS         = 1, %s, %s, %s   (OFF:0, ON:1), IF ON, (T_COMPUTATION_START_TIME, AIR_T, ROAD_T)\n"%(\
                 self.Edit_TempStartTime.text(), self.Edit_Temp_Air.text(), self.Edit_Temp_Road.text()))
@@ -1118,19 +1514,30 @@ class Ui_Dialog(object):
         if not self.check_lateralForce.isChecked(): 
             f.write("*LATERAL_CONTROL  =  0, %s\n"%(self.Edit_lateral.text()))
         else:
-            f.write("*LATERAL_CONTROL  =  1, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
+            try:
+                f.write("*LATERAL_CONTROL  =  1, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
+            except:
+                return 
 
         if not self.check_rotationForce.isChecked():
-            if float(self.Edit_angularVelocity.text()) == 0: 
-                f.write("*ROTATION_CONTROL =  0, 0.0\n")
-            else: 
-                f.write("*ROTATION_CONTROL =  0, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+            try: 
+                if float(self.Edit_angularVelocity.text()) == 0 and  float(self.Edit_Rotation.text()) == 0: 
+                    f.write("*ROTATION_CONTROL =  0, 0.0\n")
+                else: 
+                    f.write("*ROTATION_CONTROL =  0, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+            except:
+                return 
+                    
         else:
-            # f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
-            f.write("*ROTATION_CONTROL =  1, %.1f\n"%(float(self.Edit_Rotation.text())*9.81))
-
-        f.write("*ROAD_GEOM        =  %.3f ( road=0, drum or disc.=diameter in meter: RR(1.707), CLEAT(2.50), Wear(3.048), LAT100(0.317) )\n"%(float(self.Edit_RoadDia.text())))
-        f.write("*RIM_GEOM         =  %.1f, %.1f, %s\n"%(float(self.Edit_RDmm.text())/2.0, float(self.Edit_RWmm.text())/2.0, self.Edit_RimGeo.text()))
+            try: 
+                # f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+                f.write("*ROTATION_CONTROL =  1, %.1f\n"%(float(self.Edit_Rotation.text())*9.81))
+            except: return 
+        try: 
+            f.write("*ROAD_GEOM        =  %.3f ( road=0, drum or disc.=diameter in meter: RR(1.707), CLEAT(2.50), Wear(3.048), LAT100(0.317) )\n"%(float(self.Edit_RoadDia.text())))
+            f.write("*RIM_GEOM         =  %.1f, %.1f, %s\n"%(float(self.Edit_RDmm.text())/2.0, float(self.Edit_RWmm.text())/2.0, self.Edit_RimGeo.text()))
+        except:
+            return 
         f.write("*RIM_OR_HUB_REAL_MASS =%s   (RIM=1.0, LAT100=0.05, NPT=1.0)\n"%(self.Edit_RimMass.text()))
         f.write("*****************************************************************************************************************************\n")
         f.write("*SURFACES_FOR_CONTACT_AND_LOAD=%s, %s, %s, %s, %s        (TREAD, TBODY, PRESS, RICL, RICR FOR TIRE  )\n"%(\
@@ -1215,6 +1622,7 @@ class Ui_Dialog(object):
                 f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] ))
         f.write("*****************************************************************************************************************************\n")
         
+
         for solid in self.includingMaterial:
             f.write("*INCLUDE, INP=%s/%s\n"%(self.Edit_materialPosition.text(), solid ))
         
@@ -1239,62 +1647,119 @@ class Ui_Dialog(object):
         else: 
             self.Edit_tempFile.setEnabled(True)
     def PCIRWmm(self): 
-        self.PCIRWmm = round(float(self.Edit_PCI_RW_mm.text()), 2)
-        self.Edit_PCI_RW_inch.setText(str(round(self.PCIRWmm/25.4, 2)))
+        try:
+            self.PCIRWmm = round(float(self.Edit_PCI_RW_mm.text()), 2)
+            self.Edit_PCI_RW_inch.setText(str(round(self.PCIRWmm/25.4, 2)))
+        except:
+            pass 
 
     def PCIRWInch(self): 
-        self.PCIRWmm = round(float(self.Edit_PCI_RW_inch.text())*25.4, 2)
-        self.Edit_PCI_RW_mm.setText(str(round(self.PCIRWmm, 2)))
+        try:
+            self.PCIRWmm = round(float(self.Edit_PCI_RW_inch.text())*25.4, 2)
+            self.Edit_PCI_RW_mm.setText(str(round(self.PCIRWmm, 2)))
+        except:
+            pass 
 
     def testRDmm(self): 
-        self.RD = round(float(self.Edit_RDmm.text()), 2)
-        self.Edit_RDinch.setText(str(round(self.RD/25.4, 2)))
+        try: 
+            self.RD = round(float(self.Edit_RDmm.text()), 2)
+            self.Edit_RDinch.setText(str(round(self.RD/25.4, 2)))
+        except:
+            pass 
+    
+    def RimInfoChanged(self): 
+        self.testRDInch()
+        self.testRWInch()
 
     def testRDInch(self): 
-        self.RD = round(float(self.Edit_RDinch.text())*25.4, 2)
-        self.Edit_RDmm.setText(str(round(self.RD, 2)))
-
+        try:
+            if self.check_GroupTBR.isChecked(): group = 'TBR'
+            else: group="PCR"
+            if self.check_Tube.isChecked(): rimType="Tube"
+            else: rimType = 'TL'
+            self.RD = RimDiameter(float(self.Edit_RDinch.text()), group=group, rimType=rimType)
+            # if self.RD ==0: 
+            #     self.RD = round(float(self.Edit_RDinch.text())*25.4, 2)
+            self.Edit_RDmm.setText(str(round(self.RD, 2)))
+        except:
+            pass 
     
     def testRWmm(self): 
-        self.RW = round(float(self.Edit_RWmm.text()), 2)
-        self.Edit_RWInch.setText(str(round(self.RW/25.4, 2)))
+        try:
+            self.RW = round(float(self.Edit_RWmm.text()), 2)
+            self.Edit_RWInch.setText(str(round(self.RW/25.4, 2)))
+        except:
+            pass 
 
-    def testRWInch(self): 
-        self.RW = round(float(self.Edit_RWInch.text())*25.4, 2)
-        self.Edit_RWmm.setText(str(round(self.RW, 2)))
+    def testRWInch(self):
+        try:
+            if self.check_GroupTBR.isChecked(): group = 'TBR'
+            else: group="PCR"
+            if self.check_Tube.isChecked(): rimType="Tube"
+            else: rimType = 'TL'
+            self.RW = RimWidth(float(self.Edit_RWInch.text()), group=group, rimType=rimType)
+            # if self.RW ==0: 
+            #     self.RW = round(float(self.Edit_RWInch.text())*25.4, 2)
+            self.Edit_RWmm.setText(str(round(self.RW, 2)))
+        except:
+            pass 
 
     def loadKgf(self): 
-        self.Load = float(self.Edit_loadKgf.text())
-        self.Edit_loadLbs.setText(str(round(self.Load*2.205, 1)))
+        try:
+            self.Load = float(self.Edit_loadKgf.text())
+            self.Edit_loadLbs.setText(str(round(self.Load*2.205, 1)))
+        except:
+            pass 
     def loadLbf(self):
-        self.Load = round(float(self.Edit_loadLbs.text())/2.205, 2)
-        self.Edit_loadKgf.setText(str(self.Load))
+        try:
+            self.Load = round(float(self.Edit_loadLbs.text())/2.205, 2)
+            self.Edit_loadKgf.setText(str(self.Load))
+        except:
+            pass 
         
     def pressureKgf(self): 
-        self.Press = float(self.Edit_pressKgf.text())
-        self.Edit_presskPa.setText(str(round(self.Press*98.07, 2)))
-        self.Edit_pressPSI.setText(str(round(self.Press*14.22, 2)))
+        try: 
+            self.Press = float(self.Edit_pressKgf.text())
+            self.Edit_presskPa.setText(str(round(self.Press*98.07, 2)))
+            self.Edit_pressPSI.setText(str(round(self.Press*14.22, 2)))
+        except:
+            pass 
     def pressureKpa(self): 
-        self.Press = round(float(self.Edit_presskPa.text()) / 98.07, 2)
-        self.Edit_pressKgf.setText(str(self.Press))
-        self.Edit_pressPSI.setText(str(round(self.Press*14.22, 2)))
+        try:
+            self.Press = round(float(self.Edit_presskPa.text()) / 98.07, 2)
+            self.Edit_pressKgf.setText(str(self.Press))
+            self.Edit_pressPSI.setText(str(round(self.Press*14.22, 2)))
+        except:
+            pass 
     def pressurePsi(self): 
-        self.Press = round(float(self.Edit_pressPSI.text()) / 14.22, 2)
-        self.Edit_presskPa.setText(str(round(self.Press*98.07,2)))
-        self.Edit_pressKgf.setText(str(self.Press))
+        try:
+            self.Press = round(float(self.Edit_pressPSI.text()) / 14.22, 2)
+            self.Edit_presskPa.setText(str(round(self.Press*98.07,2)))
+            self.Edit_pressKgf.setText(str(self.Press))
+        except:
+            pass 
 
     def pressurePCIKgf(self): 
-        self.PCIPress = float(self.Edit_PCI_press_kgf.text())
-        self.Edit_PCI_press_kPa.setText(str(round(self.PCIPress*98.07, 2)))
-        self.Edit_PCI_press_psi.setText(str(round(self.PCIPress*14.22, 2)))
+        try:
+            self.PCIPress = float(self.Edit_PCI_press_kgf.text())
+            self.Edit_PCI_press_kPa.setText(str(round(self.PCIPress*98.07, 2)))
+            self.Edit_PCI_press_psi.setText(str(round(self.PCIPress*14.22, 2)))
+        except:
+            pass 
     def pressurePCIKpa(self): 
-        self.PCIPress = round(float(self.Edit_PCI_press_kPa.text()) / 98.07, 2)
-        self.Edit_PCI_press_kgf.setText(str(self.PCIPress))
-        self.Edit_PCI_press_psi.setText(str(round(self.PCIPress*14.22, 2)))
+        try:
+            self.PCIPress = round(float(self.Edit_PCI_press_kPa.text()) / 98.07, 2)
+            self.Edit_PCI_press_kgf.setText(str(self.PCIPress))
+            self.Edit_PCI_press_psi.setText(str(round(self.PCIPress*14.22, 2)))
+        except:
+            pass 
     def pressurePCIPsi(self): 
-        self.PCIPress = round(float(self.Edit_PCI_press_psi.text()) / 14.22, 2)
-        self.Edit_PCI_press_kPa.setText(str(round(self.PCIPress*98.07,2)))
-        self.Edit_PCI_press_kgf.setText(str(self.PCIPress))
+        try:
+            self.PCIPress = round(float(self.Edit_PCI_press_psi.text()) / 14.22, 2)
+            self.Edit_PCI_press_kPa.setText(str(round(self.PCIPress*98.07,2)))
+            self.Edit_PCI_press_kgf.setText(str(self.PCIPress))
+        except:
+            pass 
 
     def readDefault(self, fname)    : 
         with open(fname) as fp: 
@@ -1305,6 +1770,15 @@ class Ui_Dialog(object):
             if "**" in line: 
                 continue 
             if "*" in line:
+
+                if "Tire Group" in line: 
+                    if "TBR" in words[1]: self.check_GroupTBR.setChecked(True)
+                    else: self.check_GroupTBR.setChecked(False)
+
+                if "Rim Type" in line: 
+                    if "Tube" in words[1]: self.check_Tube.setChecked(True)
+                    else: self.check_Tube.setChecked(False)
+
                 if "PCI Total Time" in line: 
                     data = words[1].split(",") 
                     self.PCITime1 = float(data[0])
@@ -1388,7 +1862,6 @@ class Ui_Dialog(object):
                     self.RD = float(words[1].strip())
                 if "Road Dia" in line: 
                     self.roadDia = float(words[1].strip())
-                
                 if "PIC_ON/OFF" in line: 
                     self.PCI = int(words[1].strip())
                 if "Low Cure" in line: 
@@ -1439,6 +1912,14 @@ class Ui_Dialog(object):
         
     def saveDefault(self): 
         subf = open(self.saveDefaultFile, 'w')
+        if self.check_GroupTBR.isChecked(): group="TBR"
+        else: 
+            if self.radio_LTR.isChecked(): group="LTR"
+            else: group="PCR"
+        subf.write("*Tire Group=%s\n"%(group))
+        if self.check_Tube.isChecked(): rimType = "Tube"
+        else: rimType = "Tubeless"
+        subf.write("*Rim Type=%s\n"%(rimType))
         subf.write("*PCI Total Time=%s, %s, %s\n"%(self.Edit_Inflation_Time1.text(), self.Edit_Inflation_Time2.text(), self.Edit_totalTime.text()))
         subf.write("*Output del Time=%s\n"%(self.Edit_stepTime.text()))
         subf.write("*Result Averaging time=%s\n"%(self.Edit_averageTime.text()))
@@ -1591,12 +2072,12 @@ class Ui_Dialog(object):
         self.label_68.setText(_translate("Dialog", "kPa"))
         self.Edit_PCI_press_kgf.setText(_translate("Dialog",  str(self.PCIPress)))
         
-        self.label_67.setText(_translate("Dialog", "Inch"))
+        self.label_67.setText(_translate("Dialog", "mm"))
         self.Edit_PCI_RW_inch.setText(_translate("Dialog",  str(round(self.PCIRW/25.4, 1))))
         self.label_69.setText(_translate("Dialog", "kgf/cm2"))
         self.Edit_PCI_RW_mm.setText(_translate("Dialog",  str(self.PCIRW)))
 
-        self.label_70.setText(_translate("Dialog", "mm"))
+        self.label_70.setText(_translate("Dialog", "Inch"))
         self.label_71.setText(_translate("Dialog", "psi"))
         self.check_LowCure.setText(_translate("Dialog", "Low Temperature Cure"))
         self.Edit_BSD.setText(_translate("Dialog",  str(self.BSD)))
@@ -1700,7 +2181,7 @@ class Ui_Dialog(object):
         self.Edit_beltLift.setText(_translate("Dialog", "1.03"))
         self.label_77.setText(_translate("Dialog", "BT Lift"))
         self.label_78.setText(_translate("Dialog", "Cc Drum Dia."))
-        self.push_caculation.setText(_translate("Dialog", "Calculate"))
+        self.push_caculation.setText(_translate("Dialog", "Update"))
         self.Edit_CcGa.setText(_translate("Dialog", "1.0"))
         self.label_ccGa.setText(_translate("Dialog", "Cc Ga."))
 
@@ -1708,8 +2189,13 @@ class Ui_Dialog(object):
         self.Edit_camber.setText(_translate("Dialog", "0"))
         self.label_camber.setText(_translate("Dialog", "Camber"))
 
-        self.Edit_RimGeo.setText(_translate("Dialog", "/home/fiper/ISLM_RIM/RIM_PCLT.GEOM"))
+        self.pushDefault.setText(_translate("Dialog", "Save Default"))
+        self.push_openSample.setText(_translate("Dialog", "Open Sample"))
 
+        self.Edit_RimGeo.setText(_translate("Dialog", "/home/fiper/ISLM_RIM/RIM_PCLT.GEOM"))
+        
+        self.check_GroupTBR.setText(_translate("Dialog", "TBR"))
+        self.check_Tube.setText(_translate("Dialog", "Tube Type"))
         ###########################################################
         ## Tips..
         self.Edit_RoadDia.setToolTip(_translate("Dialog", "<html><head/><body><p>Flat = 0.0</p><p>RR = 1.707</p><p>Cleat = 2.5 </p><p>Wear = 3.048 </p><p>LAT100 = 0.317</p></body></html>"))

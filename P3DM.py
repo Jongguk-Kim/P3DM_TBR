@@ -610,11 +610,14 @@ class Ui_MainWindow(object):
         self.ShowingImage = 'none'
 
         
-        self.ISLM_cordDBFile = "ISLM_CordDBName.dat"
-
         # self.layout.GD = 0.003
         # self.fullmeshSave = "materialTest_new"
         self.fullmeshSave=""
+
+        self.localCordDB = 'ISLM_CordDB.txt'
+        self.fileListFile = 'ISLM_materialList.txt'
+        self.ISLM_cordDBFile="ISLM_CordDBName.dat"
+        
 
     def openInputWindow(self):
         if self.fullmeshSave != "": 
@@ -650,8 +653,8 @@ class Ui_MainWindow(object):
 
                 
                 Dialog = QtWidgets.QDialog()
-                dlg = SMART.Ui_Dialog(self.materialDir, self.ISLM_cordDBFile, self.fullmeshSave, self.layout.GD,\
-                    PCIPress, bsd, bdw, dRW)
+                dlg = SMART.Ui_Dialog(self.materialDir, self.localCordDB, self.fullmeshSave, self.layout.GD,\
+                    PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile)
                 dlg.setupUi(Dialog, PCIPress)
                 Dialog.exec_()
             except:
@@ -886,10 +889,11 @@ class Ui_MainWindow(object):
         BT_angles=[float(self.AngleBT1), float(self.AngleBT2), float(self.AngleBT3), float(self.AngleBT4)]
         if self.checkBox_overType.isChecked(): overtype = "TOS"
         else:  overtype = "SOT"
-        PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
-            elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element,\
-                    materialDir=self.materialDir, btAngles=BT_angles, \
-                        overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
+        if savefile !="": 
+            PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
+                elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element,\
+                        materialDir=self.materialDir, btAngles=BT_angles, \
+                            overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
 
                 
     def Update_ISLM_Material(self): 
@@ -926,9 +930,6 @@ class Ui_MainWindow(object):
         self.PCIPress=self.line_PCI_Press.text()
         self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4, self.PCIPress)
 
-        localCordDB = 'ISLM_CordDB.txt'
-        fileListFile = 'ISLM_materialList.txt'
-        ISLM_cordDBFile="ISLM_CordDBName.dat"
         
         
         matFile = self.fullmeshSave + "-material.dat"
@@ -938,8 +939,8 @@ class Ui_MainWindow(object):
         user = 'h20200155'
         pw = 'h20200155'
         try : 
-            PTN.Update_ISLM_Material(wdir=self.materialDir,  cordSaveFile=localCordDB, fileListFile=fileListFile, \
-                host=host, user=user, pw=pw, cordfile=ISLM_cordDBFile)
+            PTN.Update_ISLM_Material(wdir=self.materialDir,  cordSaveFile=self.localCordDB, fileListFile=self.fileListFile, \
+                host=host, user=user, pw=pw, cordfile=self.ISLM_cordDBFile)
             # print ("* ISLM Mateiral DB was updated.")
         except:
             print ("## Cannot access ISLM Mateiral DB.")
