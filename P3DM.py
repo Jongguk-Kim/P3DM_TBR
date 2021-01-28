@@ -578,7 +578,7 @@ class Ui_MainWindow(object):
         self.check_T3DM.stateChanged.connect(self.T3DM_Checking)
         self.check_SubTread.stateChanged.connect(self.SUT_Checking)
         self.check_FricView.stateChanged.connect(self.FricView_Checking)
-        self.check_Direction.stateChanged.connect(self.PTN_Direction_Change)
+        # self.check_Direction.stateChanged.connect(self.PTN_Direction_Change)
         self.ABAQUS.stateChanged.connect(self.ABAQUS_Checking)
        
 
@@ -621,7 +621,7 @@ class Ui_MainWindow(object):
 
     def openInputWindow(self):
         if self.fullmeshSave != "": 
-            try:
+            # try:
                 try: 
                     PCIPress = float(self.line_PCI_Press.text())
                     PCIPress = PCIPress
@@ -657,8 +657,8 @@ class Ui_MainWindow(object):
                     PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile)
                 dlg.setupUi(Dialog, PCIPress)
                 Dialog.exec_()
-            except:
-                print ("## You Should generate 3D Full meshes")
+            # except:
+            #     print ("## You Should generate 3D Full meshes")
         else:
             print("## You should create 3D mesh.")
 
@@ -818,13 +818,26 @@ class Ui_MainWindow(object):
         if self.readpattern: 
             dups = []
             margin = 0.1E-03
-            solids = self.ptn_model.nps 
-            if self.radio_model.isChecked() : nodes = self.ptn_model.npn
-            elif self.radio_scaled.isChecked() : nodes = self.ptn_expanded.npn
-            elif self.radio_gauged.isChecked() : nodes = self.ptn_gauged.npn
-            elif self.radio_bended.isChecked() : nodes = self.ptn_bended.npn
-            elif self.radio_expanded.isChecked() : nodes = self.ptn_bottomed.npn
-            else : nodes = self.pattern.npn
+            # solids = self.ptn_model.nps 
+            if self.radio_model.isChecked() : 
+                nodes = self.ptn_model.npn
+                solids = self.ptn_model.nps 
+            elif self.radio_scaled.isChecked() : 
+                nodes = self.ptn_expanded.npn
+                solids = self.ptn_expanded.nps
+            elif self.radio_gauged.isChecked() : 
+                nodes = self.ptn_gauged.npn
+                solids = self.ptn_gauged.nps
+            elif self.radio_bended.isChecked() : 
+                nodes = self.ptn_bended.npn
+                solids = self.ptn_bended.nps
+            elif self.radio_expanded.isChecked() : 
+                nodes = self.ptn_bottomed.npn
+                solids = self.ptn_bottomed.nps
+            else : 
+                nodes = self.pattern.npn
+                solids = self.ptn_model.nps 
+                
 
             cnt, cln = PTN.NodeDistanceChecking(nodes, solids, margin=margin)
             if cnt > 0: 
@@ -993,20 +1006,8 @@ class Ui_MainWindow(object):
 
     def PTN_Direction_Change(self): 
         if self.readpattern: 
-            self.reversed_pattern *= -1 
-            if self.patternexpanded ==0: 
-                for orn, npn, mpn in zip(self.pattern.Node_Origin, self.pattern.npn, self.ptn_model.npn): 
-                    npn[1] = OP_mul(npn[1], -1.0)
-                    orn[1] = OP_mul(orn[1], -1.0)
-                    mpn[1] = OP_mul(mpn[1], -1.0)
-
-            else: 
-                for orn, npn, mpn, epn in zip(self.pattern.Node_Origin, self.pattern.npn, self.ptn_model.npn, self.ptn_expanded.npn): 
-                    npn[1] = OP_mul(npn[1], -1.0)
-                    orn[1] = OP_mul(orn[1], -1.0)
-                    mpn[1] = OP_mul(mpn[1], -1.0)
-                    epn[1] = OP_mul(epn[1], -1.0)
-            
+            for npn in self.pattern.npn : 
+                npn[1] = OP_mul(npn[1], -1.0)
             
             N = len(self.pattern.nps)
 
@@ -1027,6 +1028,51 @@ class Ui_MainWindow(object):
                     t2 = self.pattern.nps[i][5]; t3 = self.pattern.nps[i][6]
                     self.pattern.nps[i][5] = t3; self.pattern.nps[i][6]= t2
 
+            for k, sf in enumerate(self.pattern.surf_pitch_up): 
+                if sf[1]>2:
+                    t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+                    t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+                    if sf[1] ==3: sf[1]==5
+                    elif sf[1] ==5: sf[1]==3
+                    self.pattern.surf_pitch_up[k]=sf 
+            for k, sf in enumerate(self.pattern.surf_pitch_down):  
+                if sf[1]>2:
+                    t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+                    t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+                    if sf[1] ==3: sf[1]==5
+                    elif sf[1] ==5: sf[1]==3
+                    self.pattern.surf_pitch_down[k]=sf 
+            for k, sf in enumerate(self.pattern.surf_pattern_neg_side): 
+                if sf[1]>2:
+                    t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+                    t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+                    if sf[1] ==3: sf[1]==5
+                    elif sf[1] ==5: sf[1]==3
+                    self.pattern.surf_pattern_neg_side[k]=sf 
+            for k, sf in enumerate(self.pattern.surf_pattern_pos_side): 
+                if sf[1]>2:
+                    t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+                    t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+                    if sf[1] ==3: sf[1]==5
+                    elif sf[1] ==5: sf[1]==3
+                    self.pattern.surf_pattern_pos_side[k]=sf 
+            for k, sf in enumerate(self.pattern.PTN_AllFreeSurface): 
+                if sf[1]>2:
+                    t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+                    t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+                    if sf[1] ==3: sf[1]==5
+                    elif sf[1] ==5: sf[1]==3
+                    self.pattern.PTN_AllFreeSurface[k]=sf 
+            for k, sf in enumerate(self.pattern.freebottom): 
+                if sf[1]>2:
+                    t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+                    t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+                    if sf[1] ==3: sf[1]==5
+                    elif sf[1] ==5: sf[1]==3
+                    self.pattern.freebottom[k]=sf 
+
+            #  surf_pitch_up, surf_pitch_down, surf_free=[], surf_btm=[], surf_side=[],
+            # self.pattern.PTN_AllFreeSurface, self.pattern.freebottom,
             for bm in self.pattern.UpBack: 
                 bm[3][0] *= -1 
                 bm[4][0] *= -1 
@@ -1035,16 +1081,10 @@ class Ui_MainWindow(object):
             self.figure.plot(pattern=self.pattern, show='pattern')
             self.ShowingImage = 'pattern'
 
-            if self.reversed_pattern == 1: 
-                print ("************************************")
-                print ("** Pattern direction was reversed.")
-                print ("************************************")
-            else: 
-                print ("************************************")
-                print ("** Pattern direction was restored.")
-                print ("************************************")
+            print ("************************************")
+            print ("** Pattern direction was reversed.")
+            print ("************************************")
 
-            # print ("## Failed to convert Pattern direction") 
 
     def Initilize(self): 
 
@@ -1138,10 +1178,6 @@ class Ui_MainWindow(object):
         self.radioDefault.setChecked(True)
 
         self.check_T3DM.setEnabled(True)
-        # self.check_Direction.setEnabled(True)
-        # self.check_T3DM.setChecked(False)
-        # self.check_Direction.setChecked(False)
-        # self.check_FricView.setChecked(False)
         self.checkBox_SurfNo.setChecked(False)
 
         try: 
@@ -1150,9 +1186,6 @@ class Ui_MainWindow(object):
         except: 
             pass 
 
-        # w = win32gui.GetWindowText(win32gui.GetForegroundWindow())
-        # print(w)
-        
 
         # self.message.setText("Please Select Tire Layout mesh file (2D)")
         self.layoutmesh, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select layout mesh File", self.cwd, "Layout Mesh(*.inp)") 
@@ -1166,8 +1199,6 @@ class Ui_MainWindow(object):
             hwnd = win32gui.FindWindow(None, self.mainWindowName)
             win32gui.SetForegroundWindow(hwnd)
             return 
-        
-        # win32gui.SetForegroundWindow(hwnd)
         
         # self.message.setText("Please Select 3D Pattern mesh file")
         self.patternmesh, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select pattern mesh File", self.cwd, "Pattern Mesh(*.ptn)") 
@@ -1222,11 +1253,6 @@ class Ui_MainWindow(object):
             self.removal_tread()
             self.expansion_ptn()
 
-            if self.check_Direction.isChecked() == True and self.reversed_pattern == -1: 
-                self.PTN_Direction_Change()
-            if self.check_Direction.isChecked() == False and self.reversed_pattern == 1: 
-                self.PTN_Direction_Change()
-            
             self.generation_mesh()
             self.btn_layoutmesh.setDisabled(True)
             self.btn_patternmesh.setDisabled(True)
@@ -1458,10 +1484,7 @@ class Ui_MainWindow(object):
             if opened == 0: 
                 print ("## Select a pattern mesh")
                 return 
-            self.reversed_pattern = -1 
-            if self.check_Direction.isChecked() == True : 
-                self.PTN_Direction_Change()
-
+            
     def removal_tread(self): 
         self.radioDefault.setChecked(True)
         self.check_T3DM.setEnabled(False)
@@ -1507,7 +1530,7 @@ class Ui_MainWindow(object):
             self.figure.plot(layout=self.layout, show='layout')
             self.ShowingImage = 'layout'
                 # print ("* Profile Shoulder T/D Ga=%.1f, Sho. R=%.2f"%(self.shoulderGa*1000,self.layout.r_shocurve*1000))
-            # sys.exit()
+            return 
 
 
         else: 
@@ -1624,17 +1647,12 @@ class Ui_MainWindow(object):
         POFFSET = 10000
         if self.filesaved == 0: 
             self.pd=0
-            NN = len(self.pattern.npn); NS= len(self.pattern.nps)
-            NN = int(np.max(self.pattern.npn[:,0])) - 10**7
-            NS = int(np.max(self.pattern.nps[:,0])) - 10**7 
-            if NN > NS: POFFSET=int(NN/10000) * 10000 + 10000
-            else:       POFFSET=int(NS/10000) * 10000 + 10000
-            self.poffset = POFFSET
+            
 
             print ("\n############################################")
             print ("## Fitting pattern to layout ")
             print ("############################################")
-            print ("* ID Max. Node=%d, Element=%d"%(NN, NS))
+            
             
             if self.layout.shoulderType=="R":
                 if  self.layout.r_shocurve < 6.0E-03 or self.shoulderGa >= self.layout.r_shocurve  + 2.0e-03:       self.Check_ShoulderGaugeCheck = 1
@@ -1676,12 +1694,6 @@ class Ui_MainWindow(object):
             elif self.layout.shoulderType=="S" and self.layout.T3DMMODE == 0:
                 self.pattern.npn, self.pattern.sideBtmNode = PTN.AttatchSquarePatternSideNodes(self.layout.sideNodes, self.pattern.npn, self.pattern.Node_Origin, \
                                     self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side)
-            # except: 
-            #     print ("## Error to attach side nodes to profile")
-            #     self.btn_removetread.setDisabled(True)
-            #     self.btn_expansion.setDisabled(True)
-            #     self.btn_generation.setDisabled(True)
-            #     return 
 
             self.ptn_bended = PTN.COPYPTN(self.pattern)
             # if self.layout.T3DMMODE ==0 : or self.check_FricView.isChecked() == True : 
@@ -1707,20 +1719,33 @@ class Ui_MainWindow(object):
             self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, ptnbottom=self.pattern.freebottom, start=start, shoulder=self.layout.shoulderType)
 
             
+            if self.layout.group =="TBR": subGa_margin = 0.001 
+            elif self.layout.group =="LTR": subGa_margin = 0.0003 
+            else: subGa_margin = 0.0003
+            self.ptn_elset, self.pattern.nps, self.pattern.npn, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
+                 self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, newPitchNodes\
+                 = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
+                 subtread=self.check_SubTread.isChecked(), btm=1, surf_btm=self.pattern.freebottom, subGaMargin=subGa_margin,\
+                 shoulder=self.layout.shoulderType,  tdw=self.layout.TDW, pitchUp=self.pattern.surf_pitch_up, \
+                     pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side, sidePos=self.pattern.surf_pattern_pos_side)
+            
+            ###################################################################
+            ## pattern direction change 
+            ###################################################################
+            if self.check_Direction.isChecked() :  self.PTN_Direction_Change()
+            ###################################################################
+
+
+            self.check_SubTread.setDisabled(True)
             self.radio_expanded.setChecked(True)
+            
             self.ptn_bottomed = PTN.COPYPTN(self.pattern)
 
             self.pattern.npn = PTN.BendintPatternInCircumferentialDirection(self.pattern.npn, self.layout.OD)
-
+            
             NN = len(self.pattern.npn); NS= len(self.pattern.nps)
-            # print ("* Pattern nodes=%d, elements=%d\n"%(NN, NS))
-
             solid_err, text, _, _=PTN.Jacobian_check(self.pattern.npn, self.pattern.nps)  ## deformed pattern mesh check 
              
-            self.ptn_elset = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
-                 subtread=self.check_SubTread.isChecked(), btm=1, surf_btm=self.pattern.freebottom)
-            # self.check_FricView.setDisabled(True) 
-            self.check_SubTread.setDisabled(True)
             if len(solid_err) > 0 : 
                 soler = np.array(solid_err)
                 soler = soler[:,0]
@@ -1851,9 +1876,17 @@ class Ui_MainWindow(object):
             # self.input_layout_sector.setDisabled(True)
             self.figure.plot(layout=self.layout, pattern=self.pattern, show='all', ptn_elset=self.ptn_elset, bended=1)
             self.ShowingImage = 'layout'
-
+            
             if len(solid_err) > 0 :
                 return 
+
+            NN = len(self.pattern.npn); NS= len(self.pattern.nps)
+            NN = int(np.max(self.pattern.npn[:,0])) - 10**7
+            NS = int(np.max(self.pattern.nps[:,0])) - 10**7 
+            if NN > NS: POFFSET=int(NN/10000) * 10000 + 10000
+            else:       POFFSET=int(NS/10000) * 10000 + 10000
+            self.poffset = POFFSET
+            print ("* ID Max. Node=%d, Element=%d"%(NN, NS))
 
             # if   self.layout.shoulderType=="S" and self.layout.T3DMMODE ==0 : return 
             print ("\n** Full 3D Mesh ")
@@ -1872,7 +1905,8 @@ class Ui_MainWindow(object):
             self.fullnodes, self.fullsolids, self.elset3d, self.surf_XTRD1001, self.surf_YTIE1001, self.nd_deleted, self.deletednode, \
             = PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
                 surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
-                offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , rev=self.check_Direction.isChecked())
+                offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
+                    rev=self.check_Direction.isChecked(), newPitchNodes=newPitchNodes)
 
         
             
@@ -1883,10 +1917,7 @@ class Ui_MainWindow(object):
 
 
         if savefile and len(solid_err) == 0:
-
             savefile = savefile[:-4]
-            
-
             isCtb=0
             isSut=0 
             for eset in self.layout.Elset.Elset: 
@@ -2029,10 +2060,8 @@ class Ui_MainWindow(object):
         self.UncheckOverlayRadio()
 
         if self.readpattern and self.ShowingImage != 'layout': 
-            
             solid = self.SearchedSolids(id=0)
             try: 
-                # nps = self.ptn_model.nps
                 if self.radio_model.isChecked() : 
                     npn = self.ptn_model.npn 
                 elif self.radio_scaled.isChecked() : 
@@ -2047,7 +2076,6 @@ class Ui_MainWindow(object):
                     npn = self.pattern.npn 
                 if len(solid) > 0:  print ("\n Pattern Element" )
                 for sd in solid: 
-                    
                     if sd[7] > 0: 
                         print ("%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7, sd[8]-10**7 ))
                     else: 
@@ -2072,18 +2100,7 @@ class Ui_MainWindow(object):
                     if pn[6] == 3: print (" %5d, %5d, %5d, %5d"%(pn[0], pn[1], pn[2], pn[3]))
                     if pn[6] == 4: print (" %5d, %5d, %5d, %5d, %5d"%(pn[0], pn[1], pn[2], pn[3], pn[4]))
             if len(solid) > 0: 
-                if self.radio_model.isChecked() : 
-                    npn = self.ptn_model.npn 
-                elif self.radio_scaled.isChecked() : 
-                    npn = self.ptn_expanded.npn 
-                elif self.radio_gauged.isChecked() : 
-                    npn = self.ptn_gauged.npn 
-                elif self.radio_bended.isChecked() : 
-                    npn = self.ptn_bended.npn 
-                elif self.radio_expanded.isChecked() : 
-                    npn = self.ptn_bottomed.npn 
-                else : 
-                    npn = self.pattern.npn
+                
 
                 print ("\n Pattern Element" )
                 for sd in solid: 
@@ -2091,18 +2108,40 @@ class Ui_MainWindow(object):
                         print ("%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7, sd[8]-10**7 ))
                     else: 
                         print ("%5d,%5d,%5d,%5d,%5d,%5d,%5d"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7))
+            if self.radio_model.isChecked() : 
+                npn = self.ptn_model.npn 
+            elif self.radio_scaled.isChecked() : 
+                npn = self.ptn_expanded.npn 
+            elif self.radio_gauged.isChecked() : 
+                npn = self.ptn_gauged.npn 
+            elif self.radio_bended.isChecked() : 
+                npn = self.ptn_bended.npn 
+            elif self.radio_expanded.isChecked() : 
+                npn = self.ptn_bottomed.npn 
+            else : 
+                npn = self.pattern.npn
 
             self.figure.Add_layer(plane, np.array(self.InitialLayout.Node.Node), solid, npn)
-            # try: 
-            #     self.figure.Add_layer(plane, np.array(self.InitialLayout.Node.Node), solid, npn)
-            # except: 
-            #     # self.message.setText(" Error to plot.") 
+
     def SearchElements(self, npp, id=1): 
                   
         solid = []
         plane = []
         if self.readlayout:
             solidel = self.searchno.text()
+            if self.radio_model.isChecked() : 
+                solids = self.ptn_model.nps 
+            elif self.radio_scaled.isChecked() : 
+                solids = self.ptn_expanded.nps 
+            elif self.radio_gauged.isChecked() : 
+                solids = self.ptn_gauged.nps 
+            elif self.radio_bended.isChecked() : 
+                solids = self.ptn_bended.nps 
+            elif self.radio_expanded.isChecked() : 
+                solids = self.ptn_bottomed.nps 
+            else : 
+                solids = self.pattern.nps 
+
             if solidel != "" and solidel != "0": 
                 if "," in solidel: 
                     els = solidel.split(",")
@@ -2141,19 +2180,19 @@ class Ui_MainWindow(object):
                             el = int(el[0].strip())
 
                             if el >= 10**7 and self.readpattern:
-                                ix = np.where(self.ptn_model.nps[:,0] == el)[0]
+                                ix = np.where(solids[:,0] == el)[0]
                                 if len(ix) == 1: 
-                                    el = self.ptn_model.nps[ix[0]]
+                                    el = solids[ix[0]]
                                     if el[7] > 0: 
                                         ns = [el[1], el[2], el[3], el[4], el[5], el[6], el[7], el[8]]
                                     else: 
                                         ns = [el[1], el[2], el[3], el[4], el[5], el[6]]
                                     for n in ns: 
-                                        ix = np.where(self.ptn_model.nps[:,1:9] == n)[0]
+                                        ix = np.where(solids.nps[:,1:9] == n)[0]
                                         tns = np.append(tns, ix)#, axis=None)
                                     for tn in tns: 
-                                        if id==1 : solid.append(self.ptn_model.nps[int(tn)][0])
-                                        else:  solid.append(self.ptn_model.nps[int(tn)])
+                                        if id==1 : solid.append(solids[int(tn)][0])
+                                        else:  solid.append(solids[int(tn)])
                             else: 
                                 # npn = np.array(layout.Node.Node)
                                 # elem = layout.Element.Element 
@@ -2185,10 +2224,10 @@ class Ui_MainWindow(object):
                             ns[1] = int(ns[1].strip())
                             if ns[0] >= 10**7 and ns[1] >= 10**7  and self.readpattern: 
                                 for i in range(ns[0], ns[1]+1): 
-                                    ix = np.where(self.ptn_model.nps[:,0]==i)[0]
+                                    ix = np.where(solids[:,0]==i)[0]
                                     if len(ix) ==1:    
-                                        if id== 0: solid.append(self.ptn_model.nps[ix[0]])
-                                        else: solid.append(self.ptn_model.nps[ix[0]][0])
+                                        if id== 0: solid.append(solids[ix[0]])
+                                        else: solid.append(solids[ix[0]][0])
                             else: 
                                 for i in range(ns[0], ns[1]+1): 
                                     ix = np.where(npp[:,0]==i)[0]
@@ -2200,10 +2239,10 @@ class Ui_MainWindow(object):
                         elif "" != el and "0" != el: 
                             el = int(el.strip())
                             if el >= 10**7  and self.readpattern: 
-                                ix = np.where(self.ptn_model.nps[:,0]==el)[0]
+                                ix = np.where(solids[:,0]==el)[0]
                                 if len(ix) ==1:  
-                                    if id==0: solid.append(self.ptn_model.nps[ix[0]])
-                                    else: solid.append(self.ptn_model.nps[ix[0]][0])
+                                    if id==0: solid.append(solids[ix[0]])
+                                    else: solid.append(solids[ix[0]][0])
                             else: 
                                 ix = np.where(npp[:,0]==el)[0]
                                 if len(ix) ==1:    
@@ -2223,6 +2262,15 @@ class Ui_MainWindow(object):
     def SearchedSolids(self, id=1): 
         if self.readpattern:
             solidel = self.searchno.text()
+
+            if self.radio_model.isChecked() :  solids = self.ptn_model.nps
+            elif self.radio_scaled.isChecked() :  solids = self.ptn_expanded.nps
+            elif self.radio_gauged.isChecked() :  solids = self.ptn_gauged.nps
+            elif self.radio_bended.isChecked() :  solids = self.ptn_bended.nps
+            else:                              
+                solids = self.ptn_bottomed.nps
+                # print ("show bottommed elements", solidel)
+            
             if solidel != "" and solidel != "0": 
                 if "," in solidel: 
                     els = solidel.split(",")
@@ -2254,9 +2302,9 @@ class Ui_MainWindow(object):
                             el = int(el[0].strip())
                             
                             if el < 10**7: el += 10**7 
-                            ix = np.where(self.ptn_model.nps[:,0] == el)[0]
+                            ix = np.where(solids[:,0] == el)[0]
                             if len(ix) == 1: 
-                                el = self.ptn_model.nps[ix[0]]
+                                el = solids[ix[0]]
                                 # solid.append(el)
                                 # print (el)
                                 if el[7] > 0: 
@@ -2264,15 +2312,15 @@ class Ui_MainWindow(object):
                                 else: 
                                     ns = [el[1], el[2], el[3], el[4], el[5], el[6]]
                                 for n in ns: 
-                                    ix = np.where(self.ptn_model.nps[:,1:9] == n)[0]
+                                    ix = np.where(solids[:,1:9] == n)[0]
                                     tns = np.append(tns, ix)#, axis=None)
                                 tns = np.unique(tns)
                                 # print (tns)
                                 for tn in tns: 
-                                    # print (int(tn),", ", self.ptn_model.nps[int(tn)][0])
-                                    if id==1 : solid.append(self.ptn_model.nps[int(tn)][0])
-                                    else:  solid.append(self.ptn_model.nps[int(tn)])
-                                    # print (self.ptn_model.nps[tn][0])
+                                    # print (int(tn),", ", solids[int(tn)][0])
+                                    if id==1 : solid.append(solids[int(tn)][0])
+                                    else:  solid.append(solids[int(tn)])
+                                    # print (solids[tn][0])
 
                         elif "~" in el:
                             # print(el) 
@@ -2282,22 +2330,22 @@ class Ui_MainWindow(object):
                             if ns[0] < 10**7: ns[0] += 10**7 
                             if ns[1] < 10**7: ns[1] += 10**7 
                             for i in range(ns[0], ns[1]+1): 
-                                ix = np.where(self.ptn_model.nps[:,0]==i)[0]
+                                ix = np.where(solids[:,0]==i)[0]
                                 if len(ix) ==1:    
-                                    if id== 0: solid.append(self.ptn_model.nps[ix[0]])
-                                    else: solid.append(self.ptn_model.nps[ix[0]][0])
-                                    # print (self.ptn_model.nps[ix[0]][0])
+                                    if id== 0: solid.append(solids[ix[0]])
+                                    else: solid.append(solids[ix[0]][0])
+                                    # print (solids[ix[0]][0])
 
 
                         elif "" != el and "0" != el: 
                             # print(el)
                             el = int(el.strip())
                             if el < 10**7: el += 10**7
-                            ix = np.where(self.ptn_model.nps[:,0]==el)[0]
+                            ix = np.where(solids[:,0]==el)[0]
                             if len(ix) ==1:  
-                                if id==0: solid.append(self.ptn_model.nps[ix[0]])
-                                else: solid.append(self.ptn_model.nps[ix[0]][0])
-                                # print (self.ptn_model.nps[ix[0]][0])
+                                if id==0: solid.append(solids[ix[0]])
+                                else: solid.append(solids[ix[0]][0])
+                                # print (solids[ix[0]][0])
                         
                     return solid 
                 except:
@@ -2327,10 +2375,8 @@ class Ui_MainWindow(object):
                 self.figure.plot(pattern=self.ptn_bended, show='pattern', search=self.searchsolid)
             else : 
                 self.figure.plot(pattern=self.ptn_bottomed, show='pattern', search=self.searchsolid)
-            # self.message.setText("Pattern image has been plotted")
             self.ShowingImage = 'pattern'
         except:
-            # self.message.setText("Cannot drawn pattern image")
             self.figure.plot(show='none')
             self.ShowingImage = 'none'
     def showTopSurface(self):   ## Pattern Top Surface
@@ -2396,20 +2442,27 @@ class Ui_MainWindow(object):
         if self.checkBox_SurfNo.isChecked():  number = 1
         else: number = 0 
         try:
-            surface2plot = self.ptn_model.surf_pitch_up
-            surface2plot1   = self.ptn_model.surf_pitch_down
+            
             if self.radio_model.isChecked() : 
-                
                 node2plot = self.ptn_model.npn
-                
+                surface2plot = self.ptn_model.surf_pitch_up
+                surface2plot1   = self.ptn_model.surf_pitch_down
             elif self.radio_scaled.isChecked() : 
                 node2plot = self.ptn_expanded.npn
+                surface2plot = self.ptn_expanded.surf_pitch_up
+                surface2plot1   = self.ptn_expanded.surf_pitch_down
             elif self.radio_gauged.isChecked() : 
                 node2plot = self.ptn_gauged.npn
+                surface2plot = self.ptn_gauged.surf_pitch_up
+                surface2plot1   = self.ptn_gauged.surf_pitch_down
             elif self.radio_bended.isChecked() : 
                 node2plot = self.ptn_bended.npn
+                surface2plot = self.ptn_bended.surf_pitch_up
+                surface2plot1   = self.ptn_bended.surf_pitch_down
             else : 
                 node2plot = self.ptn_bottomed.npn 
+                surface2plot = self.ptn_bottomed.surf_pitch_up
+                surface2plot1   = self.ptn_bottomed.surf_pitch_down
 
             if len(surface2plot) > 0: 
                 R = np.max(node2plot[:,3])
@@ -2431,18 +2484,27 @@ class Ui_MainWindow(object):
         if self.checkBox_SurfNo.isChecked():  number = 3
         else: number = 0 
         try:
-            surface2plot = self.ptn_model.surf_pattern_neg_side 
-            surface2plot1 = self.ptn_model.surf_pattern_pos_side 
+            
             if self.radio_model.isChecked() : 
                 node2plot = self.ptn_model.npn
+                surface2plot = self.ptn_model.surf_pattern_neg_side 
+                surface2plot1 = self.ptn_model.surf_pattern_pos_side 
             elif self.radio_scaled.isChecked() : 
                 node2plot = self.ptn_expanded.npn
+                surface2plot = self.ptn_expanded.surf_pattern_neg_side 
+                surface2plot1 = self.ptn_expanded.surf_pattern_pos_side 
             elif self.radio_gauged.isChecked() : 
                 node2plot = self.ptn_gauged.npn
+                surface2plot = self.ptn_gauged.surf_pattern_neg_side 
+                surface2plot1 = self.ptn_gauged.surf_pattern_pos_side 
             elif self.radio_bended.isChecked() : 
                 node2plot = self.ptn_bended.npn
+                surface2plot = self.ptn_bended.surf_pattern_neg_side 
+                surface2plot1 = self.ptn_bended.surf_pattern_pos_side 
             else : 
                 node2plot = self.ptn_bottomed.npn 
+                surface2plot = self.ptn_bottomed.surf_pattern_neg_side 
+                surface2plot1 = self.ptn_bottomed.surf_pattern_pos_side 
             if len(surface2plot) > 0: 
                 self.figure.plot_surface(surface2plot, node2plot, search=self.searchsolid, surf_side=surface2plot1, number=number, position_shift=1)
                 # self.message.setText("Pattern Side Surface has been plotted.")
@@ -2564,7 +2626,7 @@ class Ui_MainWindow(object):
     def showmodel(self): 
         self.searchsolid = self.SearchedSolids(id=1) 
         try:
-            node2plot = self.ptn_model.npn
+
             if self.radioTop.isChecked() : 
                 self.showTopSurface()
                 plotted =  1
@@ -2587,7 +2649,6 @@ class Ui_MainWindow(object):
     def showexpanded(self): 
         self.searchsolid = self.SearchedSolids(id=1) 
         try:
-            node2plot = self.ptn_expanded.npn
             if self.radioTop.isChecked() : 
                 self.showTopSurface()
                 plotted =  1
@@ -2610,7 +2671,6 @@ class Ui_MainWindow(object):
     def showgauged(self): 
         self.searchsolid= self.SearchedSolids(id=1) 
         try:
-            node2plot = self.ptn_gauged.npn
             if self.radioTop.isChecked() : 
                 self.showTopSurface()
                 plotted =  1
@@ -2633,7 +2693,6 @@ class Ui_MainWindow(object):
     def showbended(self): 
         self.searchsolid= self.SearchedSolids(id=1) 
         try:
-            node2plot = self.ptn_bended.npn
             if self.radioTop.isChecked() : 
                 self.showTopSurface()
                 plotted =  1
@@ -2656,7 +2715,6 @@ class Ui_MainWindow(object):
     def showbottomed(self): 
         self.searchsolid = self.SearchedSolids(id=1) 
         try:
-            node2plot = self.ptn_bottomed.npn
             if self.radioTop.isChecked() : 
                 self.showTopSurface()
                 plotted =  1

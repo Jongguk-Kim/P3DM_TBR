@@ -11,8 +11,12 @@ import subprocess
 
 from numpy.lib.arraysetops import intersect1d 
 
-import paramiko as FTP 
-import PTN_LIBRARY.ptn_library as PTN 
+try: 
+    import paramiko as FTP 
+except: 
+    print ("No paramiko module.. ")
+
+# import PTN_LIBRARY.ptn_library as PTN 
 
 PI = 3.14159265358979323846
 
@@ -76,9 +80,12 @@ TireCordComponents = [
     #'SWS'    # temporary component for Endurance simulation 
 ]
 
+
 def GetCarcassDrumDia(group="PCR", inch=16.0, overtype=''): 
     if group != 'TBR':
-        lstCDD = [[12.,337.],[13.,310.],[14.,335.],[15.,360.],[16.,385.],[17.,417.],[18.,442.],[19.,465.],[20.,490.],[21.,516.],[22.,542.],[23.,567.],[24.,592.],[26.,643.],[28.,694.]]
+        lstCDD = [[12.,337.],[13.,310.],[14.,335.],[15.,360.],[16.,385.],\
+            [17.,417.],[18.,442.],[19.,465.],[20.,490.],[21.,516.],[22.,542.],\
+                [23.,567.],[24.,592.],[26.,643.],[28.,694.]]
         for cdd in lstCDD:
             if cdd[0] == inch: 
                 return cdd[1]
@@ -107,7 +114,8 @@ def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='', ga=1.0, innerGa
 
 # def Printlist(List, **kwargs): 
 #     Print_list(List, **kwargs)
-
+def PrintNode(n): 
+    print("%10d, %9.3f, %9.3f, %9.3f"%(n[0], n[1]*1000, n[2]*1000, n[3]*1000 ))
 def Printlist(plist, head=5, tail=5, all=0, **kwargs): 
     if not isinstance(plist, list): 
         print ("## the instance is not a list")
@@ -1297,8 +1305,201 @@ def FindSolidElementBetweenMembrane(m1, m2, Elements):
             if cnt ==2: 
                 break 
     return between     
+
+def Temporary_2dMeshWriting(fname, nodes, elements, elset, surfaces, outer, TieMaster, TieSlave, tread=0, Tire_Outer=[], tie_add=[]): 
+
+    f = open(fname, 'w')
+    f.write("*NODE\n")
+    for n in nodes.Node:
+        f.write("%8d, %.6e, %.6e, %.6e\n"%(n[0], n[3], n[2], n[1]))
+    e2n=[]; e3n=[]; e4n=[]
+    for el in elements.Element: 
+        if el[6]==2: e2n.append(el)
+        if el[6]==3: e3n.append(el)
+        if el[6]==4: e4n.append(el)
+    if len(e2n) > 0: 
+        f.write("*ELEMENT, TYPE=MGAX1\n")
+        for e in e2n:
+            f.write("%6d, %6d, %6d\n"%(e[0], e[1], e[2]))
+    if len(e3n) > 0: 
+        f.write("*ELEMENT, TYPE=CGAX3H\n")
+        for e in e3n:
+            f.write("%6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3]))
+    if len(e3n) > 0: 
+        f.write("*ELEMENT, TYPE=CGAX4H\n")
+        for e in e4n:
+            f.write("%6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4]))
+
+    for es in elset.Elset:
+        td = 0 
+        for en in TireTreadComponents:
+            if es[0].upper() == en:
+                td = 1
+                break 
+        if tread ==0: 
+            if td ==0: 
+                N = len(es)
+                if N > 1: 
+                    f.write("*ELSET, ELSET=%s\n"%(es[0]))
+                    ret = 0 
+                    for i in range(1, N):
+                        if i%10 == 0: 
+                            f.write("%6d\n"%(es[i]))
+                            ret = 1 
+                        elif i == N-1: 
+                            f.write("%6d\n"%(es[i]))
+                            ret =1 
+                        else: 
+                            f.write("%6d,"%(es[i]))
+                            ret = 0 
+                    if ret == 0: 
+                        f.write("\n")
+        else: 
+            if td == 1: 
+                N = len(es)
+                if N > 1: 
+                    f.write("*ELSET, ELSET=%s\n"%(es[0]))
+                    ret = 0 
+                    for i in range(1, N):
+                        if i%10 == 0: 
+                            f.write("%6d\n"%(es[i]))
+                            ret = 1 
+                        elif i == N-1: 
+                            f.write("%6d\n"%(es[i]))
+                            ret =1 
+                        else: 
+                            f.write("%6d,"%(es[i]))
+                            ret = 0 
+                    if ret == 0: 
+                        f.write("\n")
+    if tread ==0:
+        body2road =[] 
+        for es in surfaces.Surface:
+            if es[0] !="CONT" and not 'Tie' in es[0]: 
+                N = len(es)
+                if N > 1: 
+                    f.write("*SURFACE,TYPE=ELEMENT,NAME=%s\n"%(es[0]))
+                    for i in range(1, N):
+                        f.write("%6d, %s\n"%(es[i][0], es[i][1]))
+            if es[0] =="CONT": 
+                N = len(es)
+                if N > 1: 
+                    # f.write("*SURFACE,TYPE=ELEMENT,NAME=%s\n"%(es[0]))
+                    for i in range(1, N):
+                        # f.write("%6d, %s\n"%(es[i][0], es[i][1]))
+                        for el in elements.Element: 
+                            if el[0] == es[i][0] and el[5] == 'BSW': 
+                                body2road.append([es[i][0], es[i][1]])
+        if len(body2road) > 0: 
+            f.write("*SURFACE,TYPE=ELEMENT,NAME=CONT1\n")
+            for es in body2road: 
+                f.write("%6d, %s\n"%(es[0], es[1]))
+
+    else: 
+        for es in surfaces.Surface:
+            if es[0] =="CONT" : 
+                N = len(es)
+                if N > 1: 
+                    f.write("*SURFACE,TYPE=ELEMENT,NAME=%s\n"%(es[0]))
+                    for i in range(1, N):
+                        for el in elements.Element: 
+                            if el[0] == es[i][0] and el[5] != 'BSW': 
+                                f.write("%6d, %s\n"%(es[i][0], es[i][1]))
+
+
+        # Tire_Outer = elements.OuterEdge(nodes)
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=YTIE1001\n")
+        for ed in outer: 
+            fd = 0 
+            for te in Tire_Outer:#.Edge:
+                if te[0] == ed[0] and te[1] == ed[1]: 
+                    fd =1 
+                    break 
+            for te in TieSlave:
+                if te[0] == ed[0] and te[1] == ed[1]: 
+                    fd =1 
+                    break 
+            for te in TieMaster:
+                if te[0] == ed[0] and te[1] == ed[1]: 
+                    fd =1 
+                    break 
+            if fd ==0: 
+                f.write("%6d, %s\n"%(ed[4], ed[3]))
+
+
+    if tread ==0: 
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=TIREBODY\n")
+    else:
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=XTRD1001\n")
+    for ed in outer: 
+        f.write("%6d, %s\n"%(ed[4], ed[3] ))
+
+    if tread ==0: cnt = 0 
+    else : cnt = 1000
+    for ts, tm in zip(TieSlave, TieMaster): 
+        cnt +=1 
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt))
+        f.write("%6d, %s\n"%(tm[4], tm[3]))
+        f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt))
+
+        for t in ts: 
+            f.write("%6d, %s\n"%(t[4],  t[3]))
+        f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
+        f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
+
+    if len(tie_add)>0: 
+        for gtie in tie_add: 
+            ts = gtie[1]; tm = gtie[0]
+            cnt +=1 
+            f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt))
+            f.write("%8d, %s\n"%(tm[4], tm[3]))
+            f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt))
+            for t in ts: 
+                f.write("%8d, %s\n"%(t[4],  t[3]))
+            f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
+            f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
+
+    f.close()
+
 def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000,\
      no_tread=10**7, abaqus=0, materialDir='', btAngles=[], overtype="SOT", PCIPress="", bdw=0 ): 
+
+    # Tire_Outer = elements.OuterEdge(nodes)
+    TieMaster, TieSlave, Tire_Outer, centerNodes, FreeEdges, allEdges, TieError = TieSurface(elements.Element, nodes.Node)
+
+    ## TireTreadComponents  : Tie_Tread.append([mt, slv]) Tie_Body.append([mt, slv])
+    Tie_Body =[]; Tie_Tread = []
+    for mt, sl in zip(TieMaster, TieSlave): 
+        tc = 0 
+        for s in sl: 
+            for cm in TireTreadComponents: 
+                if s[2] == cm: 
+                    tc += 1 
+        if tc > 0 and len(sl) != tc: 
+            td = 0 
+            for cm in TireTreadComponents: 
+                if mt[2] == cm: 
+                    td = 1 
+                    break 
+            slv = []
+            if td == 1: 
+                for s in sl: 
+                    for cm in TireTreadComponents: 
+                        if s[2] == cm:
+                            slv.append(s)
+                            break 
+                Tie_Tread.append([mt, slv])
+            else:
+                for s in sl: 
+                    fd = 0 
+                    for cm in TireTreadComponents: 
+                        if s[2] == cm:
+                            fd = 1 
+                            break 
+                    if fd ==0: 
+                        slv.append(s)
+                Tie_Body.append([mt, slv])
+
 
     tread=ELEMENT()
     body = ELEMENT()
@@ -1316,17 +1517,24 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     Node_body = body.Nodes(node=nodes)
     Node_tread = tread.Nodes(node=nodes)
 
+
     body_TieMaster, body_TieSlave, body_outer, body_centerNodes, body_FreeEdges, body_allEdges, TieError = TieSurface(body.Element, Node_body.Node)
 
     delta =  2*PI / float(sectors)
 
+    body2d="Temp_body.inp"
+    Temporary_2dMeshWriting(body2d, Node_body,body, elset, surfaces, body_outer, body_TieMaster, body_TieSlave, tread=0, tie_add=Tie_Body)
+    
+
+
     f=open(fname+".axi", 'w')
-    if abaqus ==0:  f.write("*TIREBODY_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET= 1, %5d, 1, %5d\n"%(offset, offset))
+    if abaqus ==0:  f.write("*TIREBODY_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET= 1, %5d, 1, %5d  (FOR TIRE & LAT100 ONLY)\n"%(offset, offset))
+    # f.write("****************************************************************************************************************\n")
     f.write("*NODE\n")
     for i in range(sectors): 
         sec = float(i)
         for n in Node_body.Node:
-            f.write("%8d, %.6e, %.6e, %.6e\n"%(n[0]+offset*sec, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
+            f.write("%9d, %16.6E, %16.6E, %16.6E\n"%(n[0]+offset*sec, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
             ## [nd[0]+offset*i, nd[3]*sin(delta * f), nd[2], nd[3]*cos(delta*f)]
 
     el2=[]; el3=[]; el4=[]
@@ -1354,21 +1562,21 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
             if el[6] == 2: el2.append([en, n1, n2, n6, n5])
             elif el[6] == 3: el3.append([en, n5, n6, n7, n1, n2, n3])
             elif el[6] == 4: el4.append([en, n5, n6, n7, n8, n1, n2, n3, n4])
-
+    # f.write("****************************************************************************************************************\n")
     if len(el2)>0: 
         f.write("*ELEMENT, TYPE=M3D4R\n")
         for e in el2:
-            f.write("%6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4]))
-
+            f.write(" %8d, %8d, %8d, %8d, %8d\n"%(e[0], e[1], e[2], e[3], e[4]))
+    # f.write("****************************************************************************************************************\n")
     if len(el3)>0: 
         f.write("*ELEMENT, TYPE=C3D6\n")
         for e in el3:
-            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6]))
+            f.write(" %8d, %8d, %8d, %8d, %8d, %8d, %8d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6]))
     if len(el4)>0: 
         f.write("*ELEMENT, TYPE=C3D8R\n")
         for e in el4:
-            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]))
-    
+            f.write(" %8d, %8d, %8d, %8d, %8d, %8d, %8d, %8d, %8d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]))
+    # f.write("****************************************************************************************************************\n")
     for es in elset.Elset:
         td = 0 
         for en in TireTreadComponents:
@@ -1379,21 +1587,19 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
             N = len(es)
             if N > 1: 
                 f.write("*ELSET, ELSET=%s\n"%(es[0]))
-                
+                cnt = 0 
                 for k in range(sectors): 
                     ret = 0 
                     for i in range(1, N):
-                        if i%10 == 0: 
-                            f.write("%6d\n"%(es[i]+offset*k))
+                        if (cnt+1)%16 == 0: 
+                            f.write(" %8d,\n"%(es[i]+offset*k))
                             ret = 1 
-                        elif i == N-1: 
-                            f.write("%6d\n"%(es[i]+offset*k))
-                            ret =1 
                         else: 
-                            f.write("%6d,"%(es[i]+offset*k))
+                            f.write(" %8d,"%(es[i]+offset*k))
                             ret = 0 
-                    if ret == 0: 
-                        f.write("\n")
+                        cnt += 1 
+                if ret == 0: 
+                    f.write("\n")
 
     for es in surfaces.Surface:
         if es[0] !="CONT" and not 'Tie' in es[0]: 
@@ -1402,38 +1608,57 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
                 f.write("*SURFACE,TYPE=ELEMENT,NAME=%s\n"%(es[0]))
                 for k in range(sectors): 
                     for i in range(1, N):
-                        f.write("%6d, %s\n"%(es[i][0]+offset*k, Change3DFace(es[i][1])))
+                        f.write("%8d, %s\n"%(es[i][0]+offset*k, Change3DFace(es[i][1])))
     f.write("*SURFACE,TYPE=ELEMENT,NAME=TIREBODY\n")
     for i in range(sectors): 
         for ed in body_outer: 
-            f.write("%6d, %s\n"%(ed[4]+offset*i, Change3DFace(ed[3])))
+            f.write("%8d, %s\n"%(ed[4]+offset*i, Change3DFace(ed[3])))
+            
     cnt = 0 
     for ts, tm in zip(body_TieSlave, body_TieMaster): 
         cnt +=1 
         f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt))
         for i in range(sectors): 
-            f.write("%6d, %s\n"%(tm[4]+offset*i, Change3DFace(tm[3])))
+            f.write("%8d, %s\n"%(tm[4]+offset*i, Change3DFace(tm[3])))
         f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt))
         for i in range(sectors): 
             for t in ts: 
-                f.write("%6d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
+                f.write("%8d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
         f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
         f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
+
+    if len(Tie_Body)>0: 
+        for gtie in Tie_Body: 
+            ts = gtie[1]; tm = gtie[0]
+            cnt +=1 
+            f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt))
+            for i in range(sectors): 
+                f.write("%8d, %s\n"%(tm[4]+offset*i, Change3DFace(tm[3])))
+            f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt))
+            for i in range(sectors): 
+                for t in ts: 
+                    f.write("%8d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
+            f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
+            f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
+
+
 
     f.close()
 
     tread_TieMaster, tread_TieSlave, tread_outer, tread_centerNodes, tread_FreeEdges, tread_allEdges, TieError=  TieSurface(tread.Element, Node_tread.Node)
+    body2d="Temp_tread.inp"
+    Temporary_2dMeshWriting(body2d, Node_tread, tread, elset, surfaces, tread_outer, tread_TieMaster, tread_TieSlave, tread=1, Tire_Outer=Tire_Outer, tie_add=Tie_Tread)
 
 
     f=open(fname+".trd", 'w')
     if abaqus ==0: f.write("*TREADPTN_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET= %d, %d, %d, %d\n"%(no_tread, offset, no_tread, offset))
-
+    # f.write("****************************************************************************************************************\n")
     f.write("*NODE\n")
     for i in range(sectors): 
         sec = float(i)
         for n in Node_tread.Node:
-            f.write("%8d, %.6e, %.6e, %.6e\n"%(n[0]+offset*sec + no_tread, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
-
+            f.write("%9d, %16.6E, %16.6E, %16.6E\n"%(n[0]+offset*sec + no_tread, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
+    # f.write("****************************************************************************************************************\n")
     el2=[]; el3=[]; el4=[]
     for i in range(sectors): 
         for el in tread.Element: 
@@ -1463,17 +1688,17 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     if len(el2)>0: 
         f.write("*ELEMENT, TYPE=M3D4R\n")
         for el in el2:
-            f.write("%6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4]))
+            f.write("%8d, %8d, %8d, %8d, %8d\n"%(e[0], e[1], e[2], e[3], e[4]))
 
     if len(el3)>0: 
         f.write("*ELEMENT, TYPE=C3D6\n")
         for e in el3:
-            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6]))
+            f.write(" %8d, %8d, %8d, %8d, %8d, %8d, %8d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6]))
     if len(el4)>0: 
         f.write("*ELEMENT, TYPE=C3D8R\n")
         for e in el4:
-            f.write("%6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]))
-    
+            f.write(" %8d, %8d, %8d, %8d, %8d, %8d, %8d, %8d, %8d\n"%(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]))
+    # f.write("****************************************************************************************************************\n")
     for es in elset.Elset:
         td = 0 
         for en in TireTreadComponents:
@@ -1484,41 +1709,29 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
             N = len(es)
             if N > 1: 
                 f.write("*ELSET, ELSET=%s\n"%(es[0]))
-                
+                cnt = 0 
                 for k in range(sectors): 
                     ret = 0 
                     for i in range(1, N):
-                        if i%10 == 0: 
-                            f.write("%6d\n"%(es[i]+offset*k + no_tread))
+                        if (cnt+1)%16 == 0: 
+                            f.write(" %8d,\n"%(es[i]+offset*k + no_tread))
                             ret = 1 
-                        elif i == N-1: 
-                            f.write("%6d\n"%(es[i]+offset*k + no_tread))
-                            ret =1 
                         else: 
-                            f.write("%6d,"%(es[i]+offset*k + no_tread))
+                            f.write(" %8d,"%(es[i]+offset*k + no_tread))
                             ret = 0 
-                    if ret == 0: 
-                        f.write("\n")
-
-    for es in surfaces.Surface:
-        if es[0] =="CONT" : 
-            N = len(es)
-            if N > 1: 
-                f.write("*SURFACE,TYPE=ELEMENT,NAME=%s\n"%(es[0]))
-                for k in range(sectors): 
-                    for i in range(1, N):
-                        f.write("%6d, %s\n"%(es[i][0]+offset*k + no_tread, Change3DFace(es[i][1])))
+                        cnt += 1
+                if ret == 0: 
+                    f.write("\n")
 
     f.write("*SURFACE,TYPE=ELEMENT,NAME=XTRD1001\n")
     for k in range(sectors): 
         for ed in tread_outer: 
-            f.write("%6d, %s\n"%(ed[4]+offset*k + no_tread, Change3DFace(ed[3])))
-   
-    Tire_Outer = elements.OuterEdge(nodes)
+            f.write("%8d, %s\n"%(ed[4]+offset*k + no_tread, Change3DFace(ed[3])))
+    
     f.write("*SURFACE,TYPE=ELEMENT,NAME=YTIE1001\n")
     for ed in tread_outer: 
         fd = 0 
-        for te in Tire_Outer.Edge:
+        for te in Tire_Outer:#.Edge:
             if te[0] == ed[0] and te[1] == ed[1]: 
                 fd =1 
                 break 
@@ -1532,20 +1745,34 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
                 break 
         if fd ==0: 
             for i in range(sectors): 
-                f.write("%6d, %s\n"%(ed[4]+offset*i + no_tread, Change3DFace(ed[3]))) 
+                f.write("%8d, %s\n"%(ed[4]+offset*i + no_tread, Change3DFace(ed[3]))) 
 
     cnt = 0 
     for ts, tm in zip(tread_TieSlave, tread_TieMaster): 
         cnt +=1 
         f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt+1000))
         for i in range(sectors): 
-            f.write("%6d, %s\n"%(tm[4]+offset*i + no_tread, Change3DFace(tm[3])))
+            f.write("%8d, %s\n"%(tm[4]+offset*i + no_tread, Change3DFace(tm[3])))
         f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt+1000))
         for i in range(sectors): 
             for t in ts: 
-                f.write("%6d, %s\n"%(t[4]+offset*i + no_tread,  Change3DFace(t[3])))
+                f.write("%8d, %s\n"%(t[4]+offset*i + no_tread,  Change3DFace(t[3])))
         f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt+1000))
         f.write(" TIE_S%d, TIE_M%d\n"%(cnt+1000, cnt+1000))
+    
+    if len(Tie_Tread)>0: 
+        for gtie in Tie_Tread: 
+            ts = gtie[1]; tm = gtie[0]
+            cnt +=1 
+            f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_M%d\n"%(cnt))
+            for i in range(sectors): 
+                f.write("%8d, %s\n"%(tm[4]+offset*i+ no_tread, Change3DFace(tm[3])))
+            f.write("*SURFACE,TYPE=ELEMENT,NAME=TIE_S%d\n"%(cnt))
+            for i in range(sectors): 
+                for t in ts: 
+                    f.write("%8d, %s\n"%(t[4]+offset*i+ no_tread,  Change3DFace(t[3])))
+            f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
+            f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
 
 
     f.write("*TIE, NAME=TBD2TRD, ADJUST=YES, POSITION TOLERANCE= 0.0001\n")
@@ -1559,6 +1786,10 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     # else:
     #     AbaqusMaterialInput(axi=fname+".axi", trd=fname+".trd", layout=mesh, elset=elset.Elset, node=nodes.Node, element=elements.Element)
 
+    # MeshFileInformation("Temp_body.inp")
+    # MeshFileInformation(fname+".axi", sectors=sectors)
+    # MeshFileInformation("Temp_tread.inp")
+    # MeshFileInformation(fname+".trd", sectors=sectors)
 
 def Equivalent_density_calculation(cute_mesh, filename=""): 
     # print ("\n************************************************** ")
@@ -2339,7 +2570,143 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
     fp.close()
 
     # print ("Update material, cordfile", cordfile)
+def MeshFileInformation(filename, sectors=1): 
+    """
+    ## 
+    """
 
+    with open(filename) as bd:
+        lines = bd.readlines()
+    elsets=[]
+    elset =[]
+    elementCount = 0 
+    NoEL2=0; NoEL3=0; NoEL4=0; NoEL6=0; NoEL8=0
+    ElTypes=[]; elIds=[]
+    Nids=[]; nodecounting=0; surfEL=[]
+    for line in lines:
+        if "*" in line:
+            if len(elset) > 0: 
+                elsets.append(elset)
+                elset=[]
+            if "*ELSET," in line.upper():
+                setname = line.split("=")[1].strip()
+                elset=[setname]
+                cmd='elset'
+            elif '*ELEMENT' in line.upper(): 
+                cmd='element'
+                words = line.split(",")
+                for word in words:
+                    if 'TYPE' in word.upper(): 
+                        ElTypes.append(word.split("=")[1].strip())
+            elif "*NODE" in line.upper():
+                cmd='node'
+            elif "*SURFACE" in line.upper():
+                cmd='surface'
+            else:
+                
+                cmd = 'else'
+        else:
+            if cmd == 'elset': 
+                data = line.split(",")
+                for d in data:
+                    try:elset.append(int(d.strip()))
+                    except:pass
+            if cmd == 'element': 
+                elementCount+=1
+                words = line.split(",")
+                if len(words) == 3: NoEL2+=1
+                if len(words) == 4: NoEL3+=1
+                if len(words) == 5: NoEL4+=1
+                if len(words) == 7: NoEL6+=1
+                if len(words) == 9: NoEL8+=1
+                
+                elIds.append(int(words[0].strip()))
+            if cmd == 'node': 
+                nodecounting+=1
+                words = line.split(",")
+                Nids.append(int(words[0].strip()))
+            if cmd == 'surface': 
+                surfEL.append(int(line.split(",")[0].strip()))
+
+    i =0 
+    while i < len(elsets):
+        fd =0
+        for com in TireRubberComponents: 
+            if com== elsets[i][0]: 
+                fd=1
+                break 
+        for com in TireCordComponents: 
+            if com== elsets[i][0]: 
+                fd=1
+                break 
+        if fd ==0: 
+            print (" Deleting supplemental Elset: %s"%(elsets[i][0]))
+            del(elsets[i])
+            continue
+        i += 1 
+    print ("# Checking element reduplication")
+    elIds = np.array(elIds)
+    InitNo = len(elIds)
+    elIds = np.unique(elIds)
+    if (InitNo) != len(elIds): 
+        print (" %d of Element Ids are(is) reduplicated"%(InitNo-len(elIds)))
+    # else:
+    #     print (" Done!! ")
+
+    print ("# Checking node reduplication")
+    Nids = np.array(Nids)
+    InitNo = len(Nids)
+    Nids = np.unique(Nids)
+    if (InitNo) != len(Nids): 
+        print (" %d of Node Ids are(is) reduplicated"%(InitNo-len(Nids)))
+    # else:
+    #     print (" Done!! ")
+
+
+    print ("# Checking element ID reduplication in elsets")
+    for i, e1 in enumerate(elsets):
+        if sectors==1: 
+            print(" %s, %d"%(e1[0], (len(e1)-1)))
+        else:
+            print(" %s, %d (%d)"%(e1[0], len(e1)-1, (len(e1)-1)/sectors))
+        for j, e2 in enumerate(elsets):
+            if i ==j: continue 
+            if e1[i] == e2[j]: print(" >> Reduplicaton: ", e1[i], "==", e2[j], " at ", elsets[j][0])
+
+    i=0
+    while i < len(ElTypes): 
+        j=i+1
+        while j < len(ElTypes): 
+            if ElTypes[i]==ElTypes[j]: 
+                del(ElTypes[j])
+                continue 
+            j += 1
+        i += 1
+    
+    txt = "# Element types : "
+    for t in ElTypes: 
+        txt+=t+", "
+    txt = txt[:-2]
+    print (txt)
+
+    print("# The Number of Elements")
+    if NoEL2 > 0: 
+        print("  Total=%d\n  2-Nodes=%d, 3-Nodes=%d\n  4-Nodes=%d"%(elementCount, NoEL2, NoEL3, NoEL4))
+    else:
+        if sectors !=1:
+            print("  Total=%d(%.1f)\n  4-Nodes=%d(%.1f), 6-Nodes=%d(%.1f)\n  8-Nodes=%d(%.1f)"%(elementCount, elementCount/sectors, NoEL4, NoEL4/sectors, NoEL6, NoEL6/sectors, NoEL8, NoEL8/sectors))
+        else:
+            print("  Total=%d\n  4-Nodes=%d, 6-Nodes=%d\n  8-Nodes=%d"%(elementCount, NoEL4, NoEL6, NoEL8))
+    surfEL = np.array(surfEL)
+    surfEL = np.unique(surfEL)
+    idx = np.where(surfEL[:]<20000)
+    print ("# Checking Surface EL id(<20000)")
+    surfEL=surfEL[idx]
+    for sf in surfEL:
+        idx = np.intersect1d(elIds, [sf])
+        if len(idx) ==0: 
+            print ("# Element %d is not exist."%(sf))
+    print ("\n## Mesh file checking done!!\n")
 class MESH2D: 
     def __init__(self, filename):
         self.PI = 3.14159265358979323846
@@ -2389,12 +2756,20 @@ class MESH2D:
             
             for line in lines: 
                 if "*" in line and not "**" in line: 
-                    print (line, end="")
+                    print (line.strip())
                     break 
             print ("\n# No layout mesh found.\n")
             self.IsError =  100  
 
             return 
+
+        self.Element.Element,  errJacobian= checkJacobian2D(self.Element.Element, np.array(self.Node.Node))
+        if errJacobian != []:
+            print ("## Negative Element Area")
+            print ("   Node order is changed in Elements below")
+            for er in errJacobian: 
+                print("%d, "%(er), end="")
+            print("")
         
         isSTL =0 
         if len(self.LeftProfile) ==0 or len(self.RightProfile) == 0:
@@ -2512,6 +2887,11 @@ class MESH2D:
         MasterEdge, SlaveEdge, OutEdges, CenterNodes, FreeEdges, AllEdges, self.TieError = TieSurface(Element, self.Node.Node)
 
         self.Edge_TireProfile = OutEdges
+        # print("######################")
+        # print("OUT EDGES")
+        # print(OutEdges)
+        # for fe in OutEdges:
+        #   print(fe[4], end=",")
         
         if len( self.TieError) > 0: 
             print ("## Error to find Tie Surface") 
@@ -2555,13 +2935,7 @@ class MESH2D:
         # print ("duplication check")
         duplel = ElementDuplicationCheck(self.Element.Element)
 
-        self.Element.Element,  errJacobian= checkJacobian2D(self.Element.Element, np.array(self.Node.Node))
-        if errJacobian != []:
-            print ("## Negative Element Area")
-            print ("   Node order is changed in Elements below")
-            for er in errJacobian: 
-                print("%d, "%(er), end="")
-            print("")
+        
 
         if duplel == 1:
             self.IsError = 1
@@ -2589,7 +2963,11 @@ class MESH2D:
     def __del__(self): 
         pass 
     def CheckTBR_STL_Tangential(self, shoDrop, profile): 
+        
         if shoDrop ==0: 
+            _, _, self.shoulderDrop = TD_Arc_length_calculator(profile, totalwidth=1)
+            print ("## Shoulder Drop calculated.")
+            print ("   Shoulder Drop =%.2fmm"%(self.shoulderDrop*1000))
             return 0 
         
         if profile[-1][0] < 0: 
@@ -2597,6 +2975,7 @@ class MESH2D:
         
         _, _, drop = TD_Arc_length_calculator(profile, totalwidth=1)
         if round(shoDrop, 4) == round(drop, 4): 
+            print ("** Shoulder Drop =%.2fmm"%(shoDrop*1000))
             return 0 
         
         print ("* Profile Shoulder Drop =%.2f\n  Tangential Sho.Drop=%.2f, Drop shift=%.2f"%(shoDrop*1000, drop*1000, (shoDrop-drop)*1000))
@@ -4233,15 +4612,29 @@ class MESH2D:
                     elif b3 < b1 and b3 < b2 and b3 < b4: 
                         btm_face = 3 
                     else: 
-                        btm_face = 4 
-
+                        # print ("Z= %.2f, %.2f, %.2f, %.2f"%(n1[3]*1000, n2[3]*1000, n3[3]*1000, n4[3]*1000))
+                        # print ("Mid=%.2f, %.2f, %.2f, %.2f"%(b1*1000, b2*1000, b3*1000, b4*1000))
+                        l1 = sqrt((n1[2]-n2[2])**2 + (n1[3]-n2[3])**2)
+                        l2 = sqrt((n2[2]-n3[2])**2 + (n2[3]-n3[3])**2)
+                        l3 = sqrt((n3[2]-n4[2])**2 + (n3[3]-n4[3])**2)
+                        l4 = sqrt((n4[2]-n1[2])**2 + (n4[3]-n1[3])**2)
+                        if l4 > l3 and l4 > l1: 
+                            btm_face = 4 
+                        else: 
+                            if l1 > l2 and l1 > l4: 
+                                if b1 < b3: btm_face = 1 
+                            if l2 > l3 and l2 > l1: 
+                                if b2 < b4: btm_face = 2 
+                            if l3 > l2 and l3 > l4: 
+                                if b3 < b1: btm_face = 3 
 
                 pos = btm_face -1 
                 neg = btm_face + 1
                 if pos == 0 : pos = e[6]
                 if neg > e[6] : neg = 1 
-
+                # print ("found center", solid_on_membrane, btm_face)
                 if e[5] != 'CTB' and e[5] != 'CTR' and e[5] != 'SUT' and e[5] != 'UTR'  and e[5] != 'TRW' and e[5] != 'BSW': 
+                    # print (" .. topping")
                     nf = btm_face + 2 
                     if nf > e[6]: nf -= e[6]
                     ns = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
@@ -4251,8 +4644,9 @@ class MESH2D:
                         if en[0] == elno:
                             solid_on_membrane = en 
                             break 
-                            
+                    # print ("found center", solid_on_membrane)        
                     if en[5] != 'CTB' and en[5] != 'CTR' and en[5] != 'SUT' and en[5] != 'UTR'  and en[5] != 'TRW' and en[5] != 'BSW': 
+                        # print (" .. topping")
                         nf = btm_face 
                         ns1, nf = self.SearchNextSolids(ns, face=nf, np_solid=solids, direction=1)
                         elno = int(ns1[0])
@@ -4265,9 +4659,12 @@ class MESH2D:
                         if neg == 0 : neg = e[6]
                         if pos > e[6] : pos = 1 
 
+                        # print ("found center", solid_on_membrane)
+
                 break 
 
         print ("  Center EL above membrane", solid_on_membrane[0], "Bottom F%d"%(btm_face))
+        BottomFace_centerEL = btm_face
 
         debug =1
          
@@ -4411,7 +4808,7 @@ class MESH2D:
                     # print (nextsolid, next_face)
                     # ppp = 1 
                 else: 
-                    print ("There is a tie surface next to %d"%(ps[0]))
+                    print ("*There is a tie surface next to %d"%(ps[0]))
                     break  
 
 
@@ -4509,25 +4906,9 @@ class MESH2D:
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
         #############################################################
+        btm_face= BottomFace_centerEL
         # element_to_delete.append(nextsolid[0])
 
-        ix = np.where(npn[:,0]==nextsolid[1])[0][0]; n1=npn[ix]
-        ix = np.where(npn[:,0]==nextsolid[2])[0][0]; n2=npn[ix]
-        ix = np.where(npn[:,0]==nextsolid[3])[0][0]; n3=npn[ix]
-        ix = np.where(npn[:,0]==nextsolid[4])[0][0]; n4=npn[ix]
-        b1 = (n1[3] + n2[3])/2.0
-        b2 = (n2[3] + n3[3])/2.0
-        b3 = (n3[3] + n4[3])/2.0
-        b4 = (n4[3] + n1[3])/2.0
-        if b1 < b2 and b1 < b3 and b1 < b4: 
-            btm_face = 1 
-        elif b2 < b1 and b2 < b3 and b2 < b4 : 
-            btm_face = 2 
-        elif b3 < b1 and b3 < b2 and b3 < b4: 
-            btm_face = 3 
-        else: 
-            btm_face = 4 
-        
         neg = btm_face + 1
         if neg > e[6] : neg = 1 
 
@@ -5706,43 +6087,66 @@ def FindOutEdges(FreeEdge, CenterNodes, Nodes, Elements):
     # node of free edge is shared with another tie node
     # ShareNodePos -> 1 or 2
     # for fe in FreeEdge:
-        # if fe[2] == "SUT":        print fe
-    # for i in range(I):
+    #     print(fe[4], end=",")
+
     MAX = 10000
     ShareNodePos = []
     outEdge = []
 
     ## Find a 1st surround edge (IL at the center)
-    low = 1000000.0
-    i = 0
-    savei = 0
-    while i < len(CenterNodes):
-        j = 0
-        while j < len(Nodes):
-            if CenterNodes[i] == Nodes[j][0]:
-                if Nodes[j][3] < low:
-                    low = Nodes[j][3]
-                    savei = j
-            j += 1
-        i += 1
+    # low = 1000000.0
+    # i = 0
+    # savei = 0
+    # while i < len(CenterNodes):
+    #     j = 0
+    #     while j < len(Nodes):
+    #         if CenterNodes[i] == Nodes[j][0]:
+    #             if Nodes[j][3] < low:
+    #                 low = Nodes[j][3]
+    #                 savei = j
+    #         j += 1
+    #     i += 1
 
-    i = 0
-    while i < len(FreeEdge):
-        if Nodes[savei][0] == FreeEdge[i][0]:
-            break
-        i += 1
-
+    # i = 0
+    # while i < len(FreeEdge):
+    #     if Nodes[savei][0] == FreeEdge[i][0]:
+    #         break
+    #     i += 1
     ## End of 1st Outer Edge finding (IL1)
 
+    # FreeEdge[i][5] = 1
+    # outEdge.append(FreeEdge[i])
+    # iFirstNode = FreeEdge[i][0]
+
+
+    #################################
+    ## changing start point from I/L center to right bottom.
+    ## 
+
+    npn = np.array(Nodes)
+    idxs = np.where(npn[:,2] > 0)[0]
+    posNodes = npn[idxs]
+    zMin = np.min(posNodes[:,3])
+    idx = np.where(posNodes[:,3]==zMin)[0]
+    if len(idx) > 0: 
+        rightToe = posNodes[idx[0]]
+        if len(idx)>1: 
+            for ix in idx: 
+                print("### Outer surface right bottom : ", posNodes[ix])
+        
+    for k, ix in enumerate(FreeEdge):
+        if ix[0] == rightToe[0]: 
+            i = k 
+            break 
     FreeEdge[i][5] = 1
     outEdge.append(FreeEdge[i])
     iFirstNode = FreeEdge[i][0]
+    # print("first ", FreeEdge[i])
 
     count = 0
-
     #    i=  # i is no matter how big, because i is redefined when next edge is found
-
     while i < len(FreeEdge):
+        # print(FreeEdge[i])
         count += 1
         if count > MAX:
             print ('[INPUT] CANNOT FIND OUTER EDGES IN THE MODEL (too much iteration)')
@@ -5750,12 +6154,13 @@ def FindOutEdges(FreeEdge, CenterNodes, Nodes, Elements):
             return outEdge
         j = 0
         while j < len(FreeEdge):
+            # print(FreeEdge[j])
             if i != j:
                 if FreeEdge[i][1] == FreeEdge[j][0]:
-                    # print 'edge[i][1], [j][0] ', FreeEdge.edge[i], FreeEdge.edge[j], 'i=', i
+                    # print ('edge[i][1], [j][0] ', FreeEdge[i], FreeEdge[j], 'i=', i)
                     ShareNodePos.append(j)
             j = j + 1
-        #        print ('**', ShareNodePos)
+            # print ('**', ShareNodePos)
 
         #        ShareNodePos=FindNextEdge()
         #        print (ShareNodePos, FreeEdge[ShareNodePos[0]][0])
@@ -5766,7 +6171,7 @@ def FindOutEdges(FreeEdge, CenterNodes, Nodes, Elements):
             print ('[INPUT] CANNOT FIND CONNECTED FREE EDGE. CHECK TIE CONDITION')
             outEdge=[]
             return outEdge
-        # print 'sharenodePos count = ', len(ShareNodePos)
+        # print ('sharenodePos count = ', len(ShareNodePos))
         if len(ShareNodePos) == 1:
             FreeEdge[ShareNodePos[0]][5] = 1
             outEdge.append(FreeEdge[ShareNodePos[0]])
@@ -6222,20 +6627,20 @@ class COPYLAYOUT:
 class COPYPTN: 
     def __init__(self, class_ptn): 
         self.npn = np.array(class_ptn.npn)
-        self.nps = class_ptn.Solid
+        self.nps = np.array(class_ptn.nps)
         self.freetop = class_ptn.freetop 
         self.freebottom = class_ptn.freebottom
-        self.surf_pitch_up = class_ptn.surf_pitch_up
-        self.surf_pitch_down = class_ptn.surf_pitch_down
+        self.surf_pitch_up = np.array(class_ptn.surf_pitch_up)
+        self.surf_pitch_down = np.array(class_ptn.surf_pitch_down)
         self.SF_fulldepthgrooveside = class_ptn.SF_fulldepthgrooveside
         self.SF_subgrooveside = class_ptn.SF_subgrooveside
         self.KerfsideSurface = class_ptn.KerfsideSurface
-        self.surf_pattern_neg_side = class_ptn.surf_pattern_neg_side
-        self.surf_pattern_pos_side = class_ptn.surf_pattern_pos_side
+        self.surf_pattern_neg_side = np.array(class_ptn.surf_pattern_neg_side)
+        self.surf_pattern_pos_side = np.array(class_ptn.surf_pattern_pos_side)
         self.Free_Surface_without_BTM = class_ptn.Free_Surface_without_BTM
         self.SF_fulldepthgroove = class_ptn.SF_fulldepthgroove
         self.SF_subgroove = class_ptn.SF_subgroove
-        self.beforeside = class_ptn.beforeside
+        self.beforeside = np.array(class_ptn.beforeside)
     def __del__(self): 
         pass 
 class PATTERN:
@@ -6370,7 +6775,7 @@ class PATTERN:
             topHalfWidth = np.max(tnodes[:,2]) 
             # print ("Shoulder Type")
             # print (topHalfWidth,",",  self.upFrontMaxY )
-            if round(topHalfWidth, 5) < round(self.upFrontMaxY, 5) : 
+            if round(topHalfWidth, 4) < round(self.upFrontMaxY, 4) : 
                 self.shoulderType ='S'
                 self.TreadDesignWidth = round(topHalfWidth * 2.0, 4) 
             else: self.shoulderType ='R'
@@ -6472,8 +6877,11 @@ class PATTERN:
                 if len(ix) == 1: 
                     self.uncheckedfree = np.delete(self.uncheckedfree, ix[0], axis=0)
 
-            self.SF_pitchside = np.concatenate((self.surf_pattern_neg_side,  self.surf_pattern_pos_side), axis=0)
-            
+            try: 
+                self.SF_pitchside = np.concatenate((self.surf_pattern_neg_side,  self.surf_pattern_pos_side), axis=0)
+            except:
+                if len(self.surf_pattern_pos_side) ==0:     self.SF_pitchside = self.surf_pattern_neg_side
+                else: self.SF_pitchside = self.surf_pattern_pos_side
             # print ("DEL side surf", len(self.uncheckedfree), ", ", len(self.surf_pattern_neg_side)+len(self.surf_pattern_pos_side))
 
             idxs = np.where(uncheckedfree[:, 1]==2)[0]  ## top surface 
@@ -8167,30 +8575,33 @@ class PATTERN:
                 # if len(nsf) == 0: print (edge, cedge, nedge, nsf) 
                 cnt = 0 
                 while len(nsf) > 0: 
+                    ## This is for searching the TBR Shoulder Lug ########################
+                    if shoulder =='S': # Do not execute when it is a round shoulder tire
+                        tn = [nsf[0], nsf[4], nsf[5], nsf[6]]
+                        fd = 0 
+                        for nds in sidenodes: 
+                            dst, CN = DistanceFromLineToNode2D(tn, nds, xy=23)
+                            if dst < 0.08e-3: 
+                                # print ("Side NODE, %6d, %6d > Elid, %6d, d=,%.6f"%(nds[0][0]-10**7,nds[1][0]-10**7, tn[0]-10**7, dst*1000))
+                                if nds[0][3] > nds[1][3]: 
+                                    if nds[0][3] > CN[3] and CN[3] > nds[1][3]: 
+                                        fd =1 
+                                        break 
+                                else: 
+                                    if nds[1][3] > CN[3] and CN[3] > nds[0][3]: 
+                                        fd =1 
+                                        break 
+                        if fd ==0: 
+                            break 
+                    ######################################################################
 
-                    tn = [nsf[0], nsf[4], nsf[5], nsf[6]]
-                    fd = 0 
-                    for nds in sidenodes: 
-                        dst, CN = DistanceFromLineToNode2D(tn, nds, xy=23)
-                        if dst < 0.08e-3: 
-                            # print ("Side NODE, %6d, %6d > Elid, %6d, d=,%.6f"%(nds[0][0]-10**7,nds[1][0]-10**7, tn[0]-10**7, dst*1000))
-                            if nds[0][3] > nds[1][3]: 
-                                if nds[0][3] > CN[3] and CN[3] > nds[1][3]: 
-                                    fd =1 
-                                    break 
-                            else: 
-                                if nds[1][3] > CN[3] and CN[3] > nds[0][3]: 
-                                    fd =1 
-                                    break 
-                    if fd ==0: 
-                        break 
-                    
                     if nsf[5] > 0: 
                         pos.append(nsf)
-                        # print (" %3d pos side "%(len(pos)), nsf[0]-10**7)
+                        # print (" %3d, %d:pos side Y=%.3f"%(len(pos), nsf[0]-10**7, nsf[5] *1000))
                     else: 
                         neg.append(nsf)
-                        # print (" %3d Neg side "%(len(neg)), nsf[0]-10**7)
+                        # print (" %3d, %d:Neg side Y=%.3f "%(len(neg), nsf[0]-10**7, nsf[5] *1000))
+
                     cedge = self.FindContactingEdge(nedge, alledges, samesolid=0)
                     if len(cedge) != 0 : 
                         nedge, nsf = self.FindAnotherEdgeInSurface(next=2, cedge=cedge, edges=alledges, surfaces=free, sfreturn=1, face_exclude=2)
@@ -15864,6 +16275,10 @@ def ShiftShoulderNodesSquarePattern(npn, orn, profiles, curves, sideNodes, surf_
     if vn[2] > ptn_sideBtmNode[2]: sideBendedAngle = -sideBendedAngle
 
     # print (" Profile Shoulder Angle =%.2f (bended =%.2f)"%(degrees(lastAngle), degrees(sideBendedAngle)))
+    # print(" side nodes")
+    # print ("%d, %.3f, %.3f, %3f"%( sideNodes[0][0],  sideNodes[0][1]*1000,  sideNodes[0][2]*1000,  sideNodes[0][3]*1000))
+    # print ("%d, %.3f, %.3f, %3f"%( sideNodes[1][0],  sideNodes[1][1]*1000,  sideNodes[1][2]*1000,  sideNodes[1][3]*1000))
+    # print ("%d, %.3f, %.3f, %3f"%( sideNodes[2][0],  sideNodes[2][1]*1000,  sideNodes[2][2]*1000,  sideNodes[2][3]*1000))
     maxDelAngle = sideBendedAngle - lastAngle
     maxDelY = ptn_sideBtmNode[2] - sideNodes[2][2]
     maxDelZ = ptn_sideBtmNode[3] - sideNodes[2][3]
@@ -15899,9 +16314,9 @@ def ShiftShoulderNodesSquarePattern(npn, orn, profiles, curves, sideNodes, surf_
     ix = np.where(orn[:,0] == ptn_sideBtmNode[0])[0][0]
     modelEndGauge = modelR - orn[ix][3]
 
-    # print ("model start=",modelStart , ", end,", modelEnd)
+    # print ("model start Y=",modelStart , ", end,", modelEnd)
     # print("model end ga=", modelEndGauge)
-    # print ("model length,", modelLength)
+    # print ("model length to adjust,", modelLength)
 
     idx1 = np.where(orn[:,2] > modelStart)[0]
     idx2 = np.where(orn[:,2] < -modelStart)[0]
@@ -17010,6 +17425,8 @@ def Unbending_layoutTread(nodes, Tread, LProfile, RProfile, Lcurves, Rcurves, OD
             # print ("pos", nodes[ix])
             # print ("pos, %.3f, %.3f"%(nodes[ix][2], nodes[ix][3]))
         else: 
+            # print ("neg", nodes[ix])
+            # print ("neg, %.3f, %.3f"%(nodes[ix][2], nodes[ix][3]))
             nds3n.append(nodes[ix][3])
             nneg.append(nodes[ix])
     npos=np.array(npos); nneg=np.array(nneg)
@@ -17215,6 +17632,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
     # print("UNBENDING Layout tread")
 
     edge_tread = Tread.OuterEdge(nodes)
+
     edgenodes=[]
     for ed in edge_tread.Edge:
         edgenodes.append(ed[0])
@@ -17227,6 +17645,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
         ix = np.where(nodes[:,0] == n)[0][0]
         tnodes.append(nodes[ix])
 
+    # nporgn = np.array(nodes)
 
     same = 1 
     profiles = []
@@ -17254,7 +17673,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
     R = OD/2.0
     pe = [0, 0, 0, R]
     profile=[]
-    
+    ShoulderHeight = R - shoDrop
     
     angles=[]
     for crv in curves:
@@ -17377,6 +17796,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
 
     # flatterned_sorted = flatten.Sort(item=2)
     npn = np.array(flatten.Node)
+    
 
     ## search bottom nodes 
     # btm_edges = EDGE()
@@ -17420,24 +17840,27 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                 # print ("EDGE selected..")
     # print ("BTM Edges\n\n")
     # for ed in btm_edges:
-    #     print("%d,"%(ed[4]), end="")
+    #     print("%d, %d, %d"%(ed[4], ed[0], ed[1]))
 
     # print ("end...")
+    # print ("* SEARCHING TREAD SIDE NODES")
     i = 0
     N = len(btm_edges)-5
     cnt = 0 
     while 1:
         cnt += 1
         if i >= N or cnt > 100000: break 
-        ix = np.where(npn[:,0]==btm_edges[0][0])[0][0]; n0=npn[ix]
-        ix = np.where(npn[:,0]==btm_edges[0][1])[0][0]; n1=npn[ix]
-        ix = np.where(npn[:,0]==btm_edges[1][1])[0][0]; n2=npn[ix]
+        ix = np.where(nodes[:,0]==btm_edges[0][0])[0][0]; n0=nodes[ix]
+        ix = np.where(nodes[:,0]==btm_edges[0][1])[0][0]; n1=nodes[ix]
+        ix = np.where(nodes[:,0]==btm_edges[1][1])[0][0] 
+        n2=nodes[ix]
         if abs(n0[2] - n1[2]) > abs(n0[3] - n1[3]) : 
             del(btm_edges[0])
             continue 
         angle = Angle_3nodes(n0, n1, n2, xy=23)
-        treadSide2Nodes = [n0[0], n1[0]]
-        # print (n0[0], n1[0])
+        if n0[2] > 0: 
+            treadSide2Nodes = [n0[0], n1[0]]
+        # print (" Angle=%.1fdeg (%d, %d, %d)"%(degrees(angle), n0[0], n1[0], n2[0]))
         del(btm_edges[0])
         if angle < 2.3: ## 130 degrees
             break 
@@ -17453,6 +17876,8 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
             del(btm_edges[N])
             continue 
         angle = Angle_3nodes(n0, n1, n2, xy=23)
+        if n0[2] > 0: 
+            treadSide2Nodes = [n0[0], n1[0]]
         del(btm_edges[N])
         if angle < 2.3: ## 130 degrees
             break 
@@ -17476,6 +17901,8 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
     sideNodes.append(nodes[ix])
     ix = np.where(nodes[:,0]== treadSide2Nodes[1])[0][0]
     sideNodes.append(nodes[ix])
+
+    print("* Reference nodes on Tread side %d, %d"%(treadSide2Nodes[0],treadSide2Nodes[1] ))
 
     return  np.array(btm_nodes), sideNodes
 
@@ -18125,10 +18552,11 @@ def BendintPatternInCircumferentialDirection(nodes, OD):
         bended.append([nd[0], r  * sin(theta), nd[2], r  * cos(theta),  r,  theta])
     return np.array(bended)
 def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_down, surf_free=[], \
-    surf_btm=[], surf_side=[], elset=[], offset=10000, pl=0, ptn_org=[], ptn_pl=0, pd=[], rev=False): # pn: the number of pitches, 
+    surf_btm=[], surf_side=[], elset=[], offset=10000, pl=0, ptn_org=[], ptn_pl=0, pd=[], rev=False, newPitchNodes=[]): # pn: the number of pitches, 
     ## the nodes should have its radius for the processing speed.
     # pn : pitch number, OD : Tire OD (target) 
     # surf_side = [neg_pitch_side, pos_pitch_side]
+    ## ptn_pl : model PL, pl = Target PL
     PI = 3.14159265358979323846
 
     if len(elset) == 0: 
@@ -18140,7 +18568,7 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
         print ("## The numbers of pitch up and down surfaces are different.")
         # sys.exit()
 
-
+    # print (" the Number of pitch up =%d, down=%d"%(len(surf_pitch_up), len(surf_pitch_down)))
     ups=[]; downs=[]
     if rev == False: 
         for i, sf in enumerate(surf_pitch_up): 
@@ -18165,13 +18593,27 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
     mg = 0.15E-03 
     origin=ptn_org
     for up in ups: 
-        ix = np.where(origin[:,0]==up)[0][0]; un=origin[ix]
-        for dw in downs: 
-            ix = np.where(origin[:,0]==dw)[0][0]; dn=origin[ix]
-            if abs(un[2] - dn[2]) < mg and abs(un[3] - dn[3]) < mg and abs(un[1] - dn[1] - ptn_pl)  < mg: 
-                couple.append([un[0], dn[0]])
-                # print ("CPLE: %d, %d"%(un[0]-10**7, dn[0]-10**7))
-                break
+        ix = np.where(origin[:,0]==up)[0]
+        if len(ix)>0: 
+            ix = ix[0]; un=origin[ix]
+            for dw in downs: 
+                try: 
+                    ix = np.where(origin[:,0]==dw)[0][0]; dn=origin[ix]
+                except:
+                    continue 
+                if abs(un[2] - dn[2]) < mg and abs(un[3] - dn[3]) < mg and abs(un[1] - dn[1] - ptn_pl)  < mg: 
+                    couple.append([un[0], dn[0]])
+                    # print ("CPLE: %d, %d"%(un[0]-10**7, dn[0]-10**7))
+                    break
+        else:
+            ix = np.where(nodes[:,0]==up)[0][0]
+            un=nodes[ix]
+            for dw in downs:
+                ix = np.where(nodes[:,0]==dw)[0][0]; dn=nodes[ix]
+                if abs(un[2] - dn[2]) < mg*2 and abs(un[3] - dn[3]) < mg*2 and abs(un[1] - dn[1] - pl)  < mg*2: 
+                    couple.append([un[0], dn[0]])
+                    # print ("CPLE: %d, %d"%(un[0]-10**7, dn[0]-10**7))
+                    break
 
     print ("* Unique Nodes Up/Down Surface[%d,%d] \n -> Found matches=%d"%(len(ups), len(downs), len(couple)))
 
@@ -18384,17 +18826,16 @@ def GenerateFullBodyMesh(nodes, elements, elsets, surfaces=[], sectors=240, offs
                 tmp.append([sf[0]+offset*i, Change3DFace(sf[1])])
         surface.append(tmp)
         surface3d.append(surface)
-
     
     bodysurf=[]
     for i in range(sectors): 
         for edge in body_outer.Edge: 
             bodysurf.append([edge[4]+offset*i, Change3DFace(edge[3])])
-    
-
     return nodes3d, el2n, el3n, el4n, elset3d, surface3d, bodysurf
 def Write_SMART_PatternMesh(file="pattern.trd", nodes=[], elements=[], elsets=[], XTRD=[], YTIE=[],\
-     ties=[], start=10000000, offset=10000, namechange=[0,0], abaqus=0, revPtn=False): 
+     ties=[], start=10000000, offset=10000, namechange=[0,0], abaqus=0, revPtn=False):
+
+    revPtn = False ## Fixed // Surface ID was reversed 
     f = open(file, 'w')
     if abaqus ==0: 
         # print (" Pattern Offset=", offset)
@@ -18531,7 +18972,76 @@ def Write_SMART_TireBodyMesh(file="tirebody.axi", nodes=[], el4=[], el6=[], el8=
         
     f.close()
     print ("## Full 3D Body Mesh was created")
-def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtread=False, xy=23, btm=1, surf_btm=[]):
+
+def SubTreadCenterGa(up, down, position=0.0):
+
+    mid=0
+    for nodes in down:
+        if nodes[0][2]<position and nodes[1][2] > position: 
+            mid = [0, 0, (nodes[0][2]+ nodes[1][2])/2.0, (nodes[0][3]+ nodes[1][3])/2.0]
+            break 
+    if mid ==0: 
+        if  position > 0: 
+            mid = [0, 0, (down[0][0][2]+ down[0][1][2])/2.0, (down[0][0][3]+ down[0][1][3])/2.0]
+        else:
+            mid = [0, 0, (down[-1][0][2]+ down[-1][1][2])/2.0, (down[-1][0][3]+ down[-1][1][3])/2.0]
+
+    for un in up: 
+        L, cn = DistanceFromLineToNode2D(mid, un, xy=23)
+
+        if cn[2] > un[0][2] and cn[2] < un[1][2]: 
+            # print ("Sub TD Ga at %.3f=%.3fmm"%(position*1000, L*1000))
+            return L 
+    print ("NO found sub tread ga at=%.3f"%(position*1000))
+    return -1 
+
+def ReplaceNodesOnSurface(surface, psolid, nsolid, pitch=0): 
+    newSurface=[]
+    if surface[1] == 1 or surface[1] == 2 : 
+        if pitch==0:  return surface, newSurface
+        else: return surface, newSurface, []
+
+    for sf in surface:
+        newSurface.append(sf)
+
+    PN=[]
+
+    if surface[2] ==4: 
+        if surface[1] == 3 : 
+            pn1 = 6; pn2 = 5
+            nn1 = 1; nn2 = 2
+        elif surface[1] == 4 :
+            pn1 = 7; pn2 = 6
+            nn1 = 2; nn2 = 3
+        elif surface[1] == 5 :
+            pn1 = 8; pn2 = 7
+            nn1 = 3; nn2 = 4
+        else :
+            pn1 = 5; pn2 = 8
+            nn1 = 4; nn2 = 1
+    else:
+        if surface[1] == 3 : 
+            pn1 = 5; pn2 = 4
+            nn1 = 1; nn2 = 2
+        elif surface[1] == 4 :
+            pn1 = 6; pn2 = 5
+            nn1 = 2; nn2 = 3
+        else :
+            pn1 = 4; pn2 = 6
+            nn1 = 3; nn2 = 1
+
+    surface[9] = psolid[pn1]; surface[10] = psolid[pn2]
+    newSurface[0] = nsolid[0]
+    newSurface[7] = nsolid[nn1]; newSurface[8] = nsolid[nn2] 
+
+    PN= [ nsolid[nn1],  nsolid[nn2]]
+    if pitch==0:  return surface, newSurface 
+    else: return surface, newSurface, PN
+
+
+    
+def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtread=False, xy=23, btm=1, surf_btm=[], \
+    subGaMargin=0.001, shoulder="R", tdw=0.0, pitchUp=[], pitchDown=[], sideNeg=[], sidePos=[] ):
     x = int(xy/10); y=int(xy%10)
 
     STR = ELEMENT()
@@ -18549,21 +19059,403 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             Elset = ["CTR", ptn_solid[:,0]]
         elsets=[]  # Elset_SUT = ["SUT", []]
         elsets.append(Elset)
-        return elsets
+        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, []
 
 
     if btm ==1: 
         btmsolid = surf_btm[:, 0]
-        allsolid = ptn_solid[:, 0]
+        
 
+        if shoulder=="S": 
+            margin = tdw*0.48
+            cap=[]
+            for sf in surf_btm: 
+                ix = np.where(ptn_node[:,0]==sf[7])[0][0]
+                if abs(ptn_node[ix][2]) >= margin: 
+                    cap.append(sf[0])
+                    continue 
+                ix = np.where(ptn_node[:,0]==sf[8])[0][0]
+                if abs(ptn_node[ix][2]) >= margin: 
+                    cap.append(sf[0])
+                    continue
+                ix = np.where(ptn_node[:,0]==sf[9])[0][0]
+                if abs(ptn_node[ix][2]) >= margin: 
+                    cap.append(sf[0])
+                    continue
+                if sf[10] >= 10**7: 
+                    ix = np.where(ptn_node[:,0]==sf[10])[0][0]
+                    if abs(ptn_node[ix][2]) >= margin: 
+                        cap.append(sf[0])
+                        continue
+            if len(cap) > 0: 
+                cap = np.array(cap)
+                btmsolid = np.setdiff1d(btmsolid, cap)
+        
+
+        ## divide bottom solid in to 2
+        #  
+
+        ixs = np.where(surf_btm[:,5]>-0.01)[0]
+        ixx = np.where(surf_btm[:,5]<0.01)[0]
+        ix = np.intersect1d(ixs,ixx) 
+        cenNd = ptn_node[ix]
+        cenSF =[]
+        for sf in surf_btm:
+            if sf[10] < 10**7: continue  
+            else: 
+                cenSF = sf
+                break 
+
+        ix = np.where(ptn_solid[:,0]==cenSF[0])[0][0]
+        cenEL=ptn_solid[ix]
+        ix = np.where(ptn_node[:,0]==cenEL[1])[0][0]; n1 = ptn_node[ix]
+        ix = np.where(ptn_node[:,0]==cenEL[5])[0][0]; n2 = ptn_node[ix]
+        UTG = abs((n1[3]-n2[3]))
+
+        # subGa = SubTreadCenterGa(STR, layout_node)
+        print ("* UTG at Center=%.1fmm"%(UTG*1000))
+
+        elMax = np.max(ptn_solid[:,0])
+        ndMax = np.max(ptn_node[:,0])
+
+        offset = 10000 
+        
+        nCnt = 0 
+        
+        newN = []
+        btmSolidIdx =[]
+
+        ###########################################################
+        lnode = STR.Nodes(node=layout_node) 
+        str_outer = STR.OuterEdge(lnode)
+        ln = np.array(layout_node.Node) 
+
+        up=[]
+        down=[]
+        for edge in str_outer.Edge: 
+            ix1 = np.where(ln[:, 0] == edge[0])[0][0]
+            ix2 = np.where(ln[:, 0] == edge[1])[0][0]
+            if ln[ix1][2] > ln[ix2][2]: down.append([ln[ix2], ln[ix1]]) 
+            else:                 up.append([ln[ix1], ln[ix2]])
+        ################################################################
+
+        cP = 0 
+        digit=8
+        subTd_marginGa=subGaMargin
+        for sf in surf_btm:
+            ix = np.where(ptn_solid[:,0]==sf[0])[0][0]
+            btmSolidIdx.append(ix)
+            ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][1])[0][0]; n1 = ptn_node[ix1]
+            ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][2])[0][0]; n2 = ptn_node[ix1]
+            ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][3])[0][0]; n3 = ptn_node[ix1]
+            ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][4])[0][0]; n4 = ptn_node[ix1]
+            ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][5])[0][0]; n5 = ptn_node[ix1]
+            ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][6])[0][0]; n6 = ptn_node[ix1]
+
+            if ptn_solid[ix][7] > 0: 
+                ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][7])[0][0]; n7 = ptn_node[ix1]
+                ix1 = np.where(ptn_node[:,0]==ptn_solid[ix][8])[0][0]; n8 = ptn_node[ix1]
+                subGa = SubTreadCenterGa(up, down, position=(n1[2]+n2[2]+n3[2]+n4[2])/4.0)
+
+                nCnt += 1
+                l1 = sqrt(( n5[1]-n1[1])**2+(n5[2]-n1[2])**2+(n5[3]-n1[3])**2)
+                vec1 = [ndMax+nCnt, (n5[1]-n1[1])/l1, (n5[2]-n1[2])/l1, (n5[3]-n1[3])/l1, n5[0], n1[0]]
+                if l1 > subGa + subTd_marginGa: 
+                    vec1[1] = round(n1[1]+vec1[1]*subGa, digit); vec1[2] = round(n1[2]+vec1[2]*subGa, digit); vec1[3] = round(n1[3]+vec1[3]*subGa, digit)
+                else:
+                    l=l1 
+                    if l < subTd_marginGa*2: tL = l*0.5 
+                    else: tL = l - subTd_marginGa
+                    vec1[1] = round(n1[1]+vec1[1]*tL, digit); vec1[2] = round(n1[2]+vec1[2]*tL, digit); vec1[3] = round(n1[3]+vec1[3]*tL, digit)
+                newN.append(vec1)
+                if vec1[3]-n1[3] > (n5[3]-n1[3]): print (" n1z=%.3f, midZ=%.3f(%5.3f), n5z=%.3f(%5.3f)"%(n1[3]*1000, vec1[3]*1000, (vec1[3]-n1[3])*1000, n5[3]*1000, (n5[3]-n1[3])*1000))
+
+                nCnt += 1
+                l2 = sqrt(( n6[1]-n2[1])**2+(n6[2]-n2[2])**2+( n6[3]-n2[3])**2)
+                vec2 = [ndMax+nCnt, (n6[1]-n2[1])/l2, (n6[2]-n2[2])/l2, (n6[3]-n2[3])/l2, n6[0], n2[0]]
+                if l2 > subGa + subTd_marginGa: 
+                    vec2[1] = round(n2[1]+vec2[1]*subGa, digit); vec2[2] = round(n2[2]+vec2[2]*subGa, digit); vec2[3] = round(n2[3]+vec2[3]*subGa, digit)
+                else:
+                    l=l2 
+                    if l < subTd_marginGa*2: tL = l*0.5 
+                    else: tL = l - subTd_marginGa
+                    vec2[1] = round(n2[1]+vec2[1]*tL, digit); vec2[2] = round(n2[2]+vec2[2]*tL, digit); vec2[3] = round(n2[3]+vec2[3]*tL, digit)
+                newN.append(vec2)
+                if vec2[3]-n2[3] > (n6[3]-n2[3]): print (" n2z=%.3f, midZ=%.3f(%5.3f), n6z=%.3f(%5.3f)"%(n2[3]*1000, vec2[3]*1000, (vec2[3]-n2[3])*1000, n6[3]*1000, (n6[3]-n2[3])*1000))
+
+                nCnt += 1
+                l3 = sqrt(( n7[1]-n3[1])**2+(n7[2]-n3[2])**2+(n7[3]-n3[3])**2)
+                vec3 = [ndMax+nCnt, (n7[1]-n3[1])/l3, (n7[2]-n3[2])/l3, (n7[3]-n3[3])/l3, n7[0], n3[0]]
+                if l3 > subGa + subTd_marginGa: 
+                    vec3[1] = round(n3[1]+vec3[1]*subGa, digit); vec3[2] = round(n3[2]+vec3[2]*subGa, digit); vec3[3] = round(n3[3]+vec3[3]*subGa, digit)
+                else:
+                    l=l3 
+                    if l < subTd_marginGa*2: tL = l*0.5 
+                    else: tL = l - subTd_marginGa
+                    vec3[1] = round(n3[1]+vec3[1]*tL, digit); vec3[2] = round(n3[2]+vec3[2]*tL, digit); vec3[3] = round(n3[3]+vec3[3]*tL, digit)
+                newN.append(vec3)
+                if vec3[3]-n3[3] > (n7[3]-n3[3]): print (" n3z=%.3f, midZ=%.3f(%5.3f), n7z=%.3f(%5.3f)"%(n3[3]*1000, vec3[3]*1000, (vec3[3]-n3[3])*1000, n3[3]*1000, (n7[3]-n3[3])*1000))
+
+                nCnt += 1
+                l4 = sqrt(( n8[1]-n4[1])**2+(n8[2]-n4[2])**2+(n8[3]-n4[3])**2)
+                vec4 = [ndMax+nCnt, (n8[1]-n4[1])/l4, (n8[2]-n4[2])/l4, (n8[3]-n4[3])/l4, n8[0], n4[0]]
+                if l4 > subGa + subTd_marginGa: 
+                    vec4[1] = round(n4[1]+vec4[1]*subGa, digit); vec4[2] = round(n4[2]+vec4[2]*subGa, digit); vec4[3] = round(n4[3]+vec4[3]*subGa, digit)
+                else:
+                    l=l4 
+                    if l < subTd_marginGa*2: tL = l*0.5 
+                    else: tL = l - subTd_marginGa
+                    vec4[1] = round(n4[1]+vec4[1]*tL, digit); vec4[2] = round(n4[2]+vec4[2]*tL, digit); vec4[3] = round(n4[3]+vec4[3]*tL, digit)
+                newN.append(vec4)
+                if vec4[3]-n4[3] > (n8[3]-n4[3]): print (" n4z=%.3f, midZ=%.3f(%5.3f), n8z=%.3f(%5.3f)"%(n4[3]*1000, vec4[3]*1000, (vec4[3]-n4[3])*1000, n8[3]*1000, (n8[3]-n4[3])*1000))
+            else:
+                subGa = SubTreadCenterGa(up, down, position=(n1[2]+n2[2]+n3[2])/3.0)
+
+                nCnt += 1
+                l1 = sqrt(( n4[1]-n1[1])**2+(n4[2]-n1[2])**2+(n4[3]-n1[3])**2)
+                vec1 = [ndMax+nCnt, (n4[1]-n1[1])/l1, (n4[2]-n1[2])/l1, (n4[3]-n1[3])/l1, n4[0], n1[0]]
+                if l1 > subGa +subTd_marginGa: 
+                    vec1[1] = round(n1[1]+vec1[1]*subGa, digit); vec1[2] = round(n1[2]+vec1[2]*subGa, digit); vec1[3] = round(n1[3]+vec1[3]*subGa, digit)
+                else:
+                    l=l1 
+                    if l < subTd_marginGa*2: tL = l*0.5 
+                    else: tL = l - subTd_marginGa
+                    vec1[1] = round(n1[1]+vec1[1]*tL, digit); vec1[2] = round(n1[2]+vec1[2]*tL, digit); vec1[3] = round(n1[3]+vec1[3]*tL, digit)
+                newN.append(vec1)
+
+                nCnt += 1
+                l2 = sqrt(( n5[1]-n2[1])**2+(n5[2]-n2[2])**2+( n5[3]-n2[3])**2)
+                vec2 = [ndMax+nCnt, (n5[1]-n2[1])/l2, (n5[2]-n2[2])/l2, (n5[3]-n2[3])/l2, n5[0], n2[0]]
+                if l2 > subGa + subTd_marginGa: 
+                    vec2[1] = round(n2[1]+vec2[1]*subGa, digit); vec2[2] = round(n2[2]+vec2[2]*subGa, digit); vec2[3] = round(n2[3]+vec2[3]*subGa, digit)
+                else:
+                    l=l2 
+                    if l < subTd_marginGa*2: tL = l*0.5 
+                    else: tL = l - subTd_marginGa
+                    vec2[1] = round(n2[1]+vec2[1]*tL, digit); vec2[2] = round(n2[2]+vec2[2]*tL, digit); vec2[3] = round(n2[3]+vec2[3]*tL, digit)
+                newN.append(vec2)
+
+                nCnt += 1
+                l3 = sqrt(( n6[1]-n3[1])**2+(n6[2]-n3[2])**2+(n6[3]-n3[3])**2)
+                vec3 = [ndMax+nCnt, (n6[1]-n3[1])/l3, (n6[2]-n3[2])/l3, (n6[3]-n3[3])/l3, n6[0], n3[0]]
+                if l3 > subGa + subTd_marginGa: 
+                    vec3[1] = round(n3[1]+vec3[1]*subGa, digit); vec3[2] = round(n3[2]+vec3[2]*subGa, digit); vec3[3] = round(n3[3]+vec3[3]*subGa, digit)
+                else:
+                    l=l3 
+                    if l < subTd_marginGa*2: tL = l*0.5 
+                    else: tL = l - subTd_marginGa
+                    vec3[1] = round(n3[1]+vec3[1]*tL, digit); vec3[2] = round(n3[2]+vec3[2]*tL, digit); vec3[3] = round(n3[3]+vec3[3]*tL, digit)
+                newN.append(vec3)
+            
+        i = 0
+        while i < len(newN): 
+            j = i+1 
+            while j<len(newN): 
+                if newN[i][4] == newN[j][4] and newN[i][5] == newN[j][5]: 
+                    del(newN[j])
+                    continue 
+                j += 1
+            i += 1
+        
+        newN = np.array(newN)
+        eCnt = 0 
+        newE =[]
+
+        newPitchUp=[]; newPitchDown=[]; newSideNeg=[]; newSidePos=[]
+        # Npitch = 0; Nside=0
+        newPitchNode=[]
+        
+        cP = 0 
+        for ix in btmSolidIdx:
+            sod =[]
+            for sd in ptn_solid[ix]: 
+                sod.append(sd)
+            newE.append(sod)
+            eCnt += 1 
+            # print ("%d: EL New %d -> %d"%(len(newE), newE[-1][0], elMax+eCnt))
+            newE[-1][0] = elMax+eCnt
+            if ptn_solid[ix][7]>0: 
+                ix1 = np.where(newN[:,4]== ptn_solid[ix][5])[0][0]
+                ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
+                idx = np.intersect1d(ix1, ix2)
+                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                else:
+                    if len(idx) > 1: print ("too many nodes", idx)
+                    newE[-1][1] = newN[idx[0]][0]
+                    ptn_solid[ix][5] = newN[idx[0]][0]
+                    
+                ix1 = np.where(newN[:,4]== ptn_solid[ix][6])[0][0]
+                ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
+                idx = np.intersect1d(ix1, ix2)
+                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                else:
+                    if len(idx) > 1: print ("too many nodes", idx)
+                    newE[-1][2] = newN[idx[0]][0]
+                    ptn_solid[ix][6] = newN[idx[0]][0]
+                
+                ix1 = np.where(newN[:,4]== ptn_solid[ix][7])[0][0]
+                ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
+                idx = np.intersect1d(ix1, ix2)
+                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                else:
+                    if len(idx) > 1: print ("too many nodes", idx)
+                    newE[-1][3] = newN[idx[0]][0]
+                    ptn_solid[ix][7] = newN[idx[0]][0]
+
+                ix1 = np.where(newN[:,4]== ptn_solid[ix][8])[0][0]
+                ix2 = np.where(newN[:,5]== ptn_solid[ix][4])[0][0]
+                idx = np.intersect1d(ix1, ix2)
+                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                else:
+                    if len(idx) > 1: print ("too many nodes", idx)
+                    newE[-1][4] = newN[idx[0]][0]
+                    ptn_solid[ix][8] = newN[idx[0]][0]
+
+                # cP+=1
+                # if ptn_solid[ix][0]-10**7 == 1182 or ptn_solid[ix][0]-10**7 == 1183 or ptn_solid[ix][0]-10**7 == 238 or ptn_solid[ix][0]-10**7 == 242: 
+                #     print (" NEW E: %d, %d, %d, %d, %d, %d, %d, %d, %d"%(newE[-1][0]-10**7, newE[-1][1]-10**7,\
+                #         newE[-1][2]-10**7,newE[-1][3]-10**7,newE[-1][4]-10**7,newE[-1][5]-10**7,newE[-1][6]-10**7,\
+                #             newE[-1][7]-10**7,newE[-1][8]-10**7))
+                #     print (" Pre E: %d, %d, %d, %d, %d, %d, %d, %d, %d"%(ptn_solid[ix][0]-10**7, ptn_solid[ix][1]-10**7,\
+                #         ptn_solid[ix][2]-10**7,ptn_solid[ix][3]-10**7,ptn_solid[ix][4]-10**7,ptn_solid[ix][5]-10**7,ptn_solid[ix][6]-10**7,\
+                #             ptn_solid[ix][7]-10**7,ptn_solid[ix][8]-10**7))
+                #     print("***********************************")
+            
+            else:
+                ix1 = np.where(newN[:,4]== ptn_solid[ix][4])[0][0]
+                ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
+                idx = np.intersect1d(ix1, ix2)
+                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                else:
+                    if len(idx) > 1: print ("too many nodes", idx)
+                    newE[-1][1] = newN[idx[0]][0]
+                    ptn_solid[ix][4] = newN[idx[0]][0]
+                
+                ix1 = np.where(newN[:,4]== ptn_solid[ix][5])[0][0]
+                ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
+                idx = np.intersect1d(ix1, ix2)
+                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                else:
+                    if len(idx) > 1: print ("too many nodes", idx)
+                    newE[-1][2] = newN[idx[0]][0]
+                    ptn_solid[ix][5] = newN[idx[0]][0]
+                
+                ix1 = np.where(newN[:,4]== ptn_solid[ix][6])[0][0]
+                ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
+                idx = np.intersect1d(ix1, ix2)
+                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                else:
+                    if len(idx) > 1: print ("too many nodes", idx)
+                    newE[-1][3] = newN[idx[0]][0]
+                    ptn_solid[ix][6] = newN[idx[0]][0]
+
+            ## pitchUp, pitchDown, sideNeg, sidePos 
+
+            ixPU = np.where(pitchUp[:,0] == ptn_solid[ix][0])[0]
+            ixPD = np.where(pitchDown[:,0] == ptn_solid[ix][0])[0]
+            ixSN = np.where(sideNeg[:,0] == ptn_solid[ix][0])[0]
+            ixSP = np.where(sidePos[:,0] == ptn_solid[ix][0])[0]
+
+            if len(ixPU) > 0: 
+                for pix in ixPU: 
+                    pitchUp[pix], newSurf, PN = ReplaceNodesOnSurface(pitchUp[pix], ptn_solid[ix], newE[-1], pitch=1)
+                    if len(newSurf) > 0: 
+                        newPitchUp.append(newSurf) 
+                        newPitchNode.append(PN[0]); newPitchNode.append(PN[1])
+                    # Npitch+= 1
+            if len(ixPD) > 0: 
+                for pix in ixPD:
+                    pitchDown[pix], newSurf, PN = ReplaceNodesOnSurface(pitchDown[pix], ptn_solid[ix], newE[-1], pitch=1)
+                    if len(newSurf) > 0: 
+                        newPitchDown.append(newSurf) 
+                        # Npitch-=1
+                        newPitchNode.append(PN[0]); newPitchNode.append(PN[1])
+            if len(ixSN) > 0: 
+                sideNeg[ixSN[0]], newSurf = ReplaceNodesOnSurface(sideNeg[ixSN[0]], ptn_solid[ix], newE[-1])
+                if len(newSurf) > 0: 
+                    newSideNeg.append(newSurf) 
+                    # Nside +=1
+            if len(ixSP) > 0: 
+                sidePos[ixSP[0]], newSurf = ReplaceNodesOnSurface(sidePos[ixSP[0]], ptn_solid[ix], newE[-1])
+                if len(newSurf) > 0: 
+                    newSidePos.append(newSurf) 
+                    # Nside -= 1
+            
+        newPitchUp = np.array(newPitchUp)
+        newPitchDown = np.array(newPitchDown)
+        newSideNeg = np.array(newSideNeg)
+        newSidePos = np.array(newSidePos)
+
+        pitchUp      = np.concatenate((pitchUp, newPitchUp), axis=0)
+        pitchDown      = np.concatenate((pitchDown, newPitchDown), axis=0)
+        sideNeg      = np.concatenate((sideNeg, newSideNeg), axis=0)
+        sidePos      = np.concatenate((sidePos, newSidePos), axis=0)
+        
+        print ("## Bottom Elements was divided")
+        # print ("pitch sum=%d, side sum=%d"%(Npitch, Nside))
+
+        
+
+
+        newN = newN[:,:4]
+        ptn_node      = np.concatenate((ptn_node, newN), axis=0)
+        newE = np.array(newE)
+        ptn_solid = np.concatenate((ptn_solid, newE), axis=0)
+
+        #################################################################
+        ## Searching Sub Tread Area 
+        poly = []
+        for edge in str_outer.Edge: 
+            ix = np.where(ln[:, 0] == edge[1])[0][0]
+            poly.append([ln[ix][x], ln[ix][y]])
+
+        for sol in ptn_solid: 
+            sidx = np.where(btmsolid[:]==sol[0])[0]
+            if len(sidx) > 0: continue 
+
+            cx = 0.0;  cy =0.0
+            ix = np.where(ptn_node[:,0]==sol[1])[0][0]
+            cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+            ix = np.where(ptn_node[:,0]==sol[2])[0][0]
+            cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+            ix = np.where(ptn_node[:,0]==sol[3])[0][0]
+            cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+            ix = np.where(ptn_node[:,0]==sol[4])[0][0]
+            cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+            ix = np.where(ptn_node[:,0]==sol[5])[0][0]
+            cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+            ix = np.where(ptn_node[:,0]==sol[6])[0][0]
+            cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+            if sol[7] > 0: 
+                ix = np.where(ptn_node[:,0]==sol[7])[0][0]
+                cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+                ix = np.where(ptn_node[:,0]==sol[8])[0][0]
+                cx += ptn_node[ix][x]; cy += ptn_node[ix][y]
+
+                cx = cx / 8.0 
+                cy = cy / 8.0 
+            else: 
+                cx = cx / 6.0 
+                cy = cy / 6.0 
+
+            if IsPointInPolygon([cx, cy], poly) : 
+                btmsolid = np.append(btmsolid, sol[0])
+        #################################################################
+
+        allsolid = ptn_solid[:, 0]
         if iCTR ==0: 
             sut = ["SUT", btmsolid]
             ctb = ["CTB", np.setdiff1d(allsolid,  btmsolid)]
         else: 
             sut = ["UTR", btmsolid]
             ctb = ["CTR", np.setdiff1d(allsolid,  btmsolid)]
+
         elsets=[ctb, sut]  # Elset_SUT = ["SUT", []]
-        return elsets 
+
+        # print (" Adding %d, %d"%(len(newE), len(newN)))
+        newPitchNode= np.array(newPitchNode)
+        newPitchNode= np.unique(newPitchNode)
+        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, newPitchNode
     else: 
         lnode = STR.Nodes(node=layout_node) 
         str_outer = STR.OuterEdge(lnode)
@@ -18608,6 +19500,9 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 sutn.append(sol[0])
             else: 
                 ctbn.append(sol[0])
+
+
+
         if iCTR ==0: 
             sut=["SUT", sutn]
             ctb=["CTB", ctbn] 
@@ -18616,7 +19511,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             ctb=["CTR", ctbn] 
         ptn_elset = [sut, ctb]
 
-        return ptn_elset 
+        return ptn_elset, ptn_solid, ptn_node, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, []
 def Creating_pattern_pitch(expanded_pattern, pattern, LProfile, RProfile, Lcurves, Rcurves, OD, GD, ptn_id=10**7, TDW=0.0, fname="",\
  PN=0, pitch_up=[], pitch_down=[], pitch_side_pos=[], pitch_side_neg=[], bottom_surf=[], top_free=[], revPtn=False): 
 
