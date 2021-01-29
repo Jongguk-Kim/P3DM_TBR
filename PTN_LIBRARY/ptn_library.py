@@ -16398,14 +16398,9 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
 
         start += pf[1]
 
-                
-
-
     deco_n = [] 
     max_y =  np.max(ptn_gaged[:,2]) 
-    # decolength_without_last = 0 
 
-    # print (repo, icurve, PN)
 
     curveradius = 0 
     curvelength = 0 
@@ -16506,7 +16501,6 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         delA_R = Angle_3nodes(curve_last[0], curve_last[2], n1, xy=23)
         Rlength_last = delA_R * profile_last_r
 
-
     expansed_lastCurve_length =  np.max(ptn_gaged[:,2]) - (start + len_shocurve)
     last_l_ratio = Llength_last / expansed_lastCurve_length
     last_r_ratio = Rlength_last / expansed_lastCurve_length
@@ -16589,8 +16583,6 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
     # print (ptn_orgn)
     # print (allbtms)
     for no in allbtms: 
-        
-        
         ix = np.where(ptn_orgn[:,0] == no)[0]
         if len(ix)>0: 
             btnodes.append(ptn_orgn[ix[0]])
@@ -16681,8 +16673,6 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
             # print ("No value n=%d ratio=%.1f, ga=%.2f"%(n[0]-10**7, pattern_gage_ratio, layout_gage*1000))
             ht = R - n[3]
 
-    
-
         initpos = [0, toppos[1], toppos[2], toppos[3] - ht]
 
         if ht ==R: 
@@ -16698,12 +16688,39 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         des_x.append(ptn_npn[ix][2])
         des_y.append(ptn_npn[ix][3])
 
-        # if ht < 0.1E-03: 
-        #     lines.append([[n[2], ptn_npn[ix][2]], [n[3], ptn_npn[ix][3]]])
 
-        # if show == 1:  print ("sho node x=%.2f, y=%.2f => x=%.2f, y=%.2f (a=%.1f)"%(n[2]*1000, n[3]*1000, ptn_npn[ix][2]*1000, ptn_npn[ix][3]*1000, degrees(angle)))
+    ## Pattern Top Edge Node Modification for better convergence.... 
+    # ptn_R=0, ptn_orgn=[]
+    margin = 0.0005
+    maxR = np.max(ptn_orgn[:,3])
+    maxW = np.max(ptn_orgn[:,2])
+    minW = np.min(ptn_orgn[:,2])
 
-    
+    idx1 = np.where(ptn_orgn[:,3]>maxR-margin)[0]
+    idx2 = np.where(ptn_orgn[:,2]>maxW-margin)[0]
+    idx = np.intersect1d(idx1, idx2)
+
+    idx3 = np.where(ptn_orgn[:,2]<minW+margin)[0]
+    idn = np.intersect1d(idx1, idx3)
+
+    layoutR = np.max(ptn_npn[:,3])
+    shift = layoutR*0.1e-3
+    print ("* Pattern Edge Node shift =%.5fmm"%(shift*1000))
+
+    for ix in idx: 
+        x = np.where(ptn_npn[:,0]==ptn_orgn[ix][0])[0]
+        if len(x)>0: 
+            x = x[0]
+            ptn_npn[x][2] -= shift
+            ptn_npn[x][3] -= shift
+    for ix in idn: 
+        x = np.where(ptn_npn[:,0]==ptn_orgn[ix][0])[0]
+        if len(x)>0: 
+            x = x[0]
+            ptn_npn[x][2] += shift
+            ptn_npn[x][3] -= shift
+    ###############################################################
+
     return ptn_npn#, lines
 
 def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R, ptn_orgn): 
@@ -18713,8 +18730,7 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
     
     fsolids = np.array(fullsolids)
 
-    surf_XTRD1001=[]
-    surf_YTIE1001=[]
+    
     #  surf_pitch_up, surf_pitch_down, surf_free=[], surf_btm=[], surf_side=[],
 
     for sf in surf_pitch_up: 
@@ -18751,6 +18767,8 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
         if len(idx) == 1: 
             surf_to_body.append(sf)
 
+    surf_XTRD1001=[]
+    surf_YTIE1001=[]
     for i in range(int(pn)): 
         for sf in surf_free: 
             surf_XTRD1001.append([sf[0]+offset*i, "S"+str(int(sf[1]))])
@@ -18835,7 +18853,7 @@ def GenerateFullBodyMesh(nodes, elements, elsets, surfaces=[], sectors=240, offs
 def Write_SMART_PatternMesh(file="pattern.trd", nodes=[], elements=[], elsets=[], XTRD=[], YTIE=[],\
      ties=[], start=10000000, offset=10000, namechange=[0,0], abaqus=0, revPtn=False):
 
-    revPtn = False ## Fixed // Surface ID was reversed 
+    # revPtn = False ## Fixed // Surface ID was reversed 
     f = open(file, 'w')
     if abaqus ==0: 
         # print (" Pattern Offset=", offset)

@@ -610,8 +610,6 @@ class Ui_MainWindow(object):
         self.ShowingImage = 'none'
 
         
-        # self.layout.GD = 0.003
-        # self.fullmeshSave = "materialTest_new"
         self.fullmeshSave=""
 
         self.localCordDB = 'ISLM_CordDB.txt'
@@ -1032,43 +1030,43 @@ class Ui_MainWindow(object):
                 if sf[1]>2:
                     t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
                     t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                    if sf[1] ==3: sf[1]==5
-                    elif sf[1] ==5: sf[1]==3
+                    # if sf[1] ==3: sf[1]==5
+                    # elif sf[1] ==5: sf[1]==3
                     self.pattern.surf_pitch_up[k]=sf 
             for k, sf in enumerate(self.pattern.surf_pitch_down):  
                 if sf[1]>2:
                     t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
                     t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                    if sf[1] ==3: sf[1]==5
-                    elif sf[1] ==5: sf[1]==3
+                    # if sf[1] ==3: sf[1]==5
+                    # elif sf[1] ==5: sf[1]==3
                     self.pattern.surf_pitch_down[k]=sf 
             for k, sf in enumerate(self.pattern.surf_pattern_neg_side): 
                 if sf[1]>2:
                     t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
                     t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                    if sf[1] ==3: sf[1]==5
-                    elif sf[1] ==5: sf[1]==3
+                    # if sf[1] ==3: sf[1]==5
+                    # elif sf[1] ==5: sf[1]==3
                     self.pattern.surf_pattern_neg_side[k]=sf 
             for k, sf in enumerate(self.pattern.surf_pattern_pos_side): 
                 if sf[1]>2:
                     t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
                     t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                    if sf[1] ==3: sf[1]==5
-                    elif sf[1] ==5: sf[1]==3
+                    # if sf[1] ==3: sf[1]==5
+                    # elif sf[1] ==5: sf[1]==3
                     self.pattern.surf_pattern_pos_side[k]=sf 
             for k, sf in enumerate(self.pattern.PTN_AllFreeSurface): 
                 if sf[1]>2:
                     t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
                     t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                    if sf[1] ==3: sf[1]==5
-                    elif sf[1] ==5: sf[1]==3
+                    # if sf[1] ==3: sf[1]==5
+                    # elif sf[1] ==5: sf[1]==3
                     self.pattern.PTN_AllFreeSurface[k]=sf 
             for k, sf in enumerate(self.pattern.freebottom): 
                 if sf[1]>2:
                     t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
                     t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                    if sf[1] ==3: sf[1]==5
-                    elif sf[1] ==5: sf[1]==3
+                    # if sf[1] ==3: sf[1]==5
+                    # elif sf[1] ==5: sf[1]==3
                     self.pattern.freebottom[k]=sf 
 
             #  surf_pitch_up, surf_pitch_down, surf_free=[], surf_btm=[], surf_side=[],
@@ -1590,7 +1588,7 @@ class Ui_MainWindow(object):
         BodyStartNo = 1
         BodyOffset  = 10000
         
-        self.user_sector=int(self.input_layout_sector.text()) 
+        
         if self.user_sector < 20: 
             print ("##########################################")
             print ("## WARNING. Check Layout sectors")
@@ -1871,8 +1869,7 @@ class Ui_MainWindow(object):
                 print (txt)
             
             self.btn_generation.setEnabled(True)
-
-            BodySector = self.user_sector
+            
             # self.input_layout_sector.setDisabled(True)
             self.figure.plot(layout=self.layout, pattern=self.pattern, show='all', ptn_elset=self.ptn_elset, bended=1)
             self.ShowingImage = 'layout'
@@ -1889,14 +1886,7 @@ class Ui_MainWindow(object):
             print ("* ID Max. Node=%d, Element=%d"%(NN, NS))
 
             # if   self.layout.shoulderType=="S" and self.layout.T3DMMODE ==0 : return 
-            print ("\n** Full 3D Mesh ")
-            print ("** Pattern Start =%d, Offset=%d\n** Layout Start=%d, Offset=%d\n** No. of body sectors=%d\n"%(self.Pattern_start_number, POFFSET, BodyStartNo, BodyOffset, BodySector))
-            if self.layout.T3DMMODE ==1 or self.layout.shoulderType == "S":   
-                self.edge_body = self.layout.Element.OuterEdge(self.layout.Node)
-            self.B3Dnodes, self.B3Del4, self.B3Del6, self.B3Del8, self.B3Delset, self.B3Dsurface, self.Bodysurf = \
-            PTN.GenerateFullBodyMesh(self.layout.body_nodes, self.layout.Element, self.layout.Elset, \
-                surfaces=self.layout.Surface, body_outer=self.edge_body, sectors=BodySector, offset=BodyOffset)
-              
+             
             self.nd_deleted=[]
             self.fullnodes=[]
             self.fullsolids=[]
@@ -1917,6 +1907,19 @@ class Ui_MainWindow(object):
 
 
         if savefile and len(solid_err) == 0:
+            self.user_sector=int(self.input_layout_sector.text()) 
+            BodySector = self.user_sector
+
+            print ("\n** Full 3D Mesh ")
+            print ("** Pattern Start =%d, Offset=%d\n** Layout Start=%d, Offset=%d\n** No. of body sectors=%d\n"%(self.Pattern_start_number, self.poffset, BodyStartNo, BodyOffset, BodySector))
+            if self.layout.T3DMMODE ==1 or self.layout.shoulderType == "S":   
+                self.edge_body = self.layout.Element.OuterEdge(self.layout.Node)
+            self.B3Dnodes, self.B3Del4, self.B3Del6, self.B3Del8, self.B3Delset, self.B3Dsurface, self.Bodysurf = \
+            PTN.GenerateFullBodyMesh(self.layout.body_nodes, self.layout.Element, self.layout.Elset, \
+                surfaces=self.layout.Surface, body_outer=self.edge_body, sectors=BodySector, offset=BodyOffset)
+            
+
+
             savefile = savefile[:-4]
             isCtb=0
             isSut=0 
