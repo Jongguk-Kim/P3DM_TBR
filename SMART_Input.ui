@@ -1332,8 +1332,14 @@
       <height>16</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <underline>false</underline>
+      <strikeout>false</strikeout>
+     </font>
+    </property>
     <property name="text">
-     <string>DT Ratio</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#747474;&quot;&gt;DT Ratio&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QGroupBox" name="groupBox_3">
@@ -2053,7 +2059,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Rim Real Mass </string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#747474;&quot;&gt;Rim Real Mass &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="Edit_RimMass">
@@ -2101,7 +2107,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Elset For Sub cycling</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#747474;&quot;&gt;Elset For Sub cycling&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="Edit_FPC_depth">
@@ -2130,7 +2136,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Groove Depth for FPC</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#747474;&quot;&gt;Groove Depth for FPC&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_64">
@@ -2646,5 +2652,54 @@
   </widget>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>Edit_pressKgf</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>Edit_presskPa</receiver>
+   <slot>paste()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>765</x>
+     <y>86</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>897</x>
+     <y>91</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>Edit_loadKgf</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Edit_loadLbs</receiver>
+   <slot>paste()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>770</x>
+     <y>109</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>868</x>
+     <y>111</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>radio_TBR</sender>
+   <signal>clicked()</signal>
+   <receiver>Edit_RimGeo</receiver>
+   <slot>clear()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>846</x>
+     <y>630</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1001</x>
+     <y>289</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

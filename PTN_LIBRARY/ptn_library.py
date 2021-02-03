@@ -2771,6 +2771,7 @@ class MESH2D:
                 print("%d, "%(er), end="")
             print("")
         
+        
         isSTL =0 
         if len(self.LeftProfile) ==0 or len(self.RightProfile) == 0:
             self.T3DMMODE = 1 
@@ -3113,7 +3114,6 @@ class MESH2D:
 
         if self.TDW ==0: self.TDW = ptnTDW 
         if self.TW == 0: self.TW = ptnTW 
-
 
         ###############################################################################
         ## make the deco-curves to 1 curve.. (sum the lengths)
@@ -3712,6 +3712,7 @@ class MESH2D:
 
         cmd = ""
         name = ""
+        command = ''
         profileDone = 0 
         if self.RightProfile != []: profileDone = 1
         for li, line in enumerate(lines) : 
@@ -3745,12 +3746,14 @@ class MESH2D:
                         line = list(line.split(":"))[1]
                         word = list(line.split(","))
                         R = round(float(word[0].strip())*scaling_factor, 5)
+                        # print ("LEFT Profile", line.strip())
                         # if R == 10.0: R*= 1000
                         if profileDone ==0:  self.RightProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
                     if command == "right": 
                         line = list(line.split(":"))[1]
                         word = list(line.split(","))
                         R = round(float(word[0].strip())*scaling_factor, 5)
+                        # print ("Right Profile", line.strip())
                         # if R == 10.0: R*= 1000
                         if profileDone ==0: self.LeftProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
 
@@ -15067,7 +15070,12 @@ def Jacobian_check(nodes, solids):
             ix = np.where(nodes[:,0]==sd[1])[0][0]; n1 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[2])[0][0]; n2 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[3])[0][0]; n3 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
-            ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
+            try:
+                ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
+            except:
+                print(sd[1], sd[2], sd[3],sd[4],sd[5],sd[6],sd[7],sd[8])
+                ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
+
             ix = np.where(nodes[:,0]==sd[5])[0][0]; n5 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[6])[0][0]; n6 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
 
@@ -19059,7 +19067,7 @@ def ReplaceNodesOnSurface(surface, psolid, nsolid, pitch=0):
 
     
 def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtread=False, xy=23, btm=1, surf_btm=[], \
-    subGaMargin=0.001, shoulder="R", tdw=0.0, pitchUp=[], pitchDown=[], sideNeg=[], sidePos=[] ):
+    subGaMargin=0.001, shoulder="R", tdw=0.0, pitchUp=[], pitchDown=[], sideNeg=[], sidePos=[],backupSolid=[] ):
     x = int(xy/10); y=int(xy%10)
 
     STR = ELEMENT()
@@ -19227,6 +19235,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 newN.append(vec4)
                 if vec4[3]-n4[3] > (n8[3]-n4[3]): print (" n4z=%.3f, midZ=%.3f(%5.3f), n8z=%.3f(%5.3f)"%(n4[3]*1000, vec4[3]*1000, (vec4[3]-n4[3])*1000, n8[3]*1000, (n8[3]-n4[3])*1000))
             else:
+
                 subGa = SubTreadCenterGa(up, down, position=(n1[2]+n2[2]+n3[2])/3.0)
 
                 nCnt += 1
@@ -19284,10 +19293,13 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
         newPitchNode=[]
         
         cP = 0 
+        restore = 0 
+
         for ix in btmSolidIdx:
             sod =[]
             for sd in ptn_solid[ix]: 
                 sod.append(sd)
+                
             newE.append(sod)
             eCnt += 1 
             # print ("%d: EL New %d -> %d"%(len(newE), newE[-1][0], elMax+eCnt))
@@ -19296,7 +19308,10 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][5])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
                 idx = np.intersect1d(ix1, ix2)
-                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                if len(idx) == 0: 
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    restore =1 
+                    break
                 else:
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][1] = newN[idx[0]][0]
@@ -19305,7 +19320,10 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][6])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
                 idx = np.intersect1d(ix1, ix2)
-                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                if len(idx) == 0: 
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    restore =1 
+                    break
                 else:
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][2] = newN[idx[0]][0]
@@ -19314,7 +19332,10 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][7])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
                 idx = np.intersect1d(ix1, ix2)
-                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                if len(idx) == 0: 
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    restore =1 
+                    break
                 else:
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][3] = newN[idx[0]][0]
@@ -19323,7 +19344,10 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][8])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][4])[0][0]
                 idx = np.intersect1d(ix1, ix2)
-                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                if len(idx) == 0: 
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    restore =1 
+                    break
                 else:
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][4] = newN[idx[0]][0]
@@ -19343,7 +19367,10 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][4])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
                 idx = np.intersect1d(ix1, ix2)
-                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                if len(idx) == 0: 
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    restore =1 
+                    break
                 else:
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][1] = newN[idx[0]][0]
@@ -19352,7 +19379,10 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][5])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
                 idx = np.intersect1d(ix1, ix2)
-                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                if len(idx) == 0: 
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    restore =1 
+                    break
                 else:
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][2] = newN[idx[0]][0]
@@ -19361,7 +19391,10 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][6])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
                 idx = np.intersect1d(ix1, ix2)
-                if len(idx) == 0: print("ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                if len(idx) == 0: 
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    restore =1 
+                    break
                 else:
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][3] = newN[idx[0]][0]
@@ -19398,28 +19431,28 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 if len(newSurf) > 0: 
                     newSidePos.append(newSurf) 
                     # Nside -= 1
+        if restore ==0: 
+            newPitchUp = np.array(newPitchUp)
+            newPitchDown = np.array(newPitchDown)
+            newSideNeg = np.array(newSideNeg)
+            newSidePos = np.array(newSidePos)
+
+            pitchUp      = np.concatenate((pitchUp, newPitchUp), axis=0)
+            pitchDown      = np.concatenate((pitchDown, newPitchDown), axis=0)
+            sideNeg      = np.concatenate((sideNeg, newSideNeg), axis=0)
+            sidePos      = np.concatenate((sidePos, newSidePos), axis=0)
             
-        newPitchUp = np.array(newPitchUp)
-        newPitchDown = np.array(newPitchDown)
-        newSideNeg = np.array(newSideNeg)
-        newSidePos = np.array(newSidePos)
+            print ("## Bottom Elements was divided")
+            # print ("pitch sum=%d, side sum=%d"%(Npitch, Nside))
 
-        pitchUp      = np.concatenate((pitchUp, newPitchUp), axis=0)
-        pitchDown      = np.concatenate((pitchDown, newPitchDown), axis=0)
-        sideNeg      = np.concatenate((sideNeg, newSideNeg), axis=0)
-        sidePos      = np.concatenate((sidePos, newSidePos), axis=0)
-        
-        print ("## Bottom Elements was divided")
-        # print ("pitch sum=%d, side sum=%d"%(Npitch, Nside))
+            newN = newN[:,:4]
+            ptn_node      = np.concatenate((ptn_node, newN), axis=0)
+            newE = np.array(newE)
+            ptn_solid = np.concatenate((ptn_solid, newE), axis=0)
 
-        
-
-
-        newN = newN[:,:4]
-        ptn_node      = np.concatenate((ptn_node, newN), axis=0)
-        newE = np.array(newE)
-        ptn_solid = np.concatenate((ptn_solid, newE), axis=0)
-
+        else:
+            print ("## Bottom Elements cannot be divided")
+            ptn_solid = backupSolid.nps
         #################################################################
         ## Searching Sub Tread Area 
         poly = []
@@ -19470,9 +19503,17 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
 
         elsets=[ctb, sut]  # Elset_SUT = ["SUT", []]
 
-        # print (" Adding %d, %d"%(len(newE), len(newN)))
-        newPitchNode= np.array(newPitchNode)
-        newPitchNode= np.unique(newPitchNode)
+        if restore ==0: 
+            # print (" Adding %d, %d"%(len(newE), len(newN)))
+            newPitchNode= np.array(newPitchNode)
+            newPitchNode= np.unique(newPitchNode)
+        else:
+            newPitchNode=np.array([])
+            pitchUp = backupSolid.surf_pitch_up
+            pitchDown= backupSolid.surf_pitch_down
+            sideNeg= backupSolid.surf_pattern_neg_side
+            sidePos= backupSolid.surf_pattern_pos_side
+
         return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, newPitchNode
     else: 
         lnode = STR.Nodes(node=layout_node) 

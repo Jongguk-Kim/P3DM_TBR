@@ -1588,7 +1588,7 @@ class Ui_MainWindow(object):
         BodyStartNo = 1
         BodyOffset  = 10000
         
-        
+        self.user_sector=int(self.input_layout_sector.text()) 
         if self.user_sector < 20: 
             print ("##########################################")
             print ("## WARNING. Check Layout sectors")
@@ -1725,7 +1725,7 @@ class Ui_MainWindow(object):
                  = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
                  subtread=self.check_SubTread.isChecked(), btm=1, surf_btm=self.pattern.freebottom, subGaMargin=subGa_margin,\
                  shoulder=self.layout.shoulderType,  tdw=self.layout.TDW, pitchUp=self.pattern.surf_pitch_up, \
-                     pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side, sidePos=self.pattern.surf_pattern_pos_side)
+                     pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side, sidePos=self.pattern.surf_pattern_pos_side, backupSolid=self.ptn_bended)
             
             ###################################################################
             ## pattern direction change 
@@ -2263,105 +2263,108 @@ class Ui_MainWindow(object):
                 # print ("*%s*"%(solidel))
                 return plane, solid 
     def SearchedSolids(self, id=1): 
-        if self.readpattern:
-            solidel = self.searchno.text()
+        try:
+            if self.readpattern:
+                solidel = self.searchno.text()
 
-            if self.radio_model.isChecked() :  solids = self.ptn_model.nps
-            elif self.radio_scaled.isChecked() :  solids = self.ptn_expanded.nps
-            elif self.radio_gauged.isChecked() :  solids = self.ptn_gauged.nps
-            elif self.radio_bended.isChecked() :  solids = self.ptn_bended.nps
-            else:                              
-                solids = self.ptn_bottomed.nps
-                # print ("show bottommed elements", solidel)
-            
-            if solidel != "" and solidel != "0": 
-                if "," in solidel: 
-                    els = solidel.split(",")
-                else: 
-                    els = [solidel]
+                if self.radio_model.isChecked() :  solids = self.ptn_model.nps
+                elif self.radio_scaled.isChecked() :  solids = self.ptn_expanded.nps
+                elif self.radio_gauged.isChecked() :  solids = self.ptn_gauged.nps
+                elif self.radio_bended.isChecked() :  solids = self.ptn_bended.nps
+                else:                              
+                    solids = self.ptn_bottomed.nps
+                    # print ("show bottommed elements", solidel)
                 
-                tns=[]
-                solid = []
-                try: 
-                    for el in els: 
-                        el = el.strip()
-                        if "*" in el[0]: 
-                            el = el[1:]
-                            if "+" in el: 
-                                el = el.split("+") 
-                                el = int(el[0].strip())    
-                                if el< 10**7:   el += 10**7     
-                                el = str(int(el))+"+"   
-                            elif "~" in el: 
-                                pass    
-                            else: 
-                                el = int(el.strip()) 
-                                if el< 10**7:   el += 10**7 
-                                el = str(int(el))
-
-                        if "+" in el:
-                            # print(el) 
-                            el = el.split("+") 
-                            el = int(el[0].strip())
-                            
-                            if el < 10**7: el += 10**7 
-                            ix = np.where(solids[:,0] == el)[0]
-                            if len(ix) == 1: 
-                                el = solids[ix[0]]
-                                # solid.append(el)
-                                # print (el)
-                                if el[7] > 0: 
-                                    ns = [el[1], el[2], el[3], el[4], el[5], el[6], el[7], el[8]]
+                if solidel != "" and solidel != "0": 
+                    if "," in solidel: 
+                        els = solidel.split(",")
+                    else: 
+                        els = [solidel]
+                    
+                    tns=[]
+                    solid = []
+                    try: 
+                        for el in els: 
+                            el = el.strip()
+                            if "*" in el[0]: 
+                                el = el[1:]
+                                if "+" in el: 
+                                    el = el.split("+") 
+                                    el = int(el[0].strip())    
+                                    if el< 10**7:   el += 10**7     
+                                    el = str(int(el))+"+"   
+                                elif "~" in el: 
+                                    pass    
                                 else: 
-                                    ns = [el[1], el[2], el[3], el[4], el[5], el[6]]
-                                for n in ns: 
-                                    ix = np.where(solids[:,1:9] == n)[0]
-                                    tns = np.append(tns, ix)#, axis=None)
-                                tns = np.unique(tns)
-                                # print (tns)
-                                for tn in tns: 
-                                    # print (int(tn),", ", solids[int(tn)][0])
-                                    if id==1 : solid.append(solids[int(tn)][0])
-                                    else:  solid.append(solids[int(tn)])
-                                    # print (solids[tn][0])
+                                    el = int(el.strip()) 
+                                    if el< 10**7:   el += 10**7 
+                                    el = str(int(el))
 
-                        elif "~" in el:
-                            # print(el) 
-                            ns = el.split("~")
-                            ns[0] = int(ns[0].strip())
-                            ns[1] = int(ns[1].strip())
-                            if ns[0] < 10**7: ns[0] += 10**7 
-                            if ns[1] < 10**7: ns[1] += 10**7 
-                            for i in range(ns[0], ns[1]+1): 
-                                ix = np.where(solids[:,0]==i)[0]
-                                if len(ix) ==1:    
-                                    if id== 0: solid.append(solids[ix[0]])
+                            if "+" in el:
+                                # print(el) 
+                                el = el.split("+") 
+                                el = int(el[0].strip())
+                                
+                                if el < 10**7: el += 10**7 
+                                ix = np.where(solids[:,0] == el)[0]
+                                if len(ix) == 1: 
+                                    el = solids[ix[0]]
+                                    # solid.append(el)
+                                    # print (el)
+                                    if el[7] > 0: 
+                                        ns = [el[1], el[2], el[3], el[4], el[5], el[6], el[7], el[8]]
+                                    else: 
+                                        ns = [el[1], el[2], el[3], el[4], el[5], el[6]]
+                                    for n in ns: 
+                                        ix = np.where(solids[:,1:9] == n)[0]
+                                        tns = np.append(tns, ix)#, axis=None)
+                                    tns = np.unique(tns)
+                                    # print (tns)
+                                    for tn in tns: 
+                                        # print (int(tn),", ", solids[int(tn)][0])
+                                        if id==1 : solid.append(solids[int(tn)][0])
+                                        else:  solid.append(solids[int(tn)])
+                                        # print (solids[tn][0])
+
+                            elif "~" in el:
+                                # print(el) 
+                                ns = el.split("~")
+                                ns[0] = int(ns[0].strip())
+                                ns[1] = int(ns[1].strip())
+                                if ns[0] < 10**7: ns[0] += 10**7 
+                                if ns[1] < 10**7: ns[1] += 10**7 
+                                for i in range(ns[0], ns[1]+1): 
+                                    ix = np.where(solids[:,0]==i)[0]
+                                    if len(ix) ==1:    
+                                        if id== 0: solid.append(solids[ix[0]])
+                                        else: solid.append(solids[ix[0]][0])
+                                        # print (solids[ix[0]][0])
+
+
+                            elif "" != el and "0" != el: 
+                                # print(el)
+                                el = int(el.strip())
+                                if el < 10**7: el += 10**7
+                                ix = np.where(solids[:,0]==el)[0]
+                                if len(ix) ==1:  
+                                    if id==0: solid.append(solids[ix[0]])
                                     else: solid.append(solids[ix[0]][0])
                                     # print (solids[ix[0]][0])
+                            
+                        return solid 
+                    except:
+                        print ("# Error to identify the number of elements")
+                        print ("# Possible expressions (*:pattern)")
+                        print ("  252, 333~336, *232, *12~20, 236+, *236+")
+                        solid=[]
+                        return solid 
 
-
-                        elif "" != el and "0" != el: 
-                            # print(el)
-                            el = int(el.strip())
-                            if el < 10**7: el += 10**7
-                            ix = np.where(solids[:,0]==el)[0]
-                            if len(ix) ==1:  
-                                if id==0: solid.append(solids[ix[0]])
-                                else: solid.append(solids[ix[0]][0])
-                                # print (solids[ix[0]][0])
-                        
-                    return solid 
-                except:
-                    print ("# Error to identify the number of elements")
-                    print ("# Possible expressions (*:pattern)")
-                    print ("  252, 333~336, *232, *12~20, 236+, *236+")
-                    solid=[]
-                    return solid 
-
-            else: 
-                # print ("*%s*"%(solidel))
-                solidid = []
-                return solidid
+                else: 
+                    # print ("*%s*"%(solidel))
+                    solidid = []
+                    return solidid
+        except:
+            pass 
 
     ## pattern plot ##################################
     def showDefault(self):  ## Pattern Default 
@@ -3458,7 +3461,10 @@ class myCanvas(FigureCanvas):
             for sf in surface: 
                 ix = np.where(npn[:,0] == sf[7])[0][0]; n1 = npn[ix]
                 ix = np.where(npn[:,0] == sf[8])[0][0]; n2 = npn[ix]
-                ix = np.where(npn[:,0] == sf[9])[0][0]; n3 = npn[ix] 
+                try:
+                    ix = np.where(npn[:,0] == sf[9])[0][0]; n3 = npn[ix] 
+                except:
+                    print(sf[7],",", sf[8],",", sf[9])
                 
 
                 

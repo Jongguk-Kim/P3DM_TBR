@@ -1270,26 +1270,29 @@ class Ui_Dialog(object):
         else:
             self.groupBox_4.setChecked(False)
 
-        self.Edit_pressKgf.returnPressed.connect(self.pressureKgf)
-        self.Edit_presskPa.returnPressed.connect(self.pressureKpa)
-        self.Edit_pressPSI.returnPressed.connect(self.pressurePsi)
+        # self.Edit_pressKgf.returnPressed.connect(self.pressureKgf)
+        self.Edit_pressKgf.editingFinished.connect(self.pressureKgf)
+        self.Edit_presskPa.editingFinished.connect(self.pressureKpa)
+        self.Edit_pressPSI.editingFinished.connect(self.pressurePsi)
 
-        self.Edit_PCI_press_kgf.returnPressed.connect(self.pressurePCIKgf)
-        self.Edit_PCI_press_kPa.returnPressed.connect(self.pressurePCIKpa)
-        self.Edit_PCI_press_psi.returnPressed.connect(self.pressurePCIPsi)
+        self.Edit_PCI_press_kgf.editingFinished.connect(self.pressurePCIKgf)
+        self.Edit_PCI_press_kPa.editingFinished.connect(self.pressurePCIKpa)
+        self.Edit_PCI_press_psi.editingFinished.connect(self.pressurePCIPsi)
 
-        self.Edit_loadKgf.returnPressed.connect(self.loadKgf)
-        self.Edit_loadLbs.returnPressed.connect(self.loadLbf)
+        self.Edit_loadKgf.editingFinished.connect(self.loadKgf)
+        self.Edit_loadLbs.editingFinished.connect(self.loadLbf)
 
-        self.Edit_RWmm.returnPressed.connect(self.testRWmm)
-        self.Edit_RWInch.returnPressed.connect(self.testRWInch)
+        # self.Edit_RWInch.returnPressed.connect(self.testRWInch)
+        self.Edit_RWInch.editingFinished.connect(self.testRWInch)
+        self.Edit_RWmm.editingFinished.connect(self.testRWmm)
+        
+        # self.Edit_RDinch.returnPressed.connect(self.testRDInch)
+        self.Edit_RDinch.editingFinished.connect(self.testRDInch)
+        self.Edit_RDmm.editingFinished.connect(self.testRDmm)
 
-        self.Edit_RDmm.returnPressed.connect(self.testRDmm)
-        self.Edit_RDinch.returnPressed.connect(self.testRDInch)
+        self.Edit_PCI_RW_mm.editingFinished.connect(self.PCIRWmm)
+        self.Edit_PCI_RW_inch.editingFinished.connect(self.PCIRWInch)
 
-
-        self.Edit_PCI_RW_mm.returnPressed.connect(self.PCIRWmm)
-        self.Edit_PCI_RW_inch.returnPressed.connect(self.PCIRWInch)
 
         self.TempReadInOut()
 
@@ -1299,16 +1302,29 @@ class Ui_Dialog(object):
             self.Edit_stiffness_KL.setText("20.03")
             self.Edit_stiffness_KT.setText("30.0")
             self.check_GroupTBR.setChecked(False)
+            self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_PCLT.GEOM")
+            self.check_LowCure.setChecked(False)
+            self.groupBox_Check.setChecked(True)
         if self.radio_LTR.isChecked(): 
             self.Edit_stiffness_KV.setText("24.6")
             self.Edit_stiffness_KL.setText("20.03")
             self.Edit_stiffness_KT.setText("30.0")
             self.check_GroupTBR.setChecked(False)
+            self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_PCLT.GEOM")
+            self.check_LowCure.setChecked(False)
+            self.groupBox_Check.setChecked(True)
         if self.radio_TBR.isChecked(): 
             self.Edit_stiffness_KV.setText("114.0")
             self.Edit_stiffness_KL.setText("38.0")
             self.Edit_stiffness_KT.setText("72.0")
             self.check_GroupTBR.setChecked(True)
+            if self.check_Tube.isChecked(): 
+                self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_TBTUBE.GEOM")
+            else:
+                self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_TB_TUBELESS.GEOM")
+            self.check_LowCure.setChecked(True)
+            self.groupBox_Check.setChecked(False)
+
     def reCalculationDrumRadius(self):
         try:  
             self.beltLift = float(self.Edit_beltLift.text())
@@ -1414,7 +1430,7 @@ class Ui_Dialog(object):
                 if "- Not available" in code: 
                     code = code.split("-")[0].strip()
                 found = 0 
-                if "ES" in code.upper() or "ET" in code.upper(): 
+                if "ES" in code.upper() or "ET" in code.upper() or "EL" in code.upper(): 
                     for cl in cordList: 
                         if cl[0] == code: 
                             found = 1 
@@ -1663,6 +1679,7 @@ class Ui_Dialog(object):
     def testRDmm(self): 
         try: 
             self.RD = round(float(self.Edit_RDmm.text()), 2)
+            if self.RD ==0: return
             self.Edit_RDinch.setText(str(round(self.RD/25.4, 2)))
         except:
             pass 
@@ -1670,6 +1687,24 @@ class Ui_Dialog(object):
     def RimInfoChanged(self): 
         self.testRDInch()
         self.testRWInch()
+        if self.check_GroupTBR.isChecked() and self.check_Tube.isChecked(): 
+            self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_TBTUBE.GEOM")
+            self.check_LowCure.setChecked(True)
+            self.radio_TBR.setChecked(True)
+            self.groupBox_Check.setChecked(False)
+        elif self.check_GroupTBR.isChecked() and not self.check_Tube.isChecked(): 
+            self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_TB_TUBELESS.GEOM")
+            self.check_LowCure.setChecked(True)
+            self.radio_TBR.setChecked(True)
+            self.groupBox_Check.setChecked(False)
+        else:
+            self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_PCLT.GEOM")
+            self.check_LowCure.setChecked(False)
+            if self.tireGroup == 2: 
+                self.radio_LTR.setChecked(True)
+            else:
+                self.radio_PCR.setChecked(True)
+            self.groupBox_Check.setChecked(True)
 
     def testRDInch(self): 
         try:
@@ -1687,6 +1722,7 @@ class Ui_Dialog(object):
     def testRWmm(self): 
         try:
             self.RW = round(float(self.Edit_RWmm.text()), 2)
+            if self.RW ==0: return 
             self.Edit_RWInch.setText(str(round(self.RW/25.4, 2)))
         except:
             pass 
@@ -2103,7 +2139,7 @@ class Ui_Dialog(object):
         self.Edit_DT_ratio.setText(_translate("Dialog", str(self.DtRatio)))
         self.Edit_massScale.setText(_translate("Dialog", str(self.massScale)))
         self.label_37.setText(_translate("Dialog", "Mass Scale"))
-        self.label_38.setText(_translate("Dialog", "DT Ratio"))
+        self.label_38.setText(_translate("Dialog", "<html><head/><body><p><span style=\" color:#747474;\">DT Ratio</span></p></body></html>"))
         self.groupBox_3.setTitle(_translate("Dialog", "Self Contact"))
         self.check_kerf.setText(_translate("Dialog", "Tread Kerf"))
         self.check_Cavity.setText(_translate("Dialog", "Inner Cavity"))
@@ -2157,14 +2193,18 @@ class Ui_Dialog(object):
         elif self.tireGroup==2:    self.radio_LTR.setChecked(True)
         else: self.radio_TBR.setChecked(True)
 
+        self.label_61.setText(_translate("Dialog", "<html><head/><body><p><span style=\" color:#747474;\">Rim Real Mass </span></p></body></html>"))
         
-
-        self.label_61.setText(_translate("Dialog", "Rim Real Mass "))
         self.Edit_RimMass.setText(_translate("Dialog",  str(self.rimMass)))
+        self.Edit_RimMass.setToolTip(_translate("Dialog", "<html><head/><body><p>RIM=1.0</p><p>LAT100=0.05</p><p>NPT=1.0</p></body></html>"))
+        
         self.Edit_SubCycling.setText(_translate("Dialog",  str(self.ElsetSubcycling)))
-        self.label_62.setText(_translate("Dialog", "Elset For Sub cycling"))
+        # self.label_62.setText(_translate("Dialog", "Elset For Sub cycling"))
+        self.label_62.setText(_translate("Dialog", "<html><head/><body><p><span style=\" color:#747474;\">Elset For Sub cycling</span></p></body></html>"))
         self.Edit_FPC_depth.setText(_translate("Dialog",  str(self.FPC)))
-        self.label_63.setText(_translate("Dialog", "Groove Depth for FPC"))
+        
+        self.label_63.setText(_translate("Dialog", "<html><head/><body><p><span style=\" color:#747474;\">Groove Depth for FPC</span></p></body></html>"))
+
         self.label_64.setText(_translate("Dialog", "m"))
         self.groupBox_9.setTitle(_translate("Dialog", "Material Properties"))
         self.Edit_materialPosition.setText(_translate("Dialog",  str(self.material)))
