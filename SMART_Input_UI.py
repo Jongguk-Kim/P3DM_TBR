@@ -1134,7 +1134,10 @@ class Ui_Dialog(object):
                 self.tableWidget.setItem(i + nSD, 1, QtWidgets.QTableWidgetItem( str(sd[2]) + "- Not available" ) )
 
             self.tableWidget.setItem(i + nSD, 2, QtWidgets.QTableWidgetItem( str(sd[3])) )
-            self.tableWidget.setItem(i + nSD, 3,  QtWidgets.QTableWidgetItem( str(sd[4])) )
+            if "OJFC" in sd[0] or 'OJEC' in sd[0]: 
+                self.tableWidget.setItem(i + nSD, 3,  QtWidgets.QTableWidgetItem( '1.6' ) )
+            else: 
+                self.tableWidget.setItem(i + nSD, 3,  QtWidgets.QTableWidgetItem( str(sd[4])) )
 
             self.tableWidget.setItem(i+ nSD, 4,  QtWidgets.QTableWidgetItem( str(sd[1])) )
             self.tableWidget.setItem(i+ nSD, 5,  QtWidgets.QTableWidgetItem( str(sd[6])) )

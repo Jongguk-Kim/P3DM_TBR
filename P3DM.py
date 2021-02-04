@@ -1401,6 +1401,14 @@ class Ui_MainWindow(object):
             # t0 = time()
             self.pattern = PTN.PATTERN(self.patternmesh, test=0)
 
+            if self.pattern.TreadDesignWidth==0: 
+                print ("\n********************************************")
+                print (" Tread Design Width is not in the pattern mesh.")
+                print (" Insert 'Tread Design Width' into *.ptn")
+                print ("*TREAD_DESIGN_WIDTH : OOO.OO")
+                print ("********************************************\n")
+                return 
+
             if self.pattern.IsError ==1: 
                 return 0 
             self.radio_model.setChecked(True)

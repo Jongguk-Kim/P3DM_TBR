@@ -6697,7 +6697,7 @@ class PATTERN:
         print (filename)
 
         result_reading = self.ReadPtn(filename)
-        if result_reading >= 100: 
+        if result_reading >= 100 or self.TreadDesignWidth==0: 
             self.IsError = 1
             return 
         
@@ -7197,10 +7197,10 @@ class PATTERN:
                 if "PITCH_SCALING" in line.upper():
                     data = line.split(":")
                     self.pitchscaling = float(data[1].strip())
-                elif "GROOVE_DEPTH" in line.upper():
+                elif "GROOVE_DEPTH" in line.upper() or ("GROOVE" in line.upper() and 'DEPTH' in line.upper()):
                     data = line.split(":")
                     self.ModelGD = float(data[1].strip()) 
-                elif "TREAD_DESIGN_WIDTH" in line.upper():
+                elif "TREAD_DESIGN_WIDTH" in line.upper() or ("TREAD" in line.upper() and "DESIGN" in line.upper() and "WIDTH" in line.upper()):
                     data = line.split(":")
                     self.TreadDesignWidth = float(data[1].strip())
                 elif "*NODE" in line.upper() and not "FILE" in line.upper() and not "OUTPUT" in line.upper(): 
@@ -7249,11 +7249,8 @@ class PATTERN:
         self.PatternWidth = wmax - wmin 
         if self.ModelGD ==0: self.ModelGD = 1.0E-03 
         else: self.ModelGD = self.ModelGD * 0.001
-        if self.TreadDesignWidth ==0: 
-            self.TreadDesignWidth = round(self.PatternWidth - 20.0E-03, 9)
-            print ("*Tread Design Width was set to 'Total width -10mm'") 
-        else: 
-            self.TreadDesignWidth = round(self.TreadDesignWidth/1000, 9)
+
+        self.TreadDesignWidth = round(self.TreadDesignWidth/1000, 9)
 
         return 1 
                     
@@ -7279,7 +7276,7 @@ class PATTERN:
                 if "PROFILE_SCALING" in line.upper():
                     data = line.split(":")
                     self.profilescaling = float(data[1].strip())
-                elif "GROOVE_DEPTH" in line.upper():
+                elif "GROOVE_DEPTH" in line.upper() or ("GROOVE" in line.upper() and 'DEPTH' in line.upper()):
                     data = line.split(":")
                     self.ModelGD = float(data[1].strip()) 
                 elif "HALF_DIAMETER" in line.upper():
@@ -7296,7 +7293,7 @@ class PATTERN:
                 elif "PITCH_SCALING" in line.upper():
                     data = line.split(":")
                     self.pitchscaling = float(data[1].strip()) 
-                elif "TREAD_DESIGN_WIDTH" in line.upper():
+                elif "TREAD_DESIGN_WIDTH" in line.upper() or ("TREAD" in line.upper() and "DESIGN" in line.upper() and "WIDTH" in line.upper()):
                     data = line.split(":")
                     self.TreadDesignWidth = float(data[1].strip())
                 elif "GUIDELINE_TOLERANCE" in line.upper():
@@ -7567,32 +7564,32 @@ class PATTERN:
             print ("\n No information of pattern mesh\n")
             return 0
         
-        if self.TreadDesignWidth == 0: 
+        # if self.TreadDesignWidth == 0: 
 
-            tmp = 0
-            sho = 0 
-            for i, pf in enumerate(self.leftprofile): 
-                if abs(pf[0]) > 0.05 and i < len(self.leftprofile)-1: 
-                    self.TreadDesignWidth += pf[1]
-                    sho = 1
-                else: 
-                    tmp = pf[1]
-                    break 
-            if sho == 1: self.TreadDesignWidth -= tmp/3.0 *2
-            tmp = 0
-            sho = 0 
-            for i, pf in enumerate(self.rightprofile): 
-                if abs(pf[0]) > 0.05 and i < len(self.rightprofile)-1: 
-                    self.TreadDesignWidth += pf[1]
-                    sho = 1
-                else: 
-                    tmp = pf[1]
-                    break 
-            if sho==1: self.TreadDesignWidth -= tmp/3.0 *2
+        #     tmp = 0
+        #     sho = 0 
+        #     for i, pf in enumerate(self.leftprofile): 
+        #         if abs(pf[0]) > 0.05 and i < len(self.leftprofile)-1: 
+        #             self.TreadDesignWidth += pf[1]
+        #             sho = 1
+        #         else: 
+        #             tmp = pf[1]
+        #             break 
+        #     if sho == 1: self.TreadDesignWidth -= tmp/3.0 *2
+        #     tmp = 0
+        #     sho = 0 
+        #     for i, pf in enumerate(self.rightprofile): 
+        #         if abs(pf[0]) > 0.05 and i < len(self.rightprofile)-1: 
+        #             self.TreadDesignWidth += pf[1]
+        #             sho = 1
+        #         else: 
+        #             tmp = pf[1]
+        #             break 
+        #     if sho==1: self.TreadDesignWidth -= tmp/3.0 *2
 
-            self.TreadDesignWidth = round(self.TreadDesignWidth, 9)
-        else: 
-            self.TreadDesignWidth = round(self.TreadDesignWidth/1000, 9)
+        #     self.TreadDesignWidth = round(self.TreadDesignWidth, 9)
+        # else: 
+        self.TreadDesignWidth = round(self.TreadDesignWidth/1000, 9)
             
         
         # self.PatternWidth 
@@ -7610,9 +7607,9 @@ class PATTERN:
         if self.ModelGD ==0: self.ModelGD = 1.0E-03 
         else: self.ModelGD = self.ModelGD * 0.001
 
-        if self.TreadDesignWidth == 0: 
-            self.TreadDesignWidth = self.PatternWidth  - 10.0E-03 
-            print ("*Design Width was set to 'Total width -10mm'")
+        # if self.TreadDesignWidth == 0: 
+        #     self.TreadDesignWidth = self.PatternWidth  - 10.0E-03 
+        #     print ("*Design Width was set to 'Total width -10mm'")
 
         return 1 
 
@@ -18599,6 +18596,7 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
         for i, sf in enumerate(surf_pitch_up): 
             ups.append(sf[7]); ups.append(sf[8]); ups.append(sf[9])
             downs.append(surf_pitch_down[i][7]); downs.append(surf_pitch_down[i][8]); downs.append(surf_pitch_down[i][9])
+            if sf[7] ==0 or sf[8] ==0 or sf[9] ==0: print ("", sf)
             if sf[10] > 0: 
                 ups.append(sf[10])
                 downs.append(surf_pitch_down[i][10])
@@ -18606,6 +18604,7 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
         for i, sf in enumerate(surf_pitch_down): 
             ups.append(sf[7]); ups.append(sf[8]); ups.append(sf[9])
             downs.append(surf_pitch_up[i][7]); downs.append(surf_pitch_up[i][8]); downs.append(surf_pitch_up[i][9])
+            if sf[7] ==0 or sf[8] ==0 or sf[9] ==0: print (sf)
             if sf[10] > 0: 
                 ups.append(sf[10])
                 downs.append(surf_pitch_up[i][10])
@@ -18613,19 +18612,19 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
     ups = np.unique(ups); downs = np.unique(downs)
 
     # print ("* Nodes Up/Down Surface [%d,%d] (=%d)"%(len(ups), len(downs), len(surf_pitch_up)*4))
-    
+
     couple=[]
     mg = 0.15E-03 
     origin=ptn_org
     for up in ups: 
         ix = np.where(origin[:,0]==up)[0]
         if len(ix)>0: 
-            ix = ix[0]; un=origin[ix]
+            un=origin[ix[0]]
             for dw in downs: 
-                try: 
-                    ix = np.where(origin[:,0]==dw)[0][0]; dn=origin[ix]
-                except:
+                ix = np.where(origin[:,0]==dw)[0]
+                if len(ix) ==0: 
                     continue 
+                dn=origin[ix[0]]
                 if abs(un[2] - dn[2]) < mg and abs(un[3] - dn[3]) < mg and abs(un[1] - dn[1] - ptn_pl)  < mg: 
                     couple.append([un[0], dn[0]])
                     # print ("CPLE: %d, %d"%(un[0]-10**7, dn[0]-10**7))
@@ -19032,7 +19031,7 @@ def ReplaceNodesOnSurface(surface, psolid, nsolid, pitch=0):
 
     PN=[]
 
-    if surface[2] ==4: 
+    if psolid[7] > 0: 
         if surface[1] == 3 : 
             pn1 = 6; pn2 = 5
             nn1 = 1; nn2 = 2
@@ -19078,7 +19077,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
         if td[5] == "CTR": 
             iCTR = 1 
 
-    if subtread == False  : 
+    if subtread == False or len(STR.Element) == 0 : 
         if iCTR ==0: 
             Elset = ["CTB", ptn_solid[:,0]]
         else: 
@@ -19087,11 +19086,8 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
         elsets.append(Elset)
         return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, []
 
-
     if btm ==1: 
         btmsolid = surf_btm[:, 0]
-        
-
         if shoulder=="S": 
             margin = tdw*0.48
             cap=[]
@@ -19187,6 +19183,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 l1 = sqrt(( n5[1]-n1[1])**2+(n5[2]-n1[2])**2+(n5[3]-n1[3])**2)
                 vec1 = [ndMax+nCnt, (n5[1]-n1[1])/l1, (n5[2]-n1[2])/l1, (n5[3]-n1[3])/l1, n5[0], n1[0]]
                 if l1 > subGa + subTd_marginGa: 
+                    if subGa < subTd_marginGa: subGa = l1/2.0 
                     vec1[1] = round(n1[1]+vec1[1]*subGa, digit); vec1[2] = round(n1[2]+vec1[2]*subGa, digit); vec1[3] = round(n1[3]+vec1[3]*subGa, digit)
                 else:
                     l=l1 
@@ -19200,6 +19197,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 l2 = sqrt(( n6[1]-n2[1])**2+(n6[2]-n2[2])**2+( n6[3]-n2[3])**2)
                 vec2 = [ndMax+nCnt, (n6[1]-n2[1])/l2, (n6[2]-n2[2])/l2, (n6[3]-n2[3])/l2, n6[0], n2[0]]
                 if l2 > subGa + subTd_marginGa: 
+                    if subGa < subTd_marginGa: subGa = l2/2.0 
                     vec2[1] = round(n2[1]+vec2[1]*subGa, digit); vec2[2] = round(n2[2]+vec2[2]*subGa, digit); vec2[3] = round(n2[3]+vec2[3]*subGa, digit)
                 else:
                     l=l2 
@@ -19213,6 +19211,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 l3 = sqrt(( n7[1]-n3[1])**2+(n7[2]-n3[2])**2+(n7[3]-n3[3])**2)
                 vec3 = [ndMax+nCnt, (n7[1]-n3[1])/l3, (n7[2]-n3[2])/l3, (n7[3]-n3[3])/l3, n7[0], n3[0]]
                 if l3 > subGa + subTd_marginGa: 
+                    if subGa < subTd_marginGa: subGa = l3/2.0 
                     vec3[1] = round(n3[1]+vec3[1]*subGa, digit); vec3[2] = round(n3[2]+vec3[2]*subGa, digit); vec3[3] = round(n3[3]+vec3[3]*subGa, digit)
                 else:
                     l=l3 
@@ -19226,6 +19225,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 l4 = sqrt(( n8[1]-n4[1])**2+(n8[2]-n4[2])**2+(n8[3]-n4[3])**2)
                 vec4 = [ndMax+nCnt, (n8[1]-n4[1])/l4, (n8[2]-n4[2])/l4, (n8[3]-n4[3])/l4, n8[0], n4[0]]
                 if l4 > subGa + subTd_marginGa: 
+                    if subGa < subTd_marginGa: subGa = l4/2.0 
                     vec4[1] = round(n4[1]+vec4[1]*subGa, digit); vec4[2] = round(n4[2]+vec4[2]*subGa, digit); vec4[3] = round(n4[3]+vec4[3]*subGa, digit)
                 else:
                     l=l4 
@@ -19242,6 +19242,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 l1 = sqrt(( n4[1]-n1[1])**2+(n4[2]-n1[2])**2+(n4[3]-n1[3])**2)
                 vec1 = [ndMax+nCnt, (n4[1]-n1[1])/l1, (n4[2]-n1[2])/l1, (n4[3]-n1[3])/l1, n4[0], n1[0]]
                 if l1 > subGa +subTd_marginGa: 
+                    if subGa < subTd_marginGa: subGa = l1/2.0 
                     vec1[1] = round(n1[1]+vec1[1]*subGa, digit); vec1[2] = round(n1[2]+vec1[2]*subGa, digit); vec1[3] = round(n1[3]+vec1[3]*subGa, digit)
                 else:
                     l=l1 
@@ -19254,6 +19255,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 l2 = sqrt(( n5[1]-n2[1])**2+(n5[2]-n2[2])**2+( n5[3]-n2[3])**2)
                 vec2 = [ndMax+nCnt, (n5[1]-n2[1])/l2, (n5[2]-n2[2])/l2, (n5[3]-n2[3])/l2, n5[0], n2[0]]
                 if l2 > subGa + subTd_marginGa: 
+                    if subGa < subTd_marginGa: subGa = l2/2.0 
                     vec2[1] = round(n2[1]+vec2[1]*subGa, digit); vec2[2] = round(n2[2]+vec2[2]*subGa, digit); vec2[3] = round(n2[3]+vec2[3]*subGa, digit)
                 else:
                     l=l2 
@@ -19266,6 +19268,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 l3 = sqrt(( n6[1]-n3[1])**2+(n6[2]-n3[2])**2+(n6[3]-n3[3])**2)
                 vec3 = [ndMax+nCnt, (n6[1]-n3[1])/l3, (n6[2]-n3[2])/l3, (n6[3]-n3[3])/l3, n6[0], n3[0]]
                 if l3 > subGa + subTd_marginGa: 
+                    if subGa < subTd_marginGa: subGa = l3/2.0 
                     vec3[1] = round(n3[1]+vec3[1]*subGa, digit); vec3[2] = round(n3[2]+vec3[2]*subGa, digit); vec3[3] = round(n3[3]+vec3[3]*subGa, digit)
                 else:
                     l=l3 
@@ -19354,7 +19357,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                     ptn_solid[ix][8] = newN[idx[0]][0]
 
                 # cP+=1
-                # if ptn_solid[ix][0]-10**7 == 1182 or ptn_solid[ix][0]-10**7 == 1183 or ptn_solid[ix][0]-10**7 == 238 or ptn_solid[ix][0]-10**7 == 242: 
+                # if ptn_solid[ix][0]-10**7 == 4160 or ptn_solid[ix][0]-10**7 == 4159: # or ptn_solid[ix][0]-10**7 == 238 or ptn_solid[ix][0]-10**7 == 242: 
                 #     print (" NEW E: %d, %d, %d, %d, %d, %d, %d, %d, %d"%(newE[-1][0]-10**7, newE[-1][1]-10**7,\
                 #         newE[-1][2]-10**7,newE[-1][3]-10**7,newE[-1][4]-10**7,newE[-1][5]-10**7,newE[-1][6]-10**7,\
                 #             newE[-1][7]-10**7,newE[-1][8]-10**7))
@@ -19399,6 +19402,16 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                     if len(idx) > 1: print ("too many nodes", idx)
                     newE[-1][3] = newN[idx[0]][0]
                     ptn_solid[ix][6] = newN[idx[0]][0]
+
+                # if ptn_solid[ix][0]-10**7 == 4160 or ptn_solid[ix][0]-10**7 == 4159: # or ptn_solid[ix][0]-10**7 == 238 or ptn_solid[ix][0]-10**7 == 242: 
+                #     print (" NEW E: %d, %d, %d, %d, %d, %d, %d, %d, %d"%(newE[-1][0]-10**7, newE[-1][1]-10**7,\
+                #         newE[-1][2]-10**7,newE[-1][3]-10**7,newE[-1][4]-10**7,newE[-1][5]-10**7,newE[-1][6]-10**7,\
+                #             newE[-1][7],newE[-1][8]))
+                #     print (" Pre E: %d, %d, %d, %d, %d, %d, %d, %d, %d"%(ptn_solid[ix][0]-10**7, ptn_solid[ix][1]-10**7,\
+                #         ptn_solid[ix][2]-10**7,ptn_solid[ix][3]-10**7,ptn_solid[ix][4]-10**7,ptn_solid[ix][5]-10**7,ptn_solid[ix][6]-10**7,\
+                #             ptn_solid[ix][7],ptn_solid[ix][8]))
+                #     print("***********************************")
+            
 
             ## pitchUp, pitchDown, sideNeg, sidePos 
 

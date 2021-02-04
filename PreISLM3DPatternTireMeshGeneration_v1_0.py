@@ -38,6 +38,15 @@ class PATTERN_EXPANSION():
         self.InitialLayout = PTN.COPYLAYOUT(self.layout)
         self.pattern = PTN.PATTERN(self.patternmesh, test=0)
 
+        if self.pattern.TreadDesignWidth==0: 
+            print ("\n***********************************************************")
+            print (" ERROR!! Tread Design Width is not in the pattern mesh file.")
+            print (" Insert 'Tread Design Width' into *.ptn")
+            print ("*TREAD_DESIGN_WIDTH : OOO.OO")
+            print ("***********************************************************\n")
+            sys.exit()
+
+
         if len(self.pattern.errsolid) > 0: 
             for sd in self.pattern.errsolid: 
                 print (" Distored %d"%(sd[0]))
