@@ -102,17 +102,17 @@ class Ui_Dialog(object):
                 if "IN_MOLDING_PCI_INFO" in line: 
                     
                     data = line.split(",")
-                    self.PCI = int(data[1].split("=")[1].strip())
-                    self.LowCure= int(data[2].split("=")[1].strip())
-                    try:      self.BSD = float(data[3].split("=")[1].strip())
-                    except:   self.BSD = 0.0
-                    try:      self.PCIRIMW = float(data[4].split("=")[1].strip())
-                    except:   self.PCIRIMW = 0.0
-                    self.BDWidth = float(data[5].split("=")[1].strip())
-                    try:
-                        self.PCIPress  = float(data[6].split("=")[1].strip())
-                    except:
-                        self.PCIPress = 2.0
+                    # self.PCI = int(data[1].split("=")[1].strip())
+                    # self.LowCure= int(data[2].split("=")[1].strip())
+                    # try:      self.BSD = float(data[3].split("=")[1].strip())
+                    # except:   self.BSD = 0.0
+                    # try:      self.PCIRIMW = float(data[4].split("=")[1].strip())
+                    # except:   self.PCIRIMW = 0.0
+                    # self.BDWidth = float(data[5].split("=")[1].strip())
+                    # try:
+                    #     self.PCIPress  = float(data[6].split("=")[1].strip())
+                    # except:
+                    #     self.PCIPress = 2.0
                     # print(self.PCI, self.LowCure, self.BSD, self.PCIRIMW, self.BDWidth, self.PCIPress)
                     mat =""
                 
@@ -378,7 +378,7 @@ class Ui_Dialog(object):
                         
                     # if "" in line: 
 
-    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw, solidList, localCordDBFileName): 
+    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw, solidList, localCordDBFileName, kerfContact): 
         self.saveFile = fullmeshSave + "-SMART.inp"
         self.saveDefaultFile="SMART_Default.dat"
         self.sampleSaveFile = "saveSampleDir.dat"
@@ -391,6 +391,7 @@ class Ui_Dialog(object):
         self.massScale = 1.02 
         self.DtRatio = 1.0 
         self.kerfContact = 0 
+        self.initKerfContact = kerfContact
         self.cavityContact = 0 
         self.GD = layoutGD*1000
         self.TemperatureAnalysis = 1 
@@ -458,7 +459,7 @@ class Ui_Dialog(object):
         self.BSD = bsd 
         self.BDWidth = bdw 
         self.PCIPress = pciPress 
-        self.PCIRW = drw 
+        self.PCIRIMW = drw
 
         self.cordDB = cordDB 
         self.solidListFile = solidList 
@@ -1181,11 +1182,10 @@ class Ui_Dialog(object):
         if os.path.isfile(self.saveDefaultFile): 
             self.readDefault(self.saveDefaultFile)
             self.retranslateUi(Dialog)
-
         else: 
             self.retranslateUi(Dialog)
             self.saveDefault()
-
+        self.kerfContact = self.initKerfContact 
         
         self.pushSave.clicked.connect(self.generateSMART_Inp)
         self.pushDefault.clicked.connect(self.saveDefault)
@@ -1905,14 +1905,15 @@ class Ui_Dialog(object):
                     self.PCI = int(words[1].strip())
                 if "Low Cure" in line: 
                     self.LowCure = int(words[1].strip())
-                if "BSD" in line: 
-                    self.BSD = float(words[1].strip())
-                if "BD width" in line: 
-                    self.BDWidth = float(words[1].strip())
+                # if "BSD" in line: 
+                #     self.BSD = float(words[1].strip())
+                # if "BD width" in line: 
+                #     self.BDWidth = float(words[1].strip())
                 if "PCI Pressure" in line: 
-                    self.PCIPress = float(words[1].strip())
-                if "PCI Rim Width" in line: 
-                    self.PCIRW = float(words[1].strip())
+                    if self.PCIPress ==0: 
+                        self.PCIPress = float(words[1].strip())
+                # if "PCI Rim Width" in line: 
+                #     self.PCIRW = float(words[1].strip())
                 if "Rim Friction" in line: 
                     self.rimFriction = float(words[1].strip())
                 if "Road Friction" in line: 
@@ -2112,9 +2113,9 @@ class Ui_Dialog(object):
         self.Edit_PCI_press_kgf.setText(_translate("Dialog",  str(self.PCIPress)))
         
         self.label_67.setText(_translate("Dialog", "mm"))
-        self.Edit_PCI_RW_inch.setText(_translate("Dialog",  str(round(self.PCIRW/25.4, 1))))
+        self.Edit_PCI_RW_inch.setText(_translate("Dialog",  str(round(self.PCIRIMW/25.4, 1))))
         self.label_69.setText(_translate("Dialog", "kgf/cm2"))
-        self.Edit_PCI_RW_mm.setText(_translate("Dialog",  str(self.PCIRW)))
+        self.Edit_PCI_RW_mm.setText(_translate("Dialog",  str(self.PCIRIMW)))
 
         self.label_70.setText(_translate("Dialog", "Inch"))
         self.label_71.setText(_translate("Dialog", "psi"))

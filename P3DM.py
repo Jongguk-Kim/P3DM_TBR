@@ -649,10 +649,12 @@ class Ui_MainWindow(object):
                     dRW = 0.0
                     return 
 
-                
+                if self.patternmesh =='':       kerfContact =0 
+                else:                           kerfContact =1 
+
                 Dialog = QtWidgets.QDialog()
                 dlg = SMART.Ui_Dialog(self.materialDir, self.localCordDB, self.fullmeshSave, self.layout.GD,\
-                    PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile)
+                    PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile, kerfContact)
                 dlg.setupUi(Dialog, PCIPress)
                 Dialog.exec_()
             # except:
@@ -939,6 +941,8 @@ class Ui_MainWindow(object):
         self.AngleBT3=self.lineEdit_bt3.text()
         self.AngleBT4=self.lineEdit_bt4.text()
         self.PCIPress=self.line_PCI_Press.text()
+        
+
         self.WriteMaterialDirectory(self.materialDir, self.AngleBT1, self.AngleBT2, self.AngleBT3, self.AngleBT4, self.PCIPress)
 
         
@@ -1119,6 +1123,9 @@ class Ui_MainWindow(object):
         self.btn_layoutmesh.setEnabled(True)
         self.btn_patternmesh.setEnabled(True)
         self.radioDefault.setChecked(True)
+
+        self.fullmeshSave = ''
+        self.patternmesh=''
         
 
         try: del(self.ptn_model)
@@ -1170,6 +1177,7 @@ class Ui_MainWindow(object):
     def autogeneration(self): 
         
         self.patternmesh = ""
+        self.fullmeshSave=''
         self.filesaved = 0
         self.treadremoved = 0  
         self.patternexpanded = 0 
@@ -1177,6 +1185,7 @@ class Ui_MainWindow(object):
 
         self.check_T3DM.setEnabled(True)
         self.checkBox_SurfNo.setChecked(False)
+        
 
         try: 
             Mesh2DInp = self.layoutmesh[:-4] + "-tmp.tmp"
@@ -1220,7 +1229,7 @@ class Ui_MainWindow(object):
 
         if self.patternmesh and self.layoutmesh: 
             
-            self.Initilize()
+            
             self.patternfile.setText(self.ptnms)
             self.layoutfile.setText(self.layoutms)
 
@@ -1247,6 +1256,8 @@ class Ui_MainWindow(object):
 
             if self.check_T3DM.isChecked() == True :      self.layout.T3DMMODE = 1 
             else:                                         self.layout.T3DMMODE = 0 
+
+            if self.pattern.TreadDesignWidth==0:     return 
 
             self.removal_tread()
             self.expansion_ptn()
@@ -1505,7 +1516,7 @@ class Ui_MainWindow(object):
             self.check_T3DM.setEnabled(False)
 
             # print ("*EXPANSION MODE (1=T3DM, 0=Expd)=%d"%(self.layout.T3DMMODE))
-
+            
             
             
             if self.layout.shoulderType == 'R':
@@ -1608,6 +1619,10 @@ class Ui_MainWindow(object):
             filename = self.layoutms+".axi"
             savefile, _= QtWidgets.QFileDialog.getSaveFileName(None, "Save files as", self.savedirectory+"/"+filename, "Layout 3D Mesh(*.axi)")
             if savefile !='': 
+                hwnd = win32gui.FindWindow(None, self.mainWindowName)
+                win32gui.SetForegroundWindow(hwnd)
+        
+
                 print ("******************************************")
                 print ("** Generate 3d tire mesh without pattern")
                 print ("******************************************")
@@ -1653,7 +1668,9 @@ class Ui_MainWindow(object):
         POFFSET = 10000
         if self.filesaved == 0: 
             self.pd=0
-            
+
+            hwnd = win32gui.FindWindow(None, self.mainWindowName)
+            win32gui.SetForegroundWindow(hwnd)
 
             print ("\n############################################")
             print ("## Fitting pattern to layout ")
@@ -1905,8 +1922,6 @@ class Ui_MainWindow(object):
                 surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
                 offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
                     rev=self.check_Direction.isChecked(), newPitchNodes=newPitchNodes)
-
-        
             
         if self.filesaved == 0 and len(solid_err) == 0: 
             self.btn_removetread.setDisabled(True)

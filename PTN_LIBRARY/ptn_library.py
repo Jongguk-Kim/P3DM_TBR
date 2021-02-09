@@ -2106,7 +2106,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[], overtype='',\
          PCIPress="", bdw=0): 
 
-    equ_Density = 0 
+    equ_Density = 1 
     name_solids, name_cords = SolidComponents_checking(axi=axi, trd=trd, return_value=1)
 
     localCordDB = 'ISLM_CordDB.txt'
@@ -4224,19 +4224,51 @@ class MESH2D:
 
                 if inext[4] > 0 and parallel == 0: 
                     diffn = np.setdiff1d(inext[1:5], el[1:5]) 
-                    ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn1=nodes[ix]
-                    ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn2=nodes[ix]
-                    dist, InNode1=DistanceFromLineToNode2D(difn1, [EN1, EN2], xy=23)
-                    dist, InNode2=DistanceFromLineToNode2D(difn2, [EN1, EN2], xy=23)
+                    if len(diffn) > 1: 
+                        if abs(EN1[2]) > abs(EN2[2]): 
+                            fN1 = EN1; fN2 = EN2 
+                        else:
+                            fN1 = EN2; fN2 = EN1
 
-                    if (abs(InNode1[2]) <= rmin and abs(InNode2[2]) <=rmin and abs(difn1[2]) <= rmin and abs(difn2[2]) <=rmin ) or (abs(InNode1[2]) >= rmax and abs(InNode2[2]) >=rmax and abs(difn1[2]) >= rmax and abs(difn2[2]) >=rmax ) : 
-                        restrain = 1
-                        if show == 1: 
-                            print (" ^^^^^^^^^^^^^   direction is turned ")
-                            
-                            print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
-                            print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x=%.3f, n2x=%.3f, out of the bottom line"%(el[0], rmin*1000, rmax*1000, inext[0], abs(InNode1[2])*1000, abs(InNode2[2])*1000))
-                        return el2remove, restrain 
+                        ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn1=nodes[ix]
+                        ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn2=nodes[ix]
+
+                        if abs(difn1[2]) > abs(difn2[2]): 
+                            sN4 = difn1; sN3=difn2 
+                        elif abs(difn1[2]) == abs(difn2[2]): 
+                            if difn1[3] > difn2[3]:
+                                sN3 = difn1; sN4=difn2 
+                            else:
+                                sN3 = difn2; sN4=difn1 
+                        else: 
+                            sN3 = difn1; sN4=difn2 
+
+                        diffn = np.setdiff1d(inext[1:5], diffn)
+                        ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn3=nodes[ix]
+                        ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn4=nodes[ix]
+
+                        if abs(difn3[2]) > abs(difn4[2]): 
+                            sN1 = difn3; sN2=difn4 
+                        elif abs(difn3[2]) > abs(difn4[2]): 
+                            if difn3[3] > difn4[3]:
+                                sN1 = difn4; sN2=difn3 
+                            else:
+                                sN1 = difn3; sN2=difn4 
+                        else: 
+                            sN1 = difn4; sN2=difn3 
+
+                        V1 =[0, 0, abs(sN2[2])-abs(fN2[2]), sN2[3]-fN2[3]]
+                        V2 =[0, 0, abs(sN3[2])-abs(sN2[2]), sN3[3]-sN2[3]]
+                        btwAngle=Angle_Between_Vectors(V1,V2) 
+
+                        if btwAngle > 1.1: ## about above 63 degrees 
+                            estrain = 1
+                            if show == 1: 
+                                print (" ^^^^^^^^^^^^^   direction is turned , Angle=%.1f"%(degrees(btwAngle)))
+                                
+                                print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
+                                print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x=%.3f, n2x=%.3f, out of the bottom line"%(el[0], rmin*1000, rmax*1000, inext[0], abs(InNode1[2])*1000, abs(InNode2[2])*1000))
+                            return el2remove, restrain 
 
                 ran = np.array([EN1[2], EN2[2]])
                 rmin = np.min(ran); rmax = np.max(ran)
@@ -4699,7 +4731,8 @@ class MESH2D:
         while next_face != 0: 
             ppp += 1 
             if ppp > 1000: 
-                print ("ERROR!, No found element %d"%(LastRight_EL))
+                print ("ERROR!, No found element- %d"%(LastRight_EL))
+                break 
             if len(ups)> 0: 
                 up = ups[-1]
                 ix = np.where(solids[:,0]==up)[0][0]
@@ -4873,39 +4906,55 @@ class MESH2D:
                 print ("  Profile Right Last Elements(%d)\n   to be deleted with"%(LastRight_EL), ups)
                 break 
             if meetlast == 1: skip = 0 
-            if nextsolid[5] == 4: EL3Next = 0  
-            while nextsolid[5] ==3: 
+            if nextsolid[5] == 4: EL3Next = 0
+
+            ups = [nextsolid[0]]
+            counting=0
+            nxsolid = nextsolid
+            while nxsolid[5] ==3:
+                
+                counting += 1
+                if counting > 10: 
+                    print ("!! Error to remove tread elements. ")
+                    print ("   Check Element %d"%(nxsolid[0]))
+                    break 
+
                 # print ("A: ns", nextsolid, "prev=", ps)
-                _, face = Contact_relation_2Elements(nextsolid, ps)
-                face += 1 
-                if face == 4: face = 1 
-                # print ("B ns", nextsolid, "face=", face)
-                nxsolid, nxface = self.SearchNextSolids(nextsolid, face=face, np_solid=solids, direction=1)
-                # print ("C ns:", nxsolid, "face=", nxface, " < Up element on 3-node Element")
-                ups = [nextsolid[0]]
-                bf = nxface + 2 
-                if bf > nxsolid[5] : bf -= nxsolid[5]  
+                _, face = Contact_relation_2Elements(nxsolid, ps)
+                
+                if ps[5] ==4: 
+                    face += 1 
+                    if face == 4: face = 1 
+                else:
+                    face -= 1 
+                    if face == 0: face = 3 
+                ps = nxsolid
+                # print ("B ns", nxsolid, "face=", face)
+                nxsolid, nxface = self.SearchNextSolids(nxsolid, face=face, np_solid=solids, direction=1)
+                # print (ps, " >> C ns:", nxsolid, "face=", nxface, " < Up element on 3-node Element")
                 ups.append(nxsolid[0])
-                # print ("C1", nxsolid, bf)
+                # print (ups)
+                # face = nxface
+
+            if counting > 0: 
+                bf = nxface + 2 
+                if bf > nxsolid[5] : bf -= nxsolid[5] 
+                # print(nxsolid, "before bottom face", bf, "ups", ups)
                 ups, cont = self.Searching_Upper_elements(nxsolid, solids, nep, el2remove=ups, btm_face=bf, show=0) ## nep : nodes
+                # print(" ** ", ups, "cont", cont)
                 for up in ups: 
                     deletes.append(up)
                     element_to_delete.append(up)
                     if LastRight_EL == up : 
                         ending = 1 
-                # print ("UPS", ups)
-                if ending == 1: 
-                    break  ## if meeting target element in 
-
-                nextsolid = nxsolid
-                next_face = bf - 1
-                if next_face == 0: next_face = nextsolid[5]
-                EL3Next = 1 
-
+                        # print ("last El", LastRight_EL)
+                        
+                counting = 0 
+            # print("is End??", ending)
             if ending ==1: 
                 break 
 
-            #############################################################            
+
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
         #############################################################
@@ -4938,8 +4987,9 @@ class MESH2D:
         ppp = 0 
         while next_face != 0:
             ppp += 1 
-            if ppp > 1000: 
-                print ("ERROR!, No found element %d"%(LastLeft_EL))
+            if ppp > 300: 
+                print ("ERROR!, No found element %d, next Face=%d"%(LastLeft_EL, next_face))
+                break 
             if len(ups)> 0: 
                 up = ups[-1]
                 ix = np.where(solids[:,0]==up)[0][0]
@@ -5038,7 +5088,7 @@ class MESH2D:
                         next_face = nf0 -1 
                         if next_face == 0: next_face = nextsolid[5]
                 else: 
-                    print ("There is a tie surface next to %d"%(ps[0]))
+                    print ("* There is a tie surface next to %d"%(ps[0]))
                     break 
             # print ("                                   ", nextsolid)
             dup = 0 
@@ -5115,32 +5165,44 @@ class MESH2D:
                 break 
             if meetlast == 1: skip = 0 
             if nextsolid[5] == 4: EL3Next = 0
-            while nextsolid[5] ==3:
-                _, face = Contact_relation_2Elements(nextsolid, ps)
-                face -= 1 
-                if face ==0: face = 3 
-                nxsolid, nxface = self.SearchNextSolids(nextsolid, face=face, np_solid=solids, direction=1)
 
+            ups = [nextsolid[0]]
+            counting=0
+            nxsolid = nextsolid
+            while nxsolid[5] ==3:
+                
+                counting += 1
+                if counting > 10: 
+                    print ("!! Error to remove tread elements. ")
+                    print ("   Check Element %d"%(nxsolid[0]))
+                    break 
 
-                ups = [nextsolid[0]]
-                bf = nxface + 2 
+                _, face = Contact_relation_2Elements(nxsolid, ps)
+                
+                if ps[5] ==4: 
+                    face -= 1 
+                    if face == 0: face = 3 
+                else:
+                    face += 1 
+                    if face == 4: face = 1 
+                ps = nxsolid
+                nxsolid, nxface = self.SearchNextSolids(nxsolid, face=face, np_solid=solids, direction=1)
+                # print(" 3-node element", ps, " Next :", nxsolid)
+                ups.append(nxsolid[0])
+
+            if counting > 0: 
+                _, bf = Contact_relation_2Elements(nxsolid, ps)
                 ups, cont = self.Searching_Upper_elements(nxsolid, solids, nep, el2remove=ups, btm_face=bf, show=0) ## nep : nodes
+                # print("Left ups",ups)
                 for up in ups: 
                     deletes.append(up)
                     element_to_delete.append(up)
-                    if LastRight_EL == up : 
+                    if LastLeft_EL == up : 
                         ending = 1
-
-                if ending == 1: 
-                    break  ## if meeting target element in 
-
-                nextsolid = nxsolid 
-                next_face = bf + 1 
-                if next_face > nextsolid[5]: next_face -= nextsolid[5] 
-                EL3Next = 1
-            
-            if ending == 1: 
+                counting = 0 
+            if ending ==1: 
                 break 
+
 
         element_to_delete = np.array(element_to_delete)
         element_to_delete = np.unique(element_to_delete)
@@ -5559,6 +5621,10 @@ def BeadWidth(Element, Node):
 def TieSurface(Elements, Nodes):
     AllEdges=FindEdge(Elements)
     FreeEdges=FindFreeEdge(AllEdges)
+
+
+
+
     CenterNodes = FindCenterNodes(Nodes)
     OutEdges=FindOutEdges(FreeEdges, CenterNodes, Nodes, Elements)
 
@@ -6338,6 +6404,8 @@ def DivideInnerFreeEdgesToMasterSlave(edges, node_class):
             continue 
 
         nexts = ConnectedEdge(ed[1][0], edges, exclude=excluding)
+        if len(nexts) ==0: 
+            return master_edge, slave_edge, TIE_ERROR
         s_temp.append(nexts[0])
         # print (ed[0], ":", nexts)
         if nexts[0][0] != ed[1][1][1] and nexts[0][1] != ed[1][1][0] : 

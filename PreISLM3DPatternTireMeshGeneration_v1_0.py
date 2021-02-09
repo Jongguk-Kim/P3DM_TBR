@@ -151,13 +151,15 @@ class PATTERN_EXPANSION():
         
          
         self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, ptnbottom=self.pattern.freebottom, start=start, shoulder=self.layout.shoulderType)
-   
+
+        self.ptn_bended = PTN.COPYPTN(self.pattern)   
+
         ## Sub Tread is not created ... : subtread = False 
         if self.layout.group =="TBR": subGa_margin = 0.001 
-            elif self.layout.group =="LTR": subGa_margin = 0.0003 
-            else: subGa_margin = 0.0003
+        elif self.layout.group =="LTR": subGa_margin = 0.0003 
+        else: subGa_margin = 0.0003
         self.ptn_elset,self.pattern.nps, self.pattern.npn, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
-             self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side,, newPitchNodes \
+             self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, newPitchNodes \
             = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
              subtread=True, btm=1, surf_btm=self.pattern.freebottom, subGaMargin=subGa_margin, shoulder=self.layout.shoulderType, tdw=self.layout.TDW, \
              pitchUp=self.pattern.surf_pitch_up, pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side,\
