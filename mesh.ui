@@ -1092,8 +1092,26 @@
      <height>21</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuINP">
+    <property name="title">
+     <string>INP</string>
+    </property>
+    <addaction name="actionSMART"/>
+    <addaction name="actionMaterial_DB"/>
+   </widget>
+   <addaction name="menuINP"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionSMART">
+   <property name="text">
+    <string>SMART</string>
+   </property>
+  </action>
+  <action name="actionMaterial_DB">
+   <property name="text">
+    <string>Material_DB</string>
+   </property>
+  </action>
  </widget>
  <tabstops>
   <tabstop>btn_auto</tabstop>

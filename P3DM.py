@@ -21,10 +21,11 @@ import PTN_LIBRARY.ptn_library as PTN
 import numpy as np 
 from time import time
 
-from math import sqrt 
+from math import sqrt, radians 
 from operator import mul as OP_mul 
 import win32gui
 import SMART_Input_UI as SMART 
+import RegDB as regDB
 
 class StdoutRedirect(QtCore.QObject):
     printOccur = QtCore.pyqtSignal(str, str, name="print")
@@ -431,12 +432,19 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
         self.actionSMART = QtWidgets.QAction(MainWindow)
         self.actionSMART.setObjectName("actionSMART")
+
+        self.actionMaterial_DB = QtWidgets.QAction(MainWindow)
+        self.actionMaterial_DB.setObjectName("actionMaterial_DB")
+        
         self.menuFILE.addAction(self.actionSMART)
+        self.menuFILE.addAction(self.actionMaterial_DB)
         self.menubar.addAction(self.menuFILE.menuAction())
 
         self.menuFILE.setTitle("INP")
         self.actionSMART.setText("SMART")
+        self.actionMaterial_DB.setText("Register DB")
         self.actionSMART.triggered.connect(self.openInputWindow)
+        self.actionMaterial_DB.triggered.connect(self.registerMaterialDB)
         ############################################################
 
 
@@ -615,7 +623,27 @@ class Ui_MainWindow(object):
         self.localCordDB = 'ISLM_CordDB.txt'
         self.fileListFile = 'ISLM_materialList.txt'
         self.ISLM_cordDBFile="ISLM_CordDBName.dat"
+
+        self.materialDBfilename = "materialdb.dat"
+
+        try: 
+            with open(self.materialDBfilename) as DB: 
+                lines = DB.readlines()
+        except:
+            f = open(self.materialDBfilename, 'w')
+            ip = '10.82.66.65'
+            f.write(ip+"\n")
+            id = 'h20200155'
+            f.write(id+"\n")
+            pw = 'h20200155'
+            f.write(pw+"\n")
+            f.close()
         
+    def registerMaterialDB(self): 
+        DialogReg = QtWidgets.QDialog()
+        dlgReg = regDB.Ui_Dialog()
+        dlgReg.setupUi(DialogReg)
+        DialogReg.exec_()
 
     def openInputWindow(self):
         if self.fullmeshSave != "": 
@@ -652,17 +680,18 @@ class Ui_MainWindow(object):
                 if self.patternmesh =='':       kerfContact =0 
                 else:                           kerfContact =1 
 
+                if self.checkBox.isChecked() :    PCI = 1 
+                else: PCI = 0
+
                 Dialog = QtWidgets.QDialog()
                 dlg = SMART.Ui_Dialog(self.materialDir, self.localCordDB, self.fullmeshSave, self.layout.GD,\
-                    PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile, kerfContact)
+                    PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile, kerfContact, PCI)
                 dlg.setupUi(Dialog, PCIPress)
                 Dialog.exec_()
             # except:
             #     print ("## You Should generate 3D Full meshes")
         else:
             print("## You should create 3D mesh.")
-
-
 
     def _append_text(self, msg):
         self.textBrowser.moveCursor(QtGui.QTextCursor.End)
@@ -697,7 +726,7 @@ class Ui_MainWindow(object):
         self.check_T3DM.setText(_translate("MainWindow", "T3DM"))
         self.check_FricView.setText(_translate("MainWindow", "FricV"))
         self.check_SubTread.setText(_translate("MainWindow", "Sub TD"))
-        self.check_Direction.setText(_translate("MainWindow", "Rev."))
+        self.check_Direction.setText(_translate("MainWindow", "Rot."))
         
         self.btn_removetread.setText(_translate("MainWindow", "Remove tread"))
         self.btn_removetread.setShortcut(_translate("MainWindow", "Ctrl+R"))
@@ -949,17 +978,31 @@ class Ui_MainWindow(object):
         
         matFile = self.fullmeshSave + "-material.dat"
         self.ChangeBTAngle(matFile)
-
-        host = '10.82.66.65'
-        user = 'h20200155'
-        pw = 'h20200155'
+        host = "None"; user='None'
+        try: 
+            with open(self.materialDBfilename) as DB : 
+                lines = DB.readlines()
+            host = lines[0].strip()
+            user = lines[1].strip()
+            pw = lines[2].strip()
+        except:
+            print ("\n## No Information for log-in to DB")
+            print ("   Please register. (INP/Register DB)")
+            print ("## Current IP:", host)
+            print ("## User:", user)
+            return 
         try : 
-            PTN.Update_ISLM_Material(wdir=self.materialDir,  cordSaveFile=self.localCordDB, fileListFile=self.fileListFile, \
+            success = PTN.Update_ISLM_Material(wdir=self.materialDir,  cordSaveFile=self.localCordDB, fileListFile=self.fileListFile, \
                 host=host, user=user, pw=pw, cordfile=self.ISLM_cordDBFile)
+            if success ==1:     print ("* Mateiral DB was updated.")
+            else: print ("## cannot access to server")
+           
             # print ("* ISLM Mateiral DB was updated.")
         except:
-            print ("## Cannot access ISLM Mateiral DB.")
-            print ("## Check the connection to ISLM")
+            print ("## Cannot access Mateiral DB.")
+            print ("## Check the connection to DB")
+            print ("## Current IP:", host)
+            print ("## User:", user)
         
     def FricView_Checking(self): 
         if self.check_FricView.isChecked() == True: 
@@ -1008,6 +1051,41 @@ class Ui_MainWindow(object):
 
     def PTN_Direction_Change(self): 
         if self.readpattern: 
+            rot =radians(180.0)
+            for i, npn in enumerate(self.pattern.npn) :
+                self.pattern.npn[i] = PTN.RotateNode(npn, angle=rot, xy=21)
+
+            tempSurf = []
+            for sf in self.pattern.surf_pitch_up: 
+                tempSurf.append(sf)
+            tempSf = []
+            for sf in self.pattern.surf_pitch_down: 
+                tempSf.append(sf)
+
+            self.pattern.surf_pitch_up = np.array(tempSf)
+            self.pattern.surf_pitch_down = np.array(tempSurf)
+
+
+            tempSurf = []
+            for sf in self.pattern.surf_pattern_neg_side: 
+                tempSurf.append(sf)
+            tempSf = []
+            for sf in self.pattern.surf_pattern_pos_side: 
+                tempSf.append(sf)
+
+            self.pattern.surf_pattern_neg_side = np.array(tempSf)
+            self.pattern.surf_pattern_pos_side = np.array(tempSurf)
+
+
+            # self.figure.plot(pattern=self.pattern, show='pattern')
+            # self.ShowingImage = 'pattern'
+
+            print ("************************************")
+            print ("** Pattern was ROTATED.")
+            print ("************************************")
+
+            return 
+
             for npn in self.pattern.npn : 
                 npn[1] = OP_mul(npn[1], -1.0)
             
@@ -1175,7 +1253,7 @@ class Ui_MainWindow(object):
         
 
     def autogeneration(self): 
-        
+        self.Initilize()
         self.patternmesh = ""
         self.fullmeshSave=''
         self.filesaved = 0
@@ -1501,6 +1579,14 @@ class Ui_MainWindow(object):
             if opened == 0: 
                 print ("## Select a pattern mesh")
                 return 
+
+            bottomEdges=SurfaceBoundary(self.pattern.freebottom)
+            edgeGroup=PTN.MakeEdgesToBlockGroup(bottomEdges)
+            if len(edgeGroup)>1: 
+                print ("#########################################")
+                print ("## Bottom Surface has (a) hole(s) : %d"%(len(edgeGroup)-1))
+                print ("## Check bottom surface ")
+                print ("#########################################")
             
     def removal_tread(self): 
         self.radioDefault.setChecked(True)
@@ -1622,7 +1708,6 @@ class Ui_MainWindow(object):
                 hwnd = win32gui.FindWindow(None, self.mainWindowName)
                 win32gui.SetForegroundWindow(hwnd)
         
-
                 print ("******************************************")
                 print ("** Generate 3d tire mesh without pattern")
                 print ("******************************************")
@@ -1633,6 +1718,7 @@ class Ui_MainWindow(object):
                     abq = 1
                 else:
                     abq = 0 
+                
                 self.AngleBT1=self.lineEdit_bt1.text()
                 self.AngleBT2=self.lineEdit_bt2.text()
                 self.AngleBT3=self.lineEdit_bt3.text()
@@ -1642,15 +1728,295 @@ class Ui_MainWindow(object):
                 # if self.radio_TOS.isChecked(): overtype = "TOS"
                 if self.checkBox_overType.isChecked(): overtype = "TOS"
                 else:  overtype = "SOT"
-                PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
-                self.layout.Surface, sectors=self.user_sector, offset=BodyOffset,\
-                     abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
+                self.B3Dnodes, self.fullnodes, P0_TOP, P0_contactFree, bodyElements_class= \
+                    PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
+                        self.layout.Surface, sectors=self.user_sector, offset=BodyOffset,\
+                        abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, \
+                        btAngles=BT_angles, overtype=overtype, PCIPress=self.PCIPress, \
+                            bdw=self.layout.beadWidth*1000, fricView=self.check_FricView.isChecked())
                 print ("\n# Layout 3D mesh was saved.")
                 self.fullmeshSave=savefile[:-4]
                 print (" %s\n"%(savefile))
                 line = "Full tire meshes were saved.\n"
                 # self.message.setText(line)
                 self.check_Direction.setEnabled(True)
+                self.Update_ISLM_Material()
+                if self.check_FricView.isChecked() == True: 
+                    PI = 3.14159265358979323846
+                    self.edge_body = bodyElements_class.OuterEdge(self.layout.Node)
+                    self.poffset = BodyOffset
+
+                    idxs1 = np.where(self.fullnodes[:,0]<BodyOffset*2)[0]
+                    idxs2 = np.where(self.fullnodes[:,0]<BodyOffset)[0]
+                    idxs = np.setdiff1d(idxs1, idxs2)
+                    self.nd_deleted = self.fullnodes[idxs2]
+                    # temp =[]
+                    # for ix in idxs2: 
+                    #     temp.append([self.fullnodes[ix][0]+BodyOffset, self.fullnodes[ix][0]])
+                    self.deletednode = self.fullnodes[idxs]
+                    if len(self.layout.RightProfile) > 0: 
+                        profiles = []
+                        shoCurve = 0 
+                        shoLength = 0 
+                        for pf in self.layout.RightProfile: 
+                            if pf[0]<0: break 
+                            if pf[0] ==0: pf[0] = 10.0
+                            if shoCurve > 0.0: 
+                                shoLength+=pf[1]
+                            else:
+                                profiles.append(pf)
+                            if pf[0] < 0.05: shoCurve = pf[0]
+
+                        if shoCurve > 0.0: 
+                            profiles.append([shoCurve, shoLength])
+
+                        pe = [0, 0, 0, self.layout.OD/2]
+                        profile=[]
+                        Rsho=[]
+                        negR = 0 
+                        curves =[]
+                        for i, pf in enumerate(profiles): 
+                            profile.append(pf) 
+                            start = pe
+                            _, dst, drop = PTN.TD_Arc_length_calculator(profile, h_dist=0, totalwidth=1)
+                            end = [0, 0, dst, self.layout.OD/2 - drop] 
+                            centers = PTN.Circle_Center_with_2_nodes_radius(pf[0], start, end)
+                            if pf[0] < 0: negR = 1
+                            if negR == 0:
+                                if abs(centers[0][3]) > abs(centers[1][3]):    center = centers[1]
+                                else:                                          center = centers[0] 
+                            else: 
+                                if abs(centers[0][3]) < abs(centers[1][3]):    center = centers[1]
+                                else:                                          center = centers[0] 
+
+                            pe = end 
+                            curves.append([start, end, center])
+
+                    else: 
+                        layoutOuterEdge = self.layout.Element.OuterEdge(self.layout.Node)
+                        treadOuterEdge = PTN.GrooveDetectionFromEdge(layoutOuterEdge, self.layout.Node, OnlyTread=0, TreadNumber=0)
+                        crown_Edge = PTN.DeleteGrooveEdgeAfterGrooveDetection(treadOuterEdge, self.layout.Node)
+
+                        N = len(crown_Edge.Edge)
+
+                        TWEnd = 0
+                        TWStart = 0 
+                        CenterEdge = 0 
+                        CrownEdge = PTN.EDGE()
+                        TopZ = 0.0
+                        TopNode = 0
+                        LeftMidNode = 0
+                        RightMidNode = 0
+                        iscentergroove = 0
+                        maxY = 0 
+                        for i in range(N):
+                            N1 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                            N2 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][1])
+
+                            if maxY < N2[2]:  maxY = N2[2]
+
+                            if N1[2] == 0.0:
+                                CenterEdge = i
+                                CenterNode = N1
+                                iscentergroove = 0
+                            if N1[2]*N2[2] < 0.0:
+                                CenterEdge = i
+                                CenterNode = [0, 0.0, 0.0, (N1[3]*abs(N2[2])+N2[3]*abs(N1[2]))/(abs(N1[2])+abs(N2[2]))]
+                                iscentergroove = 1
+
+                        if self.layout.TDW <=0.0: self.layout.TDW = maxY * 1.8 
+                        # print ("Layout Tread Design width =%.2fmm"%(self.layout.TDW*1000))
+
+                        # print ("No. Center edge", crown_Edge.Edge[CenterEdge]) 
+                        
+                        if self.layout.shoulderDrop > 0.0: 
+                            # hMin = 100.0
+                            PreTWNode = []
+                            NextTWNode = []
+                            TWNode = 0
+                            ShoDropRatio = 0
+                            for i in range(CenterEdge+1, N):
+                                N2 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                                if (self.layout.OD/2000.0 - N2[3] ) <= self.layout.shoulderDrop/1000.0: 
+                                    # hMin =  (TireOD/2000.0 - N2[3] ) - Shodrop/1000.0 
+                                    PreTWNode=[N2[0], N2[3]]
+                                    NextTWNode=[N2[0], N2[3]]
+                                    TWNode = N2[0]
+                                else:
+                                    PreTWNode=[PreTWNode[0], PreTWNode[1], self.layout.OD/2000.0-PreTWNode[1]]
+                                    NextTWNode = [N2[0], N2[3], self.layout.OD/2000.0 - N2[3]] 
+                                    ShoDropRatio = (self.layout.shoulderDrop/1000-PreTWNode[2]) / (PreTWNode[1] - NextTWNode[1]) 
+                                    break
+                            
+                            
+                            TopNode = 0
+                            hMax = 0.0
+                            for nd in self.layout.Node.Node:
+                                if hMax < nd[3] and nd[2] >= 0.0: 
+                                    hMax = nd[3]
+                                    TopNode = nd[0]
+                                    # print ("TOP", nd)
+
+                            Min = 9.9E20;     hMin = 9.9E20
+                            Length = 0.0
+                            for i in range(CenterEdge, N):
+                                if i == CenterEdge:
+                                    N2 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                                    Length += sqrt( (CenterNode[2] - N2[2]) * (CenterNode[2] - N2[2]) + (CenterNode[3] - N2[3]) * (CenterNode[3] - N2[3]) )
+                                    continue
+                                
+                                N1 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                                N2 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][1])
+                                Length += sqrt( (N1[2] - N2[2]) * (N1[2] - N2[2]) + (N1[3] - N2[3]) * (N1[3] - N2[3]) )
+                                # print("right=", Length)
+                                if self.layout.TDW /4.0-Length >= 0: 
+                                    RightMidNode = N2[0]
+                                    # print ("right mid", N2)
+
+                            Min = 9.9E20;     hMin = 9.9E20
+                            Length = 0.0
+                            for i in range(CenterEdge, -1, -1):
+                                if iscentergroove ==1 and i == CenterEdge:
+                                    N1 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][1])
+                                    Length += sqrt( (CenterNode[2] - N1[2]) * (CenterNode[2] - N1[2]) + (CenterNode[3] - N1[3]) * (CenterNode[3] - N1[3]) )
+
+                                    CenterNode =  self.layout.Node.Node[0]
+                                    for nd in  self.layout.Node.Node:
+                                        if nd[2] == 0 and nd[3] > CenterNode[3]:   
+                                            CenterNode = nd 
+                                else:
+                                    if i != CenterEdge: 
+                                        N1 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                                        N2 =  self.layout.Node.NodeByID(crown_Edge.Edge[i][1])
+                                        Length += sqrt( (N1[2] - N2[2]) * (N1[2] - N2[2]) + (N1[3] - N2[3]) * (N1[3] - N2[3]) )
+                                # print("Left=", Length)        
+                                if self.layout.TDW/4.0-Length >= 0: 
+                                    LeftMidNode = N1[0]
+                                    # print ("left mid", N1)
+                            
+                            # N1 =  self.layout.Node.NodeByID(LeftMidNode)
+                            # N2 =  self.layout.Node.NodeByID(TopNode)
+                            # N3 =  self.layout.Node.NodeByID(RightMidNode)
+
+                            # InitialTR = PTN.CalculateRadiusOf3Points(N1, N2, N3, 23, 3)
+
+                        
+                        else: 
+                            CriticalAngle = 40.0
+
+                            Min = 9.9E20;     hMin = 9.9E20
+                            Length = 0.0
+                            for i in range(CenterEdge, N):
+                                if i == CenterEdge:
+                                    N2 = self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                                    Length += sqrt( (CenterNode[2] - N2[2]) * (CenterNode[2] - N2[2]) + (CenterNode[3] - N2[3]) * (CenterNode[3] - N2[3]) )
+                                    # print ("right", NoGrooveCrown.Edge[i], Length*1000, TreadDesignWidth/2.0)
+                                    
+                                    continue
+                                
+                                N1 = self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                                N2 = self.layout.Node.NodeByID(crown_Edge.Edge[i][1])
+                                Length += sqrt( (N1[2] - N2[2]) * (N1[2] - N2[2]) + (N1[3] - N2[3]) * (N1[3] - N2[3]) )
+                                
+                                N1a = [N1[0], N1[1], abs(N1[2]), N1[3]]
+                                N2a = [N2[0], N2[1], abs(N2[2]), N2[3]]
+                                # angle = TIRE.CalculateAngleFrom3Node(N2a, [0, N2a[1], N2a[2]+1.0, N2a[3]], N1a, XY=23)*180.0/PI
+                                angle = PTN.Angle_3nodes(N2a, [0, N2a[1], N2a[2]+1.0, N2a[3]], N1a, xy=23)*180.0/PI
+                                if self.layout.TDW/2.0-Length >= 0 and abs(angle) < CriticalAngle: 
+                                    RightTWNode = N2
+                                    # print ("right", NoGrooveCrown.Edge[i], Length*1000, TreadDesignWidth/2.0, angle)
+                                if self.layout.TDW/4.0-Length >= 0: RightMidNode = N2
+
+                            # print ("Right TW Node = %d, Right Mid node = %d"%(RightTWNode[0], RightMidNode[0]))
+                            # print ("Angle", angle)
+                            Min = 9.9E20;     hMin = 9.9E20
+                            Length = 0.0
+                            for i in range(CenterEdge, -1, -1):
+                                if iscentergroove ==1 and i == CenterEdge:
+                                    N1 = self.layout.Node.NodeByID(crown_Edge.Edge[i][1])
+                                    Length += sqrt( (CenterNode[2] - N1[2]) * (CenterNode[2] - N1[2]) + (CenterNode[3] - N1[3]) * (CenterNode[3] - N1[3]) )
+                                    # print ("Left", NoGrooveCrown.Edge[i], Length*1000, TreadDesignWidth/2.0)
+                                    CenterNode = self.layout.Node.Node[0]
+                                    for nd in self.layout.Node.Node:
+                                        if nd[2] == 0 and nd[3] > CenterNode[3]:   
+                                            CenterNode = nd 
+                                else:
+                                    if i != CenterEdge: 
+                                        N1 = self.layout.Node.NodeByID(crown_Edge.Edge[i][0])
+                                        N2 = self.layout.Node.NodeByID(crown_Edge.Edge[i][1])
+                                        Length += sqrt( (N1[2] - N2[2]) * (N1[2] - N2[2]) + (N1[3] - N2[3]) * (N1[3] - N2[3]) )
+                                        
+                                N1a = [N1[0], N1[1], abs(N1[2]), N1[3]]
+                                N2a = [N2[0], N2[1], abs(N2[2]), N2[3]]
+                                # angle = TIRE.CalculateAngleFrom3Node(N1a, [0, N1a[1], N1a[2]+1.0, N1a[3]], N2a, XY=23)*180.0/PI
+                                angle = PTN.Angle_3nodes(N1a, [0, N1a[1], N1a[2]+1.0, N1a[3]], N2a, xy=23)*180.0/PI
+                                if self.layout.TDW/2.0-Length >= 0  and abs(angle) < CriticalAngle: 
+                                    LeftTWNode = N1
+                                    # print ("Left", NoGrooveCrown.Edge[i], Length*1000, TreadDesignWidth/2.0)
+                                if self.layout.TDW/4.0-Length >= 0: LeftMidNode = N1
+                            # print ("Left TW Node = %d, Left Mid node = %d"%(LeftTWNode[0], LeftMidNode[0]))
+                            # print ("Tread Width = %f"%(TreadDesignWidth))
+                            TWStart = LeftTWNode[0];     TWEnd = RightTWNode[0]; 
+
+                            N1 = self.layout.Node.NodeByID(TWStart)
+                            N2 = self.layout.Node.NodeByID(TWEnd)
+                            # print ("N1", N1, abs(N1[2])-TreadDesignWidth/2000.0)
+                            # print ("N2", N2, abs(N2[2])-TreadDesignWidth/2000.0)
+                            if abs(N2[2]) > abs(N1[2]):  TWNode = N1[0]
+                            else: TWNode = N2[0]
+
+                            cnodes = []
+                            for i, ed in enumerate(crown_Edge.Edge): 
+                                if i ==0: 
+                                    cnodes.append(ed[0])
+                                else:
+                                    cnodes.append(ed[1])
+
+                            iy = 1000.0
+                            for nd in cnodes:
+                                nn = self.layout.Node.NodeByID(nd)
+                                if iy > abs(nn[2]): 
+                                    iy = abs(nn[2])
+                                    TopNode = nn[0]
+                            # TopNode = CenterNode[0]
+                            LeftMidNode = LeftMidNode[0]; RightMidNode = RightMidNode[0]
+                            print ("\n\n** Center Node = [%f, %f, %f]"%(CenterNode[1], CenterNode[2], CenterNode[3]))
+                            print ("** Sho.Drop Check Node ID : %d, %d -> %d, Crown Center Node ID : %d"%(TWStart, TWEnd, TWNode, TopNode))
+                            print ("** Tread Radius check Node ID: %d, %d, Center Node ID : %d"%(LeftMidNode, RightMidNode, TopNode))
+
+                        
+                        N1 = self.layout.Node.NodeByID(LeftMidNode)
+                        N2 = self.layout.Node.NodeByID(TopNode)
+                        N3 = self.layout.Node.NodeByID(RightMidNode)
+                        InitialTR = PTN.CalculateRadiusOf3Points(N1, N2, N3, 23, 3)
+
+                        print ("** Tread Radius Assummed=%.1fmm"%(InitialTR*1000))
+                        profiles = [[InitialTR, 0.5]]
+                        _, dst, drop = PTN.TD_Arc_length_calculator(profiles, h_dist=0, totalwidth=1)
+                        start = [0, 0, 0, self.layout.OD/2.0]
+                        end = [0, 0, -dst, self.layout.OD/2 - drop]
+                        centers = PTN.Circle_Center_with_2_nodes_radius(profiles[0][0], start, end)
+                        if centers[0][3] > self.layout.OD/2.0:  center = centers[1]
+                        else:  center = centers[0]
+                        curves= [[start, end, center]]
+                    PTN.FricView_msh_creator(fname=savefile[:-4], 
+                        HalfOD=self.layout.OD/2.0, ##
+                        body_outer=self.edge_body, ## 
+                        body_node=self.B3Dnodes,##   
+                        body_offset=BodyOffset,  ## 
+                        body_sector=self.user_sector, ##
+                        profiles=profiles, ##
+                        curves=curves, ## 
+                        ptn_top=P0_TOP, ##
+                        ptn_free=P0_contactFree, ## 
+                        ptn_npn=self.fullnodes, ##
+                        ptn_deleted_nodes=self.nd_deleted, ## 
+                        ptn_deleted=self.deletednode, ## 
+                        ptn_PN=self.user_sector, ## 
+                        ptn_PL=float(self.layout.OD*PI / self.user_sector), ## 
+                        ptn_offset=BodyOffset, ## 
+                        shoulder=self.layout.shoulderType, ## 
+                        revPtn=False, grooveTire=1)
             return 
 
         if self.readlayout == 1 and self.readpattern == 1: 
@@ -1745,13 +2111,38 @@ class Ui_MainWindow(object):
             if self.layout.group =="TBR": subGa_margin = 0.001 
             elif self.layout.group =="LTR": subGa_margin = 0.0003 
             else: subGa_margin = 0.0003
+
             self.ptn_elset, self.pattern.nps, self.pattern.npn, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
-                 self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, newPitchNodes\
+                 self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, NewELMatching, NewSurfs\
                  = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
                  subtread=self.check_SubTread.isChecked(), btm=1, surf_btm=self.pattern.freebottom, subGaMargin=subGa_margin,\
                  shoulder=self.layout.shoulderType,  tdw=self.layout.TDW, pitchUp=self.pattern.surf_pitch_up, \
                      pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side, sidePos=self.pattern.surf_pattern_pos_side, backupSolid=self.ptn_bended)
-            
+            if self.check_SubTread.isChecked() and len(self.pattern.SF_fulldepthgroove) and len(NewELMatching):
+                NewELMatching = np.array(NewELMatching)
+
+                for nem in NewELMatching: 
+                    ix = np.where(self.pattern.Free_Surface_without_BTM[:,0]==nem[0])[0]
+                    if len(ix)>0: 
+                        for x in ix: 
+                            if self.pattern.Free_Surface_without_BTM[x][1] ==2: 
+                                self.pattern.Free_Surface_without_BTM[x][0] = nem[1]
+
+                    ix = np.where(self.pattern.SF_fulldepthgroove[:,0]==nem[0])[0]
+                    if len(ix)>0: 
+                        for x in ix: 
+                            if self.pattern.SF_fulldepthgroove[x][1] ==2: 
+                                self.pattern.SF_fulldepthgroove[x][0] = nem[1]
+
+                    ix = np.where(self.pattern.PTN_AllFreeSurface[:,0]==nem[0])[0]
+                    if len(ix)>0: 
+                        for x in ix: 
+                            if self.pattern.PTN_AllFreeSurface[x][1] ==2: 
+                                self.pattern.PTN_AllFreeSurface[x][0] = nem[1]
+                                # print("GRV", self.pattern.PTN_AllFreeSurface[x][0], "Face", self.pattern.PTN_AllFreeSurface[x][1])
+
+                self.pattern.PTN_AllFreeSurface = np.concatenate((self.pattern.PTN_AllFreeSurface, NewSurfs), axis=0)   
+
             ###################################################################
             ## pattern direction change 
             ###################################################################
@@ -1921,8 +2312,9 @@ class Ui_MainWindow(object):
             = PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
                 surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
                 offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
-                    rev=self.check_Direction.isChecked(), newPitchNodes=newPitchNodes)
+                    rev=self.check_Direction.isChecked())
             
+
         if self.filesaved == 0 and len(solid_err) == 0: 
             self.btn_removetread.setDisabled(True)
             self.btn_expansion.setDisabled(True)
@@ -1975,6 +2367,7 @@ class Ui_MainWindow(object):
                      materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
             line = "Full tire meshes were saved.\n"
             self.fullmeshSave=savefile 
+            self.Update_ISLM_Material()
             # self.message.setText(line)
 
              ## writing pattern single pitch 
@@ -1995,17 +2388,30 @@ class Ui_MainWindow(object):
             print ("## Tread Removed Mesh is created.")
             print ("  %s\n"%(filename.split("/")[-1]))
 
-
             # self.nd_deleted=[]; self.fullnodes=[], P0_TOP, P0_SelfContact  ## 
             # P0_TOP = np.concatenate((P0_TOP), axis=0)
-            if self.check_FricView.isChecked() == True: 
+            if self.check_FricView.isChecked() == True:
+                # if len(self.ptn_model.SF_fulldepthgroove) > 0: 
+                #     counting = 0 
+                #     for surf in self.ptn_model.SF_fulldepthgroove: 
+                #         print (surf[0], ", ", surf[1], ", ", surf[7], ", ", surf[8], ", ", surf[9], ", ", surf[10])
+                #         ix1 = np.where(P0_SelfContact[:,0]==surf[0])[0]
+                #         ix2 = np.where(P0_SelfContact[:,1]==surf[1] )[0]
+                #         ix = np.intersect1d(ix1, ix2)
+                #         if len(ix) ==0:
+                #             P0_SelfContact = np.append(P0_SelfContact, surf, axis=0)
+                #             counting+=1
+                #     print ("** Grv Btm(%d) is added to free surface"%(counting))
+
                 P0_contactFree = np.concatenate((self.pattern.freebottom, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side, P0_SelfContact ), axis=0)
-                
+                idx = np.where(P0_contactFree[:,0]==10**7+3450)[0]
                 PTN.FricView_msh_creator(fname=savefile, HalfOD=self.layout.OD/2.0, body_outer=self.edge_body,body_node=self.B3Dnodes,\
                             body_offset=BodyOffset, body_sector=self.user_sector, profiles=self.layout.RightProfile, curves=self.layout.R_curves,\
                             ptn_top=P0_TOP, ptn_free=P0_contactFree, ptn_npn=self.fullnodes, ptn_deleted_nodes=self.nd_deleted, \
                             ptn_deleted=self.deletednode, ptn_PN=self.pattern.NoPitch, ptn_PL=self.pattern.TargetPL, ptn_offset=self.poffset,\
                             shoulder=self.layout.shoulderType, revPtn=self.check_Direction.isChecked())
+
+            
 
     def showLayoutNo(self): 
     
@@ -3169,7 +3575,7 @@ class myCanvas(FigureCanvas):
         linecolor = 'black'
         fontsize = 6
 
-        colors = ['lightblue', 'tomato', 'lightgreen', 'pink', 'royalblue']
+        colors = [ 'tomato', 'royalblue', 'black', 'lightblue','lightgreen']
         colN = len(colors)
 
         plt.clf()

@@ -1,5 +1,5 @@
 import numpy as np
-from math import sqrt 
+from math import sqrt, radians
 from operator import mul as OP_mul 
 import ptn_library as PTN
 from os.path import isfile
@@ -159,11 +159,31 @@ class PATTERN_EXPANSION():
         elif self.layout.group =="LTR": subGa_margin = 0.0003 
         else: subGa_margin = 0.0003
         self.ptn_elset,self.pattern.nps, self.pattern.npn, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
-             self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, newPitchNodes \
+             self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, NewELMatching, NewSurfs \
             = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
              subtread=True, btm=1, surf_btm=self.pattern.freebottom, subGaMargin=subGa_margin, shoulder=self.layout.shoulderType, tdw=self.layout.TDW, \
              pitchUp=self.pattern.surf_pitch_up, pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side,\
              sidePos=self.pattern.surf_pattern_pos_side, backupSolid=self.ptn_bended)
+
+        if self.check_SubTread.isChecked() and len(self.pattern.SF_fulldepthgroove) and len(NewELMatching):
+            NewELMatching = np.array(NewELMatching)
+
+            for nem in NewELMatching: 
+                ix = np.where(self.pattern.Free_Surface_without_BTM[:,0]==nem[0])[0]
+                if len(ix)>0: 
+                    for x in ix: 
+                        self.pattern.Free_Surface_without_BTM[x][0] = nem[1]
+
+                ix = np.where(self.pattern.SF_fulldepthgroove[:,0]==nem[0])[0]
+                if len(ix)>0: 
+                    for x in ix: 
+                        self.pattern.SF_fulldepthgroove[x][0] = nem[1]
+
+                ix = np.where(self.pattern.PTN_AllFreeSurface[:,0]==nem[0])[0]
+                if len(ix)>0: 
+                    for x in ix: 
+                        self.pattern.PTN_AllFreeSurface[x][0] = nem[1]
+            self.pattern.PTN_AllFreeSurface = np.concatenate((self.pattern.PTN_AllFreeSurface, NewSurfs), axis=0)   
 
         ###################################################################
         ## pattern direction change 
@@ -337,7 +357,7 @@ class PATTERN_EXPANSION():
         self.fullnodes, self.fullsolids, self.elset3d, self.surf_XTRD1001, self.surf_YTIE1001, self.nd_deleted, self.deletednode, \
         = PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
             surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
-            offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , rev=reversing, newPitchNodes=newPitchNodes)
+            offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , rev=reversing)
 
 
         isCtb=0
@@ -368,67 +388,96 @@ class PATTERN_EXPANSION():
 
     def PTN_Direction_Change(self):
 
-        for npn in self.pattern.npn : 
-            npn[1] = OP_mul(npn[1], -1.0)
-        
-        N = len(self.pattern.nps)
+        rot =radians(180.0)
+        for i, npn in enumerate(self.pattern.npn) :
+            self.pattern.npn[i] = PTN.RotateNode(npn, angle=rot, xy=21)
 
-        for i in range(N): 
-            if self.pattern.nps[i][7] > 0: 
+        tempSurf = []
+        for sf in self.pattern.surf_pitch_up: 
+            tempSurf.append(sf)
+        tempSf = []
+        for sf in self.pattern.surf_pitch_down: 
+            tempSf.append(sf)
 
-                t1 = self.pattern.nps[i][1]; t2 = self.pattern.nps[i][2]; t3 = self.pattern.nps[i][3]; t4=self.pattern.nps[i][4]
-                self.pattern.nps[i][1] = t4; self.pattern.nps[i][2]= t3; self.pattern.nps[i][3] = t2; self.pattern.nps[i][4] = t1 
-
-                t1 = self.pattern.nps[i][5]; t2 = self.pattern.nps[i][6]; t3 = self.pattern.nps[i][7]; t4=self.pattern.nps[i][8]
-                self.pattern.nps[i][5] = t4; self.pattern.nps[i][6]= t3; self.pattern.nps[i][7] = t2; self.pattern.nps[i][8] = t1 
-
-            else: 
-
-                t2 = self.pattern.nps[i][2]; t3 = self.pattern.nps[i][3]
-                self.pattern.nps[i][2] = t3; self.pattern.nps[i][3]= t2
-
-                t2 = self.pattern.nps[i][5]; t3 = self.pattern.nps[i][6]
-                self.pattern.nps[i][5] = t3; self.pattern.nps[i][6]= t2
-        
-        for k, sf in enumerate(self.pattern.surf_pitch_up): 
-            if sf[1]>2:
-                t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-                t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                self.pattern.surf_pitch_up[k]=sf 
-        for k, sf in enumerate(self.pattern.surf_pitch_down):  
-            if sf[1]>2:
-                t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-                t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                self.pattern.surf_pitch_down[k]=sf 
-        for k, sf in enumerate(self.pattern.surf_pattern_neg_side): 
-            if sf[1]>2:
-                t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-                t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                self.pattern.surf_pattern_neg_side[k]=sf 
-        for k, sf in enumerate(self.pattern.surf_pattern_pos_side): 
-            if sf[1]>2:
-                t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-                t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                self.pattern.surf_pattern_pos_side[k]=sf 
-        for k, sf in enumerate(self.pattern.PTN_AllFreeSurface): 
-            if sf[1]>2:
-                t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-                t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                self.pattern.PTN_AllFreeSurface[k]=sf 
-        for k, sf in enumerate(self.pattern.freebottom): 
-            if sf[1]>2:
-                t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-                t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-                self.pattern.freebottom[k]=sf 
+        self.pattern.surf_pitch_up = np.array(tempSf)
+        self.pattern.surf_pitch_down = np.array(tempSurf)
 
 
-        for bm in self.pattern.UpBack: 
-            bm[3][0] *= -1 
-            bm[4][0] *= -1 
+        tempSurf = []
+        for sf in self.pattern.surf_pattern_neg_side: 
+            tempSurf.append(sf)
+        tempSf = []
+        for sf in self.pattern.surf_pattern_pos_side: 
+            tempSf.append(sf)
+
+        self.pattern.surf_pattern_neg_side = np.array(tempSf)
+        self.pattern.surf_pattern_pos_side = np.array(tempSurf)
 
         print ("************************************")
-        print ("** Pattern direction was reversed.")
+        print ("** Pattern was ROTATED.")
         print ("************************************")
+
+
+
+        # for npn in self.pattern.npn : 
+        #     npn[1] = OP_mul(npn[1], -1.0)
+        
+        # N = len(self.pattern.nps)
+
+        # for i in range(N): 
+        #     if self.pattern.nps[i][7] > 0: 
+
+        #         t1 = self.pattern.nps[i][1]; t2 = self.pattern.nps[i][2]; t3 = self.pattern.nps[i][3]; t4=self.pattern.nps[i][4]
+        #         self.pattern.nps[i][1] = t4; self.pattern.nps[i][2]= t3; self.pattern.nps[i][3] = t2; self.pattern.nps[i][4] = t1 
+
+        #         t1 = self.pattern.nps[i][5]; t2 = self.pattern.nps[i][6]; t3 = self.pattern.nps[i][7]; t4=self.pattern.nps[i][8]
+        #         self.pattern.nps[i][5] = t4; self.pattern.nps[i][6]= t3; self.pattern.nps[i][7] = t2; self.pattern.nps[i][8] = t1 
+
+        #     else: 
+
+        #         t2 = self.pattern.nps[i][2]; t3 = self.pattern.nps[i][3]
+        #         self.pattern.nps[i][2] = t3; self.pattern.nps[i][3]= t2
+
+        #         t2 = self.pattern.nps[i][5]; t3 = self.pattern.nps[i][6]
+        #         self.pattern.nps[i][5] = t3; self.pattern.nps[i][6]= t2
+        
+        # for k, sf in enumerate(self.pattern.surf_pitch_up): 
+        #     if sf[1]>2:
+        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+        #         self.pattern.surf_pitch_up[k]=sf 
+        # for k, sf in enumerate(self.pattern.surf_pitch_down):  
+        #     if sf[1]>2:
+        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+        #         self.pattern.surf_pitch_down[k]=sf 
+        # for k, sf in enumerate(self.pattern.surf_pattern_neg_side): 
+        #     if sf[1]>2:
+        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+        #         self.pattern.surf_pattern_neg_side[k]=sf 
+        # for k, sf in enumerate(self.pattern.surf_pattern_pos_side): 
+        #     if sf[1]>2:
+        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+        #         self.pattern.surf_pattern_pos_side[k]=sf 
+        # for k, sf in enumerate(self.pattern.PTN_AllFreeSurface): 
+        #     if sf[1]>2:
+        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+        #         self.pattern.PTN_AllFreeSurface[k]=sf 
+        # for k, sf in enumerate(self.pattern.freebottom): 
+        #     if sf[1]>2:
+        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
+        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
+        #         self.pattern.freebottom[k]=sf 
+
+
+        # for bm in self.pattern.UpBack: 
+        #     bm[3][0] *= -1 
+        #     bm[4][0] *= -1 
+
+        
 
 
 if __name__ == "__main__": 

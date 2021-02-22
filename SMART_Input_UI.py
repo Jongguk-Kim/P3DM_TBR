@@ -378,7 +378,7 @@ class Ui_Dialog(object):
                         
                     # if "" in line: 
 
-    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw, solidList, localCordDBFileName, kerfContact): 
+    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw, solidList, localCordDBFileName, kerfContact, PCI): 
         self.saveFile = fullmeshSave + "-SMART.inp"
         self.saveDefaultFile="SMART_Default.dat"
         self.sampleSaveFile = "saveSampleDir.dat"
@@ -427,7 +427,7 @@ class Ui_Dialog(object):
         self.RD = 0.0 
         self.roadDia = 0.0 
 
-        self.PCI = 1 
+        self.PCI = PCI 
         self.LowCure = 0 
         
         
@@ -468,9 +468,16 @@ class Ui_Dialog(object):
 
     def setupUi(self, Dialog, pciPress):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(1172, 1044)
+        Dialog.resize(1170, 1038)
+        Dialog.setMaximumSize(QtCore.QSize(1170, 1040))
+
+        self.gridLayout_2 = QtWidgets.QGridLayout(Dialog)
+        self.gridLayout_2.setObjectName("Window_gridLayout_2")
+
+
         self.groupBox = QtWidgets.QGroupBox(Dialog)
-        self.groupBox.setGeometry(QtCore.QRect(590, 52, 571, 431))
+        self.groupBox.setMinimumSize(QtCore.QSize(571, 0))
+        self.groupBox.setMaximumSize(QtCore.QSize(571, 437))
         self.groupBox.setObjectName("groupBox")
         self.label = QtWidgets.QLabel(self.groupBox)
         self.label.setGeometry(QtCore.QRect(10, 20, 61, 16))
@@ -582,9 +589,11 @@ class Ui_Dialog(object):
         self.horizontalLayoutWidget = QtWidgets.QWidget(self.groupBox)
         self.horizontalLayoutWidget.setGeometry(QtCore.QRect(10, 393, 551, 31))
         self.horizontalLayoutWidget.setObjectName("horizontalLayoutWidget")
+
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.horizontalLayoutWidget)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName("horizontalLayout")
+
         self.Edit_fric1 = QtWidgets.QLineEdit(self.horizontalLayoutWidget)
         self.Edit_fric1.setAlignment(QtCore.Qt.AlignCenter)
         self.Edit_fric1.setObjectName("Edit_fric1")
@@ -693,11 +702,14 @@ class Ui_Dialog(object):
         self.check_Tube.setObjectName("check_Tube")
 
 
-
         self.groupBox_Check = QtWidgets.QGroupBox(self.groupBox)
         self.groupBox_Check.setGeometry(QtCore.QRect(9, 274, 551, 71))
         self.groupBox_Check.setCheckable(True)
-        self.groupBox_Check.setChecked(True)
+
+        self.gridLayout_2.addWidget(self.groupBox, 1, 2, 1, 3)
+
+        if self.PCI == 1:     self.groupBox_Check.setChecked(True)
+        else:                 self.groupBox_Check.setChecked(False)
         self.groupBox_Check.setObjectName("groupBox_Check")
         self.label_65 = QtWidgets.QLabel(self.groupBox_Check)
         self.label_65.setGeometry(QtCore.QRect(10, 45, 61, 16))
@@ -749,7 +761,8 @@ class Ui_Dialog(object):
         
         
         self.groupBox_2 = QtWidgets.QGroupBox(Dialog)
-        self.groupBox_2.setGeometry(QtCore.QRect(10, 52, 571, 431))
+        self.groupBox_2.setMinimumSize(QtCore.QSize(571, 0))
+        self.groupBox_2.setMaximumSize(QtCore.QSize(571, 437))
         self.groupBox_2.setObjectName("groupBox_2")
         self.Edit_Inflation_Time1 = QtWidgets.QLineEdit(self.groupBox_2)
         self.Edit_Inflation_Time1.setGeometry(QtCore.QRect(140, 20, 71, 20))
@@ -906,7 +919,8 @@ class Ui_Dialog(object):
 
 
         self.groupBox_5 = QtWidgets.QGroupBox(Dialog)
-        self.groupBox_5.setGeometry(QtCore.QRect(10, 489, 1151, 541))
+        self.groupBox_5.setMinimumSize(QtCore.QSize(1150, 400))
+        self.groupBox_5.setMaximumSize(QtCore.QSize(1150, 541))
         self.groupBox_5.setObjectName("groupBox_5")
         self.Edit_axiFile = QtWidgets.QLineEdit(self.groupBox_5)
         self.Edit_axiFile.setGeometry(QtCore.QRect(90, 20, 461, 20))
@@ -1165,19 +1179,38 @@ class Ui_Dialog(object):
         self.Edit_BetweenBelts.setGeometry(QtCore.QRect(250, 80, 171, 20))
         self.Edit_BetweenBelts.setAlignment(QtCore.Qt.AlignCenter)
         self.Edit_BetweenBelts.setObjectName("Edit_BetweenBelts")
+
+        self.push_showCompd = QtWidgets.QPushButton(self.groupBox_5)
+        self.push_showCompd.setGeometry(QtCore.QRect(300, 140, 131, 31))
+        self.push_showCompd.setObjectName("push_showCompd")
+        self.push_showCord = QtWidgets.QPushButton(self.groupBox_5)
+        self.push_showCord.setGeometry(QtCore.QRect(440, 140, 131, 31))
+        self.push_showCord.setObjectName("push_showCord")
+
+        self.push_showCompd.clicked.connect(self.openMaterialFile)
+        self.push_showCord.clicked.connect(self.openCordFile)
+
+
         self.Edit_SmartSave = QtWidgets.QLineEdit(Dialog)
-        self.Edit_SmartSave.setGeometry(QtCore.QRect(270, 10, 691, 31))
+        self.Edit_SmartSave.setMinimumSize(QtCore.QSize(0, 30))
         self.Edit_SmartSave.setObjectName("Edit_SmartSave")
+        self.gridLayout_2.addWidget(self.Edit_SmartSave, 0, 1, 1, 2)
         self.pushSave = QtWidgets.QPushButton(Dialog)
-        self.pushSave.setGeometry(QtCore.QRect(10, 10, 251, 31))
+        self.pushSave.setMinimumSize(QtCore.QSize(200, 30))
+        self.pushSave.setMaximumSize(QtCore.QSize(200, 16777215))
         self.pushSave.setObjectName("pushSave")
+        self.gridLayout_2.addWidget(self.pushSave, 0, 0, 1, 1)
         self.pushDefault = QtWidgets.QPushButton(Dialog)
-        self.pushDefault.setGeometry(QtCore.QRect(970, 10, 91, 31))
+        self.pushDefault.setMinimumSize(QtCore.QSize(100, 30))
+        self.pushDefault.setMaximumSize(QtCore.QSize(100, 16777215))
         self.pushDefault.setObjectName("pushDefault")
+        self.gridLayout_2.addWidget(self.pushDefault, 0, 3, 1, 1)
         self.push_openSample = QtWidgets.QPushButton(Dialog)
-        self.push_openSample.setGeometry(QtCore.QRect(1070, 10, 91, 31))
+        self.push_openSample.setMinimumSize(QtCore.QSize(100, 30))
+        self.push_openSample.setMaximumSize(QtCore.QSize(100, 16777215))
         self.push_openSample.setObjectName("push_openSample")
         self.push_openSample.clicked.connect(self.openSample)
+        self.gridLayout_2.addWidget(self.push_openSample, 0, 4, 1, 1)
 
         if os.path.isfile(self.saveDefaultFile): 
             self.readDefault(self.saveDefaultFile)
@@ -1232,15 +1265,11 @@ class Ui_Dialog(object):
 
         self.readMaterial(self.materialFile) 
 
-        if self.LowCure ==1:
-            self.check_LowCure.setChecked(True)
-        else: 
-            self.check_LowCure.setChecked(False)
+        if self.LowCure ==1:           self.check_LowCure.setChecked(True)
+        else:                          self.check_LowCure.setChecked(False)
         
-        if self.PCI ==0:
-            self.groupBox_Check.setChecked(True)
-        else: 
-            self.groupBox_Check.setChecked(False)
+        if self.PCI ==1:           self.groupBox_Check.setChecked(True)
+        else:                      self.groupBox_Check.setChecked(False)
 
         self.Edit_BSD.setText(str(self.BSD))
         self.Edit_coreWidth.setText(str(self.BDWidth))
@@ -1299,6 +1328,10 @@ class Ui_Dialog(object):
 
         self.TempReadInOut()
 
+        self.gridLayout_2.addWidget(self.groupBox_5, 2, 0, 1, 5)
+        self.gridLayout_2.addWidget(self.groupBox_2, 1, 0, 1, 2)
+        
+
     def tireGroupChange(self): 
         if self.radio_PCR.isChecked(): 
             self.Edit_stiffness_KV.setText("24.6")
@@ -1336,9 +1369,58 @@ class Ui_Dialog(object):
         ## self.underCcGa, self.tireCenterMinR
         except:
             return 
-        
+
+        with open(self.materialFile) as MAT: 
+            lines = MAT.readlines()
+        cords = 0 
+        cordInfo =[]
+        sdInfo=[]
+        for line in lines:
+            if "**" in line: continue 
+            if "*" in line: 
+                if "*REBAR_SECTION" in line: cords =1 
+                elif "*SOLID_SECTION,"  in line: cords =2 
+                else: cords = 0 
+            else:
+                if cords ==1: 
+                    words = line.split(",")
+                    try: 
+                        cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
+                    except:
+                        cordInfo.append([words[0].strip(), words[2].strip(), 0.0, 0.0, 0.0, 0.0])
+                if cords ==2: 
+                    words = line.split(",")
+                    sdInfo.append([words[0].strip(), words[1].strip()])
 
         nSD = self.rebarStartRow
+
+        for m in range(nSD): 
+            eName = self.tableWidget.item(m, 0).text().strip() 
+            cName = self.tableWidget.item(m, 1).text().strip() 
+            
+            if "- Not available" in cName: 
+                cName = cName.split("-")[0]
+            fd = 0
+            for pd in sdInfo:
+                if pd[0] == eName: 
+                    if pd[1] == cName: 
+                        fd =1 
+                    break 
+            if fd ==0: 
+                self.tableWidget.setItem(m, 8, QtWidgets.QTableWidgetItem( str(0.00)) )
+                self.tableWidget.setItem(m, 9, QtWidgets.QTableWidgetItem( str(0.00)) )
+                self.tableWidget.setItem(m, 10, QtWidgets.QTableWidgetItem( str(0.00)) )
+                self.tableWidget.setItem(m, 11, QtWidgets.QTableWidgetItem( str(0.00)) )
+            else: 
+                if len(self.solid[0]) > 4: 
+                    for sd in self.solid: 
+                        if sd[0] == eName: 
+                            self.tableWidget.setItem(m, 8, QtWidgets.QTableWidgetItem( str(sd[4])) )
+                            self.tableWidget.setItem(m, 9, QtWidgets.QTableWidgetItem( str(sd[5])) )
+                            self.tableWidget.setItem(m, 10, QtWidgets.QTableWidgetItem( str(sd[6])) )
+                            self.tableWidget.setItem(m, 11, QtWidgets.QTableWidgetItem( str(sd[7])) )
+                            break 
+
         for i, sd in enumerate(self.rebar):
             self.tableWidget.setItem(i + nSD , 0,  QtWidgets.QTableWidgetItem( str(sd[0])) )
             sd[2] = self.tableWidget.item(i+nSD,1).text().strip()
@@ -1375,19 +1457,45 @@ class Ui_Dialog(object):
             self.tableWidget.setItem(i+ nSD, 7,  QtWidgets.QTableWidgetItem( str(sd[5])) )
             
             if len(sd)> 8:
-                self.tableWidget.setItem(i+ nSD, 8,  QtWidgets.QTableWidgetItem( str(sd[8])) )
-                self.tableWidget.setItem(i+ nSD, 9,  QtWidgets.QTableWidgetItem( str(sd[9])) )
-                self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(sd[11])) )
-                self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(sd[10])) )
-
+                for info in cordInfo: 
+                    if info[0] == str(sd[0]) : 
+                        if info[1] != str(sd[2]): 
+                            changed = 1
+                            break 
+                        else: 
+                            changed = 0 
+                if changed ==0: 
+                    self.tableWidget.setItem(i+ nSD, 8,  QtWidgets.QTableWidgetItem( str(sd[8])) )
+                    self.tableWidget.setItem(i+ nSD, 9,  QtWidgets.QTableWidgetItem( str(sd[9])) )
+                    self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(sd[11])) )
+                    self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(sd[10])) )
+                else: 
+                    self.tableWidget.setItem(i+ nSD, 8,  QtWidgets.QTableWidgetItem( str(0.000e+00)) )
+                    self.tableWidget.setItem(i+ nSD, 9,  QtWidgets.QTableWidgetItem( str(0.00)) )
+                    self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(0.000e+00)) )
+                    self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(0.000)) )
+        
         self.materialDBCheck()
         
     def materialDBCheck(self): 
         ## (wdir='', cordSaveFile='', fileListFile='', host='', user='', pw='', cordname=0, cordfile=''):
         
 
-        PTN.Update_ISLM_Material(wdir=self.Edit_materialPosition.text(), cordSaveFile=self.cordDB, fileListFile=self.solidListFile, \
+        success = PTN.Update_ISLM_Material(wdir=self.Edit_materialPosition.text(), cordSaveFile=self.cordDB, fileListFile=self.solidListFile, \
             cordfile=self.localCordDBFile, cordDBFile=self.Edit_cordFile.text())
+        
+        if success ==1:     
+            print ("* ISLM Mateiral DB was updated.")
+            self.tableWidget.setItem(0, 4, QtWidgets.QTableWidgetItem(""))
+            self.tableWidget.setItem(0, 5, QtWidgets.QTableWidgetItem(""))
+            self.tableWidget.setItem(0, 6, QtWidgets.QTableWidgetItem(""))
+            self.tableWidget.setItem(0, 7, QtWidgets.QTableWidgetItem(""))
+        else: 
+            print ("## cannot access to server")
+            self.tableWidget.setItem(0, 4, QtWidgets.QTableWidgetItem("Cannot"))
+            self.tableWidget.setItem(0, 5, QtWidgets.QTableWidgetItem("access"))
+            self.tableWidget.setItem(0, 6, QtWidgets.QTableWidgetItem("to"))
+            self.tableWidget.setItem(0, 7, QtWidgets.QTableWidgetItem("server"))
 
         try: 
             with open(self.cordDB) as matf: 
@@ -1396,6 +1504,7 @@ class Ui_Dialog(object):
             fp=open(self.cordDB, 'r', encoding='UTF8')
             lines = fp.readlines()
             fp.close()
+
 
         cordList=[]
         enter = 0 
@@ -1409,6 +1518,8 @@ class Ui_Dialog(object):
                 if enter ==1: 
                     words = line.split(",")
                     cordList.append([words[0].strip(), words[2].strip()])
+
+        PTN.WriteCordList(self.cordDB)
 
         solidList = []
         with open(self.solidListFile) as SL: 
@@ -1563,6 +1674,37 @@ class Ui_Dialog(object):
             self.Edit_Surf_XTRD.text(),self.Edit_Surf_TireBody.text(), self.Edit_Surf_Press.text(), self.Edit_Surf_RicL.text(), self.Edit_Surf_RicR.text()))
         f.write("*****************************************************************************************************************************\n")
         # self.tableWidget.item(i, 1).text().strip()
+
+        # with open(self.materialFile) as MAT: 
+        #     lines = MAT.readlines()
+        # cords = 0 
+        # cordInfo =[]
+        # for line in lines:
+        #     if "**" in line: continue 
+        #     if "*" in line: 
+        #         if "*REBAR_SECTION" in line: cords =1 
+        #         else: cords = 0 
+        #     else:
+        #         words = line.split(",")
+        #         cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
+        lstCode =[]
+        with open("ISLM_CordList.dat") as DAT: 
+            lines = DAT.readlines()
+        
+        for line in lines :
+            words = line.split(",")
+            lstCode.append([words[0].strip(), words[1].strip(), words[2].strip(), float(words[3][:-4].strip())])
+            ## lstCode : code, physical name, topping compd, epi 
+            # print(lstCode[-1])
+
+        # lstRawCode =[]
+        # with open("ISLM_CordDB.txt") as DAT: 
+        #     lines = DAT.readlines()
+        
+        # for line in lines :
+        #     words = line.split(",")
+        #     lstRawCode.append([words[1].strip(), words[2].strip(), float(words[3].strip()), float(words[4].strip())])
+        #     ## RawCode: Cord Name, Physical Name, Area, line Density 
         try: 
             name = self.tableWidget.item(0,0).text().strip()
         except:
@@ -1575,16 +1717,19 @@ class Ui_Dialog(object):
             code = self.tableWidget.item(i,1).text().strip()
             temp = self.tableWidget.item(i,2).text().strip()
             sscale = self.tableWidget.item(i,3).text().strip()
-            try:
+            
+            try: 
                 mtype = self.tableWidget.item(i,4).text().strip()
                 angle = self.tableWidget.item(i,5).text().strip()
                 radius = self.tableWidget.item(i,6).text().strip()
                 steel = self.tableWidget.item(i,7).text().strip()
-            except:
+                angle = float(angle)
+            except: 
                 mtype = ''
                 angle = ''
                 radius = ''
                 steel = ''
+
             try:
                 density = self.tableWidget.item(i,8).text().strip()
                 scale_toppingDensity = self.tableWidget.item(i,9).text().strip()
@@ -1604,6 +1749,7 @@ class Ui_Dialog(object):
             else:
                 if "-" in code and "Not available" in code: 
                     code = code.split("-")[0].strip()
+
                 rebars.append([eset, mtype, code, temp, sscale, steel, angle, radius, density, scale_toppingDensity, volume, weight])
 
             i += 1
@@ -1612,37 +1758,109 @@ class Ui_Dialog(object):
             except:
                 name = None 
 
+        
+        initialCompd =[]
+        for solid in self.includingMaterial:
+            initialCompd.append(solid)
 
+        # lineSolid=[]
 
         f.write("*SOLID_SECTION, (SOL, MAT)\n")
-        compounds=[]
+        # line= "*SOLID_SECTION, (SOL, MAT)\n"; lineSolid.append(line)
         for solid in solids:
-            compounds.append(solid[1])
-            if solid[4] =="": 
+            fd = 0 
+            for sd in initialCompd: 
+                if sd==solid[1]+".PYN":
+                    fd =1 
+                    break 
+                if sd==solid[1]+".COR":
+                    fd =1 
+                    break
+            if fd ==0  :
+                if not "ABW" in solid[1]:
+                    initialCompd.append(solid[1]+".PYN")
+                else: 
+                    for m, sd in enumerate(initialCompd): 
+                        if ".COR" in sd: 
+                            del(initialCompd[m])
+                            break 
+                    initialCompd.append(solid[1]+".COR")
+
+            if solid[4] =="" : 
                 f.write("%4s, %9s, %8s, %6s\n"%(solid[0], solid[1], solid[2], solid[3]))
+                # line = "%4s, %9s, %8s, %6s\n"%(solid[0], solid[1], solid[2], solid[3]); lineSolid.append(line)
             else:
-                f.write("%4s, %9s, %8s, %6s, %10s, %10s, %10s, %10s\n"%(solid[0], solid[1], solid[2], solid[3], solid[4], solid[5], solid[6], solid[7]))
+                if float(solid[4]) > 0: 
+                    f.write("%4s, %9s, %8s, %6s, %10s, %10s, %10s, %10s\n"%(solid[0], solid[1], solid[2], solid[3], solid[4], solid[5], solid[6], solid[7]))
+                    # line= "%4s, %9s, %8s, %6s, %10s, %10s, %10s, %10s\n"%(solid[0], solid[1], solid[2], solid[3], solid[4], solid[5], solid[6], solid[7]); lineSolid.append(line)
+                else:
+                    f.write("%4s, %9s, %8s, %6s\n"%(solid[0], solid[1], solid[2], solid[3]))
+                    # line = "%4s, %9s, %8s, %6s\n"%(solid[0], solid[1], solid[2], solid[3]); lineSolid.append(line)
         
         f.write("*BELT_THICKNESS_SUBTRACTION,\n")
+        # line = "*BELT_THICKNESS_SUBTRACTION,\n"
         f.write(" %s, %s\n"%(self.Edit_BetweenBelts.text(), self.Edit_beltThickSubtraction.text()))
+        # line = " %s, %s\n"%(self.Edit_BetweenBelts.text(), self.Edit_beltThickSubtraction.text()); lineSolid.append(line)
         f.write("*CORD_FILE=%s\n"%(self.Edit_cordFile.text()))
+        # line = "*CORD_FILE=%s\n"%(self.Edit_cordFile.text()); lineSolid.append(line)
         if self.groupBox_Check.isChecked():       pci = 0
         else: pci = 1
         if self.check_LowCure.isChecked():       lcure = 1
         else: lcure = 0
         f.write("*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=%s\n"%(pci, lcure, \
             self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text(), self.Edit_PCI_press_kgf.text()))
+        # line = "*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=%s\n"%(pci, lcure, \
+            # self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text(), self.Edit_PCI_press_kgf.text())
+        # lineSolid.append(line)
 
+        # lineRebar =[]
         f.write("*REBAR_SECTION\n")
+        # line = "*REBAR_SECTION\n"; lineRebar.append(line)
+        rebarcompds= []
         for rebar in rebars:
-            if rebar[10] =='':
+            for txt in lstCode:## lstCode : code, physical name, topping compd, epi 
+                if txt[0] == rebar[2]: 
+                    cd =0
+                    for cmpd in rebarcompds: 
+                        if cmpd == txt[2]+".PYN": 
+                            cd = 1
+                            break 
+                    if cd ==0: 
+                        rebarcompds.append(txt[2]+".PYN")
+                    break 
+
+            if rebar[10] =='' :
                 f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7]))
+                # line = "%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7])
+                # lineRebar.append(line)
             else:
-                f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] ))
+                if float(rebar[8]) > 0: 
+                    f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] ))
+                    # line = "%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] )
+                    # lineRebar.append(line)
+                else: 
+                    f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7]))
+                    # line = "%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7])
+                    # lineRebar.append(line)
+        
+        # for line in lineSolid: 
+        #     f.write(line)
+        # for line in lineRebar: 
+        #     f.write(line)
         f.write("*****************************************************************************************************************************\n")
+
         
 
-        for solid in self.includingMaterial:
+        for lst in rebarcompds: 
+            fd = 0 
+            for solid in initialCompd:
+                if solid==lst: 
+                    fd =1 
+                    break 
+            if fd ==0: 
+                initialCompd.append(lst)
+
+        for solid in initialCompd:
             f.write("*INCLUDE, INP=%s/%s\n"%(self.Edit_materialPosition.text(), solid ))
         
         f.write("*****************************************************************************************************************************\n")
@@ -2040,7 +2258,7 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
-        self.groupBox.setTitle(_translate("Dialog", "Boundary Condiion"))
+        self.groupBox.setTitle(_translate("Dialog", "Boundary Condition"))
         self.label.setText(_translate("Dialog", "Pressure"))
         self.Edit_pressKgf.setText(_translate("Dialog",  str(self.Press)))
         self.label_2.setText(_translate("Dialog", "kgf/cm2"))
@@ -2125,7 +2343,7 @@ class Ui_Dialog(object):
         self.label_72.setText(_translate("Dialog", "BSD(mm)"))
         self.Edit_coreWidth.setText(_translate("Dialog",  str(self.BDWidth)))
         self.label_73.setText(_translate("Dialog", "BD Cord Width(mm)"))
-        self.groupBox_2.setTitle(_translate("Dialog", "Simulation"))
+        self.groupBox_2.setTitle(_translate("Dialog", "Define Simulation"))
         self.Edit_Inflation_Time1.setText(_translate("Dialog", str(self.PCITime1)))
         self.label_11.setText(_translate("Dialog", "Inflation Time (PCI)"))
         self.label_29.setText(_translate("Dialog", "/"))
@@ -2240,6 +2458,10 @@ class Ui_Dialog(object):
         
         self.check_GroupTBR.setText(_translate("Dialog", "TBR"))
         self.check_Tube.setText(_translate("Dialog", "Tube Type"))
+
+        self.push_showCompd.setText(_translate("Dialog", "Show Comp\'d List"))
+        self.push_showCord.setText(_translate("Dialog", "Show Cord List"))
+
         ###########################################################
         ## Tips..
         self.Edit_RoadDia.setToolTip(_translate("Dialog", "<html><head/><body><p>Flat = 0.0</p><p>RR = 1.707</p><p>Cleat = 2.5 </p><p>Wear = 3.048 </p><p>LAT100 = 0.317</p></body></html>"))
@@ -2252,6 +2474,18 @@ class Ui_Dialog(object):
         self.Edit_RimMass.setToolTip(_translate("Dialog", "<html><head/><body><p>RIM=1.0</p><p>LAT100=0.05</p><p>NPT=1.0</p></body></html>"))
         self.Edit_beltThickSubtraction.setToolTip(_translate("Dialog", "<html><head/><body><p>Unit :[m]</p></body></html>"))
         ###########################################################
+
+    def openMaterialFile(self):
+        cwd = os.getcwd()
+        fname = cwd +"/ISLM_materialList.txt"
+        self.p=QtCore.QProcess()
+        self.p.start("notepad", [fname]) 
+
+    def openCordFile(self): 
+        cwd = os.getcwd()
+        fname = cwd +"/ISLM_CordList.dat"
+        self.p=QtCore.QProcess()
+        self.p.start("notepad", [fname])
 
 if __name__ == "__main__":
     import sys
