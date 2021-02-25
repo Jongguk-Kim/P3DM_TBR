@@ -107,7 +107,7 @@ def GetCarcassDrumDia(group="PCR", inch=16.0, overtype=''):
 def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='', ga=1.0, innerGa=0.0, centerMinR=0):
     cdd = GetCarcassDrumDia(group=group, inch=inch, overtype=overtype)
     ccr = cdd/2 
-    CcDia = (ccr + ga*(layer-0.5) + innerGa * (centerMinR/ccr))*2.0
+    CcDia = (ccr + ga*(layer-1.0) + innerGa * (centerMinR/ccr))*2.0
     # print (cdd, "inner Ga=", innerGa, layer, "cc ga", ga, "lift", centerMinR/cdd)
     return CcDia
 
@@ -2264,6 +2264,8 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
          PCIPress="", bdw=0): 
 
     equ_Density = 1 
+    
+
     name_solids, name_cords = SolidComponents_checking(axi=axi, trd=trd, return_value=1)
 
     localCordDB = 'ISLM_CordDB.txt'
@@ -2304,6 +2306,17 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
 
     tireGroup="PCR"
     mat_solids, mat_cords, tireGroup, BT_cord_Ga, BSD, RW, RD, SIZE, beltLift = Equivalent_density_calculation(layout)
+
+    carcassGa = 1.0
+    with open(layout) as L: 
+        lines = L.readlines()
+    for line in lines: 
+        if "** C01" in line: 
+            w = line.split(",")
+            carcassGa = float(w[6].strip())
+            break 
+    # print ("Carcass cord Ga. ", carcassGa)
+
     if "LT" in tireGroup: tireGroup="LTR"
     if "TB" in tireGroup: tireGroup="TBR"
 
@@ -2507,7 +2520,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
         f.write("*REBAR_SECTION\n")
         cordCord = []
-        carcassGa = 1.0
+        
         if equ_Density ==1: 
             for name in name_cords:
                 for mat in mat_cords:
@@ -19291,7 +19304,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             Elset = ["CTR", ptn_solid[:,0]]
         elsets=[]  # Elset_SUT = ["SUT", []]
         elsets.append(Elset)
-        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, []
+        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, [], []
 
     if btm ==1: 
         btmsolid = surf_btm[:, 0]

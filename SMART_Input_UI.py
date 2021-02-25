@@ -473,7 +473,7 @@ class Ui_Dialog(object):
 
         self.gridLayout_2 = QtWidgets.QGridLayout(Dialog)
         self.gridLayout_2.setObjectName("Window_gridLayout_2")
-
+        
 
         self.groupBox = QtWidgets.QGroupBox(Dialog)
         self.groupBox.setMinimumSize(QtCore.QSize(571, 0))
@@ -1212,12 +1212,18 @@ class Ui_Dialog(object):
         self.push_openSample.clicked.connect(self.openSample)
         self.gridLayout_2.addWidget(self.push_openSample, 0, 4, 1, 1)
 
-        if os.path.isfile(self.saveDefaultFile): 
-            self.readDefault(self.saveDefaultFile)
+        self.currentSMARTInput = "currentSmartInput.tmp"
+        if os.path.isfile(self.currentSMARTInput): 
+            self.readCurrentInput(self.currentSMARTInput)    
             self.retranslateUi(Dialog)
-        else: 
-            self.retranslateUi(Dialog)
-            self.saveDefault()
+        else:
+            if os.path.isfile(self.saveDefaultFile): 
+                self.readDefault(self.saveDefaultFile)
+                self.retranslateUi(Dialog)
+            else: 
+                self.retranslateUi(Dialog)
+                self.saveDefault(self.saveDefaultFile)
+
         self.kerfContact = self.initKerfContact 
         
         self.pushSave.clicked.connect(self.generateSMART_Inp)
@@ -1326,10 +1332,16 @@ class Ui_Dialog(object):
         self.Edit_PCI_RW_inch.editingFinished.connect(self.PCIRWInch)
 
 
-        self.TempReadInOut()
+        self.TempReadInOut() # read in or out the temperature result file 
 
         self.gridLayout_2.addWidget(self.groupBox_5, 2, 0, 1, 5)
         self.gridLayout_2.addWidget(self.groupBox_2, 1, 0, 1, 2)
+
+        
+        
+        
+    def readCurrentInput(self, fname): 
+        self.readDefault(fname, mat=1)
         
 
     def tireGroupChange(self): 
@@ -1362,6 +1374,67 @@ class Ui_Dialog(object):
             self.groupBox_Check.setChecked(False)
 
     def reCalculationDrumRadius(self):
+
+        
+
+        if os.path.isfile(self.currentSMARTInput):
+            with open(self.currentSMARTInput) as MAT: 
+                lines = MAT.readlines()
+
+            inLine = 0 
+            cordInfo =[]
+            sdInfo=[]
+            nSD=0
+            for line in lines:
+                if "**" in line: continue 
+                if "*" in line: 
+                    if "*Material properties" in line: inLine =1 
+                    else: inLine = 0 
+                else:
+                    if inLine ==1: 
+                        # print(line.strip())
+                        words = line.split(",")
+                        if words[0] =="": 
+                            continue 
+                        if '-' in words[4] or 'Cannot' in words[4] or words[4]==" ":
+                            sdInfo.append([words[0].strip(), words[1].strip()])
+                            nSD += 1
+                            # print ("solid", nSD, line.strip())
+                        else: 
+                            try: 
+                                cordInfo.append([words[0].strip(), words[1].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
+                                # print ("cords1")
+                            except:
+                                cordInfo.append([words[0].strip(), words[1].strip(), 0.0, 0.0, 0.0, 0.0])
+                                # print ("cords0")
+        else:
+            with open(self.materialFile) as MAT: 
+                lines = MAT.readlines()
+                
+            cords = 0 
+            cordInfo =[]
+            sdInfo=[]
+            for line in lines:
+                if "**" in line: continue 
+                if "*" in line: 
+                    if "*REBAR_SECTION" in line: cords =1 
+                    elif "*SOLID_SECTION,"  in line: cords =2 
+                    else: cords = 0 
+                else:
+                    if cords ==1: 
+                        words = line.split(",")
+                        cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
+                        # try: 
+                        #     cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
+                        # except:
+                        #     cordInfo.append([words[0].strip(), words[2].strip(), 0.0, 0.0, 0.0, 0.0])
+                    if cords ==2: 
+                        words = line.split(",")
+                        sdInfo.append([words[0].strip(), words[1].strip()])
+
+            nSD = self.rebarStartRow
+
+        self.saveDefault(self.currentSMARTInput, mat=1)
         try:  
             self.beltLift = float(self.Edit_beltLift.text())
             self.carcassDrumDia = float(self.Edit_CcDrumDia.text())
@@ -1369,30 +1442,6 @@ class Ui_Dialog(object):
         ## self.underCcGa, self.tireCenterMinR
         except:
             return 
-
-        with open(self.materialFile) as MAT: 
-            lines = MAT.readlines()
-        cords = 0 
-        cordInfo =[]
-        sdInfo=[]
-        for line in lines:
-            if "**" in line: continue 
-            if "*" in line: 
-                if "*REBAR_SECTION" in line: cords =1 
-                elif "*SOLID_SECTION,"  in line: cords =2 
-                else: cords = 0 
-            else:
-                if cords ==1: 
-                    words = line.split(",")
-                    try: 
-                        cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
-                    except:
-                        cordInfo.append([words[0].strip(), words[2].strip(), 0.0, 0.0, 0.0, 0.0])
-                if cords ==2: 
-                    words = line.split(",")
-                    sdInfo.append([words[0].strip(), words[1].strip()])
-
-        nSD = self.rebarStartRow
 
         for m in range(nSD): 
             eName = self.tableWidget.item(m, 0).text().strip() 
@@ -1407,14 +1456,39 @@ class Ui_Dialog(object):
                         fd =1 
                     break 
             if fd ==0: 
+                for k, pd in enumerate(sdInfo):
+                    if pd[0] == eName: 
+                        pd[1] = cName
+                        print (" > The code of Elset %s was changed to %s"%(pd[0], sdInfo[k][1]))
+                        break 
                 self.tableWidget.setItem(m, 8, QtWidgets.QTableWidgetItem( str(0.00)) )
-                self.tableWidget.setItem(m, 9, QtWidgets.QTableWidgetItem( str(0.00)) )
-                self.tableWidget.setItem(m, 10, QtWidgets.QTableWidgetItem( str(0.00)) )
-                self.tableWidget.setItem(m, 11, QtWidgets.QTableWidgetItem( str(0.00)) )
+
+                try: sd[5]=self.tableWidget.item(m, 9).text().strip()
+                except: sd[5]=1.00
+                self.tableWidget.setItem(m, 9, QtWidgets.QTableWidgetItem( str(sd[5])) )
+
+                try: sd[6]=self.tableWidget.item(m,10).text().strip()
+                except: sd[6]=0.00
+                try: sd[7]=self.tableWidget.item(m,11).text().strip()
+                except: sd[7]=0.00
+                self.tableWidget.setItem(m, 10, QtWidgets.QTableWidgetItem( str(sd[6])) )
+                self.tableWidget.setItem(m, 11, QtWidgets.QTableWidgetItem( str(sd[7])) )
+
             else: 
                 if len(self.solid[0]) > 4: 
                     for sd in self.solid: 
                         if sd[0] == eName: 
+                            
+                            try: sd[4]=self.tableWidget.item(m,8).text().strip()
+                            except: sd[4]=0.0
+                            try: sd[5]=self.tableWidget.item(m,9).text().strip()
+                            except: sd[5]=1.0 
+                            try: sd[6]=self.tableWidget.item(m,10).text().strip()
+                            except: sd[6]=0.0
+                            try: sd[7]=self.tableWidget.item(m,11).text().strip()
+                            except: sd[7]=0.0
+                            # print ("M=", m, sd[0], sd[7], round(float(sd[6])*float(sd[4])*float(sd[5]), 3))
+                            if float(sd[4]) > 0: sd[7] = round(float(sd[6])*float(sd[4])*float(sd[5]), 3)
                             self.tableWidget.setItem(m, 8, QtWidgets.QTableWidgetItem( str(sd[4])) )
                             self.tableWidget.setItem(m, 9, QtWidgets.QTableWidgetItem( str(sd[5])) )
                             self.tableWidget.setItem(m, 10, QtWidgets.QTableWidgetItem( str(sd[6])) )
@@ -1424,6 +1498,10 @@ class Ui_Dialog(object):
         for i, sd in enumerate(self.rebar):
             self.tableWidget.setItem(i + nSD , 0,  QtWidgets.QTableWidgetItem( str(sd[0])) )
             sd[2] = self.tableWidget.item(i+nSD,1).text().strip()
+
+            if "- Not available" in sd[2]: 
+                sd[2] = sd[2].split("-")[0]
+            if sd[2]=='': print("sd", sd)
 
             no_mat = 0 
             for mat in self.NoMaterial: 
@@ -1435,10 +1513,18 @@ class Ui_Dialog(object):
             else: 
                 self.tableWidget.setItem(i + nSD, 1, QtWidgets.QTableWidgetItem( str(sd[2]) + "- Not available" ) )
 
+            sd[3] = self.tableWidget.item(i+nSD,2).text().strip()
             self.tableWidget.setItem(i + nSD, 2, QtWidgets.QTableWidgetItem( str(sd[3])) )
+            sd[4] = self.tableWidget.item(i+nSD,3).text().strip()
             self.tableWidget.setItem(i + nSD, 3,  QtWidgets.QTableWidgetItem( str(sd[4])) )
 
+            try: 
+                sd[1] = self.tableWidget.item(i+nSD,4).text().strip()
+                sd[6] = self.tableWidget.item(i+nSD,5).text().strip()
+            except: 
+                print (i+ nSD, "-", sd[0], sd[2])
             self.tableWidget.setItem(i+ nSD, 4,  QtWidgets.QTableWidgetItem( str(sd[1])) )
+            
             self.tableWidget.setItem(i+ nSD, 5,  QtWidgets.QTableWidgetItem( str(sd[6])) )
 
             if "BT" in sd[0] or  "SPC" in sd[0] or "JEC" in sd[0]  or "JFC" in sd[0]  : 
@@ -1450,32 +1536,56 @@ class Ui_Dialog(object):
             if "C0" in sd[0] or "CC" in sd[0]: 
                 layer = float(sd[0][-1])
                 ccr = self.carcassDrumDia/2.0
-                rad = ccr + self.underCcGa * (self.tireCenterMinR/ccr) + self.carcassGa*(layer - 0.5)
+                rad = ccr + self.underCcGa * (self.tireCenterMinR/ccr) + self.carcassGa*(layer - 1.0)
                 # print (self.carcassDrumDia, "*inner Ga=", self.underCcGa, layer, "cc ga", self.carcassGa, "lift", self.tireCenterMinR/self.carcassDrumDia)
                 sd[7] = round(rad, 4)
             self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
+            if "ES" in sd[2]: sd[5]=1
+            else: sd[5]=0
             self.tableWidget.setItem(i+ nSD, 7,  QtWidgets.QTableWidgetItem( str(sd[5])) )
             
             if len(sd)> 8:
+                changed = 0 
                 for info in cordInfo: 
                     if info[0] == str(sd[0]) : 
                         if info[1] != str(sd[2]): 
                             changed = 1
                             break 
-                        else: 
-                            changed = 0 
                 if changed ==0: 
+                    try: sd[8]=self.tableWidget.item(i+nSD,8).text().strip()
+                    except: sd[8]=0.0
+                    try: sd[9]=self.tableWidget.item(i+nSD,9).text().strip()
+                    except: sd[9]=0.0
+                    try: sd[10]=self.tableWidget.item(i+nSD,11).text().strip()
+                    except: sd[10]=0.0
+                    try: sd[11]=self.tableWidget.item(i+nSD,10).text().strip()
+                    except: sd[11]=0.0
+                    
                     self.tableWidget.setItem(i+ nSD, 8,  QtWidgets.QTableWidgetItem( str(sd[8])) )
                     self.tableWidget.setItem(i+ nSD, 9,  QtWidgets.QTableWidgetItem( str(sd[9])) )
                     self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(sd[11])) )
                     self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(sd[10])) )
                 else: 
+                    for info in cordInfo: 
+                        if info[0] == str(sd[0]) : 
+                            if info[1] != str(sd[2]):
+                                print (" > %s(%s) was changed to %s"%(info[1],info[0], sd[2]))
+                                info[1] = sd[2]
+                                break 
                     self.tableWidget.setItem(i+ nSD, 8,  QtWidgets.QTableWidgetItem( str(0.000e+00)) )
-                    self.tableWidget.setItem(i+ nSD, 9,  QtWidgets.QTableWidgetItem( str(0.00)) )
-                    self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(0.000e+00)) )
-                    self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(0.000)) )
+                    
+                    try: sd[9]=self.tableWidget.item(i+nSD,9).text().strip()
+                    except: sd[9] = 0.00
+                    self.tableWidget.setItem(i+ nSD, 9,  QtWidgets.QTableWidgetItem( str(sd[9])) )
+                    try: sd[10]=self.tableWidget.item(i+nSD,11).text().strip()
+                    except: sd[10] = 0.00
+                    try: sd[11]=self.tableWidget.item(i+nSD,10).text().strip()
+                    except: sd[11] = 0.00
+                    self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(sd[11])) )
+                    self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(sd[10])) )
         
         self.materialDBCheck()
+
         
     def materialDBCheck(self): 
         ## (wdir='', cordSaveFile='', fileListFile='', host='', user='', pw='', cordname=0, cordfile=''):
@@ -1590,7 +1700,8 @@ class Ui_Dialog(object):
             
 
     def generateSMART_Inp(self): 
-        
+        self.saveDefault(self.currentSMARTInput, mat=1)
+
         f = open(self.Edit_SmartSave.text(), 'w')
         f.write("*SIMULATION_TYPE  = 0       ( 0:TIRE, 1:LAT100, 2:NPT)\n")
         f.write("*SIMULATION_TIME  = %s, %s, %s { PHYSICAL TIME, MASS_SCALE(>=1, DEFAULT=1.02), DT_RATIO( IF =1.0=>VARIABLE, IF < 1.0 => FIXED FOR FFT ) }\n"%\
@@ -1790,7 +1901,7 @@ class Ui_Dialog(object):
                 f.write("%4s, %9s, %8s, %6s\n"%(solid[0], solid[1], solid[2], solid[3]))
                 # line = "%4s, %9s, %8s, %6s\n"%(solid[0], solid[1], solid[2], solid[3]); lineSolid.append(line)
             else:
-                if float(solid[4]) > 0: 
+                if float(solid[4]) > 0 and float(solid[7]) > 0: 
                     f.write("%4s, %9s, %8s, %6s, %10s, %10s, %10s, %10s\n"%(solid[0], solid[1], solid[2], solid[3], solid[4], solid[5], solid[6], solid[7]))
                     # line= "%4s, %9s, %8s, %6s, %10s, %10s, %10s, %10s\n"%(solid[0], solid[1], solid[2], solid[3], solid[4], solid[5], solid[6], solid[7]); lineSolid.append(line)
                 else:
@@ -1834,7 +1945,7 @@ class Ui_Dialog(object):
                 # line = "%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7])
                 # lineRebar.append(line)
             else:
-                if float(rebar[8]) > 0: 
+                if float(rebar[8]) > 0 and float(rebar[9]) > 0 and float(rebar[11]) > 0: 
                     f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] ))
                     # line = "%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] )
                     # lineRebar.append(line)
@@ -1876,6 +1987,7 @@ class Ui_Dialog(object):
         f.close()
 
         print ("\n## SMART Input File was saved.")
+
 
 
     def TempReadInOut(self):
@@ -2018,7 +2130,13 @@ class Ui_Dialog(object):
         except:
             pass 
 
-    def readDefault(self, fname)    : 
+    def readDefault(self, fname, mat=0)    : 
+        if mat ==1: 
+            for i in range(30): 
+                for j in range(12): 
+                    self.tableWidget.setItem(i, j,  QtWidgets.QTableWidgetItem(""))
+        matlineCount=0
+        
         with open(fname) as fp: 
             lines = fp.readlines()
         
@@ -2123,15 +2241,11 @@ class Ui_Dialog(object):
                     self.PCI = int(words[1].strip())
                 if "Low Cure" in line: 
                     self.LowCure = int(words[1].strip())
-                # if "BSD" in line: 
-                #     self.BSD = float(words[1].strip())
-                # if "BD width" in line: 
-                #     self.BDWidth = float(words[1].strip())
+                
                 if "PCI Pressure" in line: 
                     if self.PCIPress ==0: 
                         self.PCIPress = float(words[1].strip())
-                # if "PCI Rim Width" in line: 
-                #     self.PCIRW = float(words[1].strip())
+                
                 if "Rim Friction" in line: 
                     self.rimFriction = float(words[1].strip())
                 if "Road Friction" in line: 
@@ -2167,9 +2281,44 @@ class Ui_Dialog(object):
                     self.material = words[1].strip()
                 if 'cord' in line: 
                     self.cord = words[1].strip()
+                if 'Belt Lift' in line: 
+                    self.beltLift = float(words[1].strip())
+                if 'Carcass Drum Diameter' in line: 
+                    self.carcassDrumDia = float(words[1].strip())
+                if 'Carcass Ga' in line: 
+                    self.carcassGa = float(words[1].strip())
+                if "*Material properties" in line: 
+                    materialLine = 1 
+                else: 
+                    materialLine = 0 
+
+                if "BSD" in line: 
+                    if mat==1: self.BSD = float(words[1].strip())
+                if "BD width" in line: 
+                    if mat==1: self.BDWidth = float(words[1].strip())
+                if "PCI Rim Width" in line: 
+                    if mat==1: self.PCIRW = float(words[1].strip())
+
+            else:
+                if materialLine ==1: 
+                    if mat ==1: 
+                        ds = line.split(",")
+                        for k, d in enumerate(ds):
+                            if d.strip()=='-': 
+                                continue 
+                            self.tableWidget.setItem(matlineCount,k, QtWidgets.QTableWidgetItem(d.strip()))
+                        matlineCount+=1
+                    else:
+                        continue 
+                    
+
+        if mat ==1: 
+            self.Edit_beltLift.setText("%.3f"%(self.beltLift))
+            self.Edit_CcDrumDia.setText("%.3f"%(self.carcassDrumDia))
+            self.Edit_CcGa.setText("%.3f"%(self.carcassGa))
         
-    def saveDefault(self): 
-        subf = open(self.saveDefaultFile, 'w')
+    def saveDefault(self, fname, mat=0): 
+        subf = open(fname, 'w')
         if self.check_GroupTBR.isChecked(): group="TBR"
         else: 
             if self.radio_LTR.isChecked(): group="LTR"
@@ -2253,11 +2402,58 @@ class Ui_Dialog(object):
         subf.write("*compound=%s\n"%(self.Edit_materialPosition.text()))
         subf.write("*cord=%s\n"%(self.Edit_cordFile.text()))
 
+        if mat==1: 
+            btLift = self.Edit_beltLift.text()
+            CcDrumDia=self.Edit_CcDrumDia.text()
+            CcGa=self.Edit_CcGa.text()
+            subf.write("*Belt Lift=%s\n"%(btLift))
+            subf.write("*Carcass Drum Diameter=%s\n"%(CcDrumDia))
+            subf.write("*Carcass Ga=%s\n"%(CcGa))
+            subf.write("*Material properties\n")
+            i = 0
+            while i< 30: 
+                try: 
+                    eName = self.tableWidget.item(i, 0).text().strip()
+                except:
+                    subf.close()
+                    return 
+                if eName=="": 
+                    subf.close()
+                    return 
+                Code = self.tableWidget.item(i, 1).text().strip()
+                if "- Not available" in Code: 
+                    Code = Code.split("-")[0].strip()
+                temperature = self.tableWidget.item(i, 2).text().strip()
+                stiffScale  = self.tableWidget.item(i, 3).text().strip()
+                try: 
+                    eType =  self.tableWidget.item(i, 4).text().strip()
+                    Angle =  self.tableWidget.item(i, 5).text().strip()
+                    Radius = self.tableWidget.item(i, 6).text().strip()
+                    isSteel = self.tableWidget.item(i, 7).text().strip()
+                except: 
+                    eType = '-'; Angle='-'; Radius='-'; isSteel='-'
+                try: 
+                    Density = self.tableWidget.item(i, 8).text().strip()
+                    scaleDensity = self.tableWidget.item(i, 9).text().strip()
+                    volume = self.tableWidget.item(i, 10).text().strip()
+                    wt = self.tableWidget.item(i, 11).text().strip()
+                except: 
+                    Density = '-'; scaleDensity ='-'; volume='-'; wt = '-'
+                subf.write("%s, %s, %s, %s, %s, %s,%s, %s, %s, %s, %s, %s\n"%(\
+                    eName, Code, temperature, stiffScale, eType, Angle, Radius, isSteel, Density, scaleDensity, volume, wt))
+                # print("%s, %s, %s, %s, %s, %s,%s, %s, %s, %s, %s, %s\n"%(eName, Code, temperature, stiffScale, eType, Angle, Radius, isSteel, Density, scaleDensity, volume, wt))
+
+                i += 1
+
         subf.close()
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("tire.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        Dialog.setWindowIcon(icon)
+        
         self.groupBox.setTitle(_translate("Dialog", "Boundary Condition"))
         self.label.setText(_translate("Dialog", "Pressure"))
         self.Edit_pressKgf.setText(_translate("Dialog",  str(self.Press)))

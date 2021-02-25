@@ -51,10 +51,21 @@ class StdoutRedirect(QtCore.QObject):
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
+
+        try: 
+            remove("currentSmartInput.tmp")
+        except: 
+            pass
+
         self.mainWindowName = "P3DM - pattern mesh expansion"
 
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1200, 900)
+
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("tire.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        MainWindow.setWindowIcon(icon)
+
         Width_command=300 
         btn_ht = 25 
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -498,9 +509,6 @@ class Ui_MainWindow(object):
             line =f.readlines()
             f.close()
             self.cwd =line[0]
-        
-          
-
 
         self.Pattern_start_number = 10**7 
         self.user_number_pitch = 0 
@@ -701,6 +709,7 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", self.mainWindowName))
+        # MainWindow.setWindowIcon(QtGui.QIcon('tire.ico'))
         
         self.btn_auto.setText(_translate("MainWindow", "Fully automatic generation"))
         self.btn_auto.setShortcut(_translate("MainWindow", "Ctrl+F"))
@@ -1173,6 +1182,11 @@ class Ui_MainWindow(object):
             remove(Mesh2DInp)
         except: 
             pass 
+            
+        try: 
+            remove("currentSmartInput.tmp")
+        except: 
+            pass
 
         try:   del(self.pattern)
         except: pass 
@@ -5017,4 +5031,5 @@ if __name__ == "__main__":
     # MainWindow.showMaximized()
     # MainWindow.setWindowTitle("Pattern Mesh Expanding Tool for SMART")
     MainWindow.show()
+    
     sys.exit(app.exec_())
