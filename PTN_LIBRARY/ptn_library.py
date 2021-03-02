@@ -2161,9 +2161,9 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
         mat_solids.append(['SRTT', PK1[1], PK1[2], PK1[3], PK1[4]])
     if len(PK2) > 0: 
         mat_solids.append(['SRTT', PK2[1], PK2[2], PK2[3], PK2[4]])
-    if len(NCT) > 0: 
+    if len(RFM) > 0: 
         mat_solids.append(['SRTT', RFM[1], RFM[2], RFM[3], RFM[4]])
-    if len(NCT) > 0: 
+    if len(FLI) > 0: 
         mat_solids.append(['SRTT', FLI[1], FLI[2], FLI[3], FLI[4]])
 
     # f.close()
@@ -19534,7 +19534,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el(1): %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -19546,7 +19546,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el(2): %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -19558,7 +19558,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el(3): %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -19570,7 +19570,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][4])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el(4): %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -19593,7 +19593,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el(*): %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -19605,7 +19605,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el(#): %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -19617,7 +19617,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el(!): %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -19666,6 +19666,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 if len(newSurf) > 0: 
                     newSidePos.append(newSurf) 
                     # Nside -= 1
+        newSurfs=[]
         if restore ==0: 
             newPitchUp = np.array(newPitchUp)
             newPitchDown = np.array(newPitchDown)

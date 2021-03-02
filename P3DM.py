@@ -3503,7 +3503,7 @@ class myCanvas(FigureCanvas):
                 N = len(self.lxs)-1
                 if N> 0: 
                     self.distance = round( sqrt((self.lxs[N]-self.lxs[N-1])**2 + (self.lys[N]-self.lys[N-1])**2 ) *1000, 2)
-                    ch = plt.text((self.lxs[N]+self.lxs[N-1])/2.0, (self.lys[N]+self.lys[N-1])/2.0, str(self.distance), color="orange", size=self.fontsize)
+                    ch = plt.text((self.lxs[N]+self.lxs[N-1])/2.0, (self.lys[N]+self.lys[N-1])/2.0, str(self.distance), color="black", size=self.fontsize)
                     self.chars.append(ch)
 
                     ln, = plt.plot([self.lxs[N-1], self.lxs[N]],[self.lys[N-1], self.lys[N]], color='orange')
