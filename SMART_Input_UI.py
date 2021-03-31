@@ -1184,7 +1184,7 @@ class Ui_Dialog(object):
 
             self.tableWidget.setItem(i + nSD, 2, QtWidgets.QTableWidgetItem( str(sd[3])) )
             if "OJFC" in sd[0] or 'OJEC' in sd[0]: 
-                self.tableWidget.setItem(i + nSD, 3,  QtWidgets.QTableWidgetItem( '1.6' ) )
+                self.tableWidget.setItem(i + nSD, 3,  QtWidgets.QTableWidgetItem( '0.6' ) )
             else: 
                 self.tableWidget.setItem(i + nSD, 3,  QtWidgets.QTableWidgetItem( str(sd[4])) )
 

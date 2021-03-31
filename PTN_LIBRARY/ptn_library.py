@@ -403,7 +403,7 @@ class NODE:
         
         if closest != 0:
             min = 1000000000.0
-            
+            ClosestNode = 0 
             if PO == 'x' or PO == 'X':
                 for i in range(N):
                     if abs(self.Node[i][1]-v) < min:
@@ -8038,12 +8038,8 @@ class PATTERN:
                             if len(p) == 6: 
                                 p.append(temp)
                             else: 
-
                                 for t in temp: 
-                                    try: 
-                                        p[7].append(t)
-                                    except:
-                                        print (p)
+                                    p[-1].append(t)
 
                 if cmd == 'SOL': 
                     data = line.split(",")
@@ -8055,7 +8051,7 @@ class PATTERN:
                                 p.append(data)
                             else: 
                                 for t in data: 
-                                    p[7].append(t)
+                                    p[-1].append(t.strip())
 
 
         if len(self.Node) > 10_0000: 

@@ -1434,7 +1434,7 @@ class Ui_MainWindow(object):
                 self.ShowingImage = 'layout'
                 self.readlayout = 1
 
-                if self.layout.shoulderType =='S':   self.btn_removetread.setEnabled(True)
+                # if self.layout.shoulderType =='S':   self.btn_removetread.setEnabled(True)
 
                 if self.readpattern == 1: 
                     if self.layout.TDW > 0 and self.pattern.TreadDesignWidth: 
@@ -1614,7 +1614,7 @@ class Ui_MainWindow(object):
         self.radioDefault.setChecked(True)
         self.check_T3DM.setEnabled(False)
 
-        if self.patternmesh !="" or self.layout.shoulderType =='S':
+        if self.patternmesh !="" : # or self.layout.shoulderType =='S':
 
             if self.check_T3DM.isChecked() == True : 
                 self.layout.T3DMMODE = 1 
@@ -1640,7 +1640,7 @@ class Ui_MainWindow(object):
                 self.shoulderGa = PTN.ShoulderTreadGa(self.layout.OD, self.layout.RightProfile, self.layout.R_curves, \
                     self.flattened_Tread_bottom_sorted, self.layout.TDW, shoR=self.layout.r_shocurve)
 
-            elif self.layout.shoulderType == 'S' : 
+            elif self.layout.shoulderType == 'S'  and len(self.layout.tdnodes.Node) > 0: 
                 self.flattened_Tread_bottom_sorted,   self.layout.sideNodes=PTN.Unbending_squareLayoutTread(self.layout.tdnodes, self.layout.Tread, \
                     self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop)
                 self.shoulderGa = 1.0
@@ -2129,8 +2129,8 @@ class Ui_MainWindow(object):
             
             self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, ptnbottom=self.pattern.freebottom, start=start, shoulder=self.layout.shoulderType)
 
-            
-            if self.layout.group =="TBR": subGa_margin = 0.001 
+            if self.layout.shoulderType == 'S' :   self.layout.group ="TBR"
+            if self.layout.group =="TBR" : subGa_margin = 0.001 
             elif self.layout.group =="LTR": subGa_margin = 0.0003 
             else: subGa_margin = 0.0003
 
