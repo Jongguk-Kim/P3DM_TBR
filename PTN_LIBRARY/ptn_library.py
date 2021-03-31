@@ -2057,6 +2057,18 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
             code =sd[1]
             structure = sd[2]
 
+            ###################################################
+            ## 2021.03.03, codes in case materia code =='-' of calendared material 
+            ## sample case : 3003877VT00005-0 
+            ###################################################
+            if '-' == code: 
+                fd = 0 
+                for st in roll: 
+                    if st[2] == sd[2] and st[3] == sd[3] and '-' != st[1]: 
+                        code = st[1]
+                        fd =1
+                        break 
+
             m = 3
             try:
                 EPI = float(sd[m]);        m+=1
@@ -2310,6 +2322,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     carcassGa = 1.0
     with open(layout) as L: 
         lines = L.readlines()
+    
     for line in lines: 
         if "** C01" in line: 
             w = line.split(",")
@@ -2329,10 +2342,19 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     npel = np.array(npel)
     npn = np.array(node)
 
-    beltHalfDia=[]
+    beltHalfDia=[]   
     reBtHalfDia=[]
     cc1MaxR = 0.0
+
+    f=open(axi[:-4]+"-material.dat", 'w')
+
+
     for eset in elset: 
+        for info in mat_cords : 
+            if info[0].strip() == eset[0]: 
+                cordGa = info[8]
+                f.write("*** Rolled Layer gauge, %5s=%.4f\n"%(eset[0], cordGa*1000))
+
         if ("BT" in eset[0] or "SPC" in eset[0]) and not "BTT" in eset[0]: 
             N = len(eset)
             zMax = 0
@@ -2341,7 +2363,9 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 nix = np.where(npn[:,0] == npel[ix][1])[0][0]
                 if zMax < npn[nix][3]: 
                     zMax = npn[nix][3]
-            beltHalfDia.append([eset[0], zMax/beltLift*1000])
+            
+            beltHalfDia.append([eset[0], zMax/beltLift*1000])  
+            # mat_cords.append([name, code, toping_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
         if "JEC" in eset[0] or "JFC" in eset[0] or "OJF" in eset[0]: 
             N = len(eset)
             zMax = 0
@@ -2350,7 +2374,10 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 nix = np.where(npn[:,0] == npel[ix][1])[0][0]
                 if zMax < npn[nix][3]: 
                     zMax = npn[nix][3]
-            reBtHalfDia.append([eset[0], zMax/beltLift*1000])
+            try: 
+                reBtHalfDia.append([eset[0], zMax/beltLift*1000-cordGa*500, cordGa])
+            except:
+                reBtHalfDia.append([eset[0], zMax/beltLift*1000])
         if "C01" in eset[0] or "CC1" in eset[0]: 
             N = len(eset)
             for k in range(1, N): 
@@ -2386,7 +2413,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     IL_Ga = (cc1MaxR-center_minR)
 
 
-    f=open(axi[:-4]+"-material.dat", 'w')
+    
     
     if len(mat_solids) == 0: 
 
@@ -2441,6 +2468,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
             # f.write("*** Reinforcement cord max radius lifted\n")
             for bt in reBtHalfDia: 
                 f.write("*** Reinforcement cord max radius lifted, %5s=%.4f\n"%(bt[0], bt[1]*beltLift))
+                
         f.write("*** Under carcass gauge =%.3f\n"%(IL_Ga))
         f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
         f.write("*** Tire Center Min.Radius=%.3f\n"%(center_minR))
@@ -2520,6 +2548,8 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
         f.write("*REBAR_SECTION\n")
         cordCord = []
+
+        
         
         if equ_Density ==1: 
             for name in name_cords:
@@ -2651,6 +2681,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
         f.write("*** #1 Carcass gauge =%.3f\n"%(carcassGa))
         f.write("*** Tire Center Min.Radius=%.3f\n"%(center_minR))
+        
         f.write("*********************************************************\n")
 
         name_compound = sorted(name_compound)
@@ -4009,20 +4040,30 @@ class MESH2D:
                 elif "PROFILE_LHS" in line: command="left"
                 elif "PROFILE_RHS" in line: command="right"
                 elif "TR :" in line or "** TR, TW" in line:  ## self.RightProfile=[]  ## **   self.LeftProfile=[]   ## ** 
-                    if command == "left": 
+                    if command == "right": 
                         line = list(line.split(":"))[1]
                         word = list(line.split(","))
                         R = round(float(word[0].strip())*scaling_factor, 5)
                         # print ("LEFT Profile", line.strip())
                         # if R == 10.0: R*= 1000
-                        if profileDone ==0:  self.RightProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
-                    if command == "right": 
+                        if profileDone ==0:
+                            if len(self.RightProfile) > 1: 
+                                if self.RightProfile[-1][0] == R : self.RightProfile[-1][1]+= round(float(word[1].strip())*scaling_factor, 9)
+                                else: self.RightProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
+                            else: 
+                                self.RightProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
+                    if command == "left": 
                         line = list(line.split(":"))[1]
                         word = list(line.split(","))
                         R = round(float(word[0].strip())*scaling_factor, 5)
                         # print ("Right Profile", line.strip())
                         # if R == 10.0: R*= 1000
-                        if profileDone ==0: self.LeftProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
+                        if profileDone ==0: 
+                            if len(self.LeftProfile)>1 : 
+                                if self.LeftProfile[-1][0] == R :  self.LeftProfile[-1][1]+= round(float(word[1].strip())*scaling_factor, 9)
+                                else: self.LeftProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
+                            else: 
+                                self.LeftProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
 
                 else: continue 
             elif "*NODE" in line.upper() and not "OUTPUT" in line.upper() and not "PRINT" in line.upper() and not "FILE" in line.upper(): cmd = "ND"
@@ -4966,6 +5007,7 @@ class MESH2D:
                 break 
 
         print ("  Center EL above membrane", solid_on_membrane[0], "Bottom F%d"%(btm_face))
+        # print ( " Right Last", LastRight_EL, "Left Last ", LastLeft_EL)
         BottomFace_centerEL = btm_face
 
         debug =1
@@ -5239,6 +5281,7 @@ class MESH2D:
         ups=[nextsolid[0]]
         ups, _ = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, show=0)
         
+        # print ("UPS", ups, "NF", nf)
         for up in ups: 
             element_to_delete.append(up)
 
@@ -5270,7 +5313,7 @@ class MESH2D:
             ## WARNING!! if there is a tie surface on the element, errer may occur  ###########################
             if ps[0] == nextsolid[0]:
                 # print ("###########################")
-                # print (nextsolid, next_face)
+                # print (ps[0], ": ", nextsolid, next_face)
                 nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=-1) 
                 # print (" >> ", nextsolid, next_face)
                 # print ("###########################")
@@ -5355,7 +5398,7 @@ class MESH2D:
                         next_face = nf0 -1 
                         if next_face == 0: next_face = nextsolid[5]
                 else: 
-                    print ("* There is a tie surface next to %d"%(ps[0]))
+                    print ("** There is a tie surface next to %d"%(ps[0]))
                     break 
             # print ("                                   ", nextsolid)
             dup = 0 
@@ -5454,8 +5497,12 @@ class MESH2D:
                     if face == 4: face = 1 
                 ps = nxsolid
                 nxsolid, nxface = self.SearchNextSolids(nxsolid, face=face, np_solid=solids, direction=1)
-                # print(" 3-node element", ps, " Next :", nxsolid)
-                ups.append(nxsolid[0])
+                if nxsolid[5] ==4: 
+                    nxface -= 1
+                # print(" 3-node element", ps, face, " Next el / face:", nxsolid, nxface)
+                nextsolid = nxsolid 
+                next_face = nxface
+                # ups.append(nxsolid[0])
 
             if counting > 0: 
                 _, bf = Contact_relation_2Elements(nxsolid, ps)
@@ -5888,9 +5935,6 @@ def BeadWidth(Element, Node):
 def TieSurface(Elements, Nodes):
     AllEdges=FindEdge(Elements)
     FreeEdges=FindFreeEdge(AllEdges)
-
-
-
 
     CenterNodes = FindCenterNodes(Nodes)
     OutEdges=FindOutEdges(FreeEdges, CenterNodes, Nodes, Elements)
@@ -6996,7 +7040,7 @@ class PATTERN:
         self.Surface=[]
         self.leftprofile =[]
         self.rightprofile = []
-        self.pitch1=[]
+        self.pitch=[]
         self.pitchsequence =[] 
         
         self.NoPitch = 0
@@ -7234,8 +7278,7 @@ class PATTERN:
                 if len(ix) >    0 :             SF_fulldepthgroove.append(sf)
                 else:                           SF_subgroove.append(sf)
             self.SF_fulldepthgroove = np.array(SF_fulldepthgroove)
-            
-            
+
             ###############
             ## Error eccurs when the main groove bottom surface is also on the pattern side
             ## this removes the surfaces on the pattern side from main groove bottom 
@@ -7596,6 +7639,9 @@ class PATTERN:
             lines = PTN.readlines()
         cmd = ""
         depths=[]
+        solidname = ''
+        centerbeams = []
+        upAft =[]; lwAft = []; UpFwd =[]
         for line in lines:
             if "Regenerated Pattern mesh from P3DM" in line: 
                 print ("* This mesh was generated by P3DM.")
@@ -7665,22 +7711,81 @@ class PATTERN:
                     cmd = "SD8"
                 elif "ELEMENT" in line.upper() and "C3D6" in line.upper():
                     cmd = "SD6"
+                elif "*ELSET" in line.upper() and "SOLID" in line.upper():
+                    if 'generate' in line.lower(): 
+                        cmd = 'SOLG'
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                solidname = d.split("=")[1].strip()
+                                break 
+                    else:
+                        cmd ="SOL"
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                solidname = d.split("=")[1].strip()
+                                break 
                 elif "*ELSET" in line.upper() and "CENTER" in line.upper():
-                    if 'generate' in line.lower(): cmd = 'BCENG'
+                    if 'generate' in line.lower(): 
+                        cmd = 'BCENG'
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break
                     else:
                         cmd ="BCEN"
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break 
                 elif "ELSET" in line.upper() and "UPFWD" in line.upper():
-                    if 'generate' in line.lower(): cmd = 'BUFG'
+                    if 'generate' in line.lower(): 
+                        cmd = 'BUFG'
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break
                     else:   
                         cmd = "BUF"
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break
                 elif "ELSET" in line.upper() and "UPAFT" in line.upper():
-                    if 'generate' in line.lower(): cmd = 'BUAG'
+                    if 'generate' in line.lower(): 
+                        cmd = 'BUAG'
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break
                     else:   
                         cmd = "BUA"
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break
                 elif "ELSET" in line.upper() and "LWAFT" in line.upper():
-                    if 'generate' in line.lower(): cmd = 'BLAG'
+                    if 'generate' in line.lower(): 
+                        cmd = 'BLAG'
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break
                     else:
                         cmd = "BLA"
+                        dline = line.split(",")
+                        for d in dline: 
+                            if "ELSET" in d.upper() and "=" in d: 
+                                beamname = d.split("=")[1].strip()
+                                break
                 elif "TREADPTN_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET" in line.upper(): 
                     return 0 
                 else:
@@ -7698,11 +7803,11 @@ class PATTERN:
                     self.rightprofile.append([PR, float(data[1].strip())*self.profilescaling])
                 if cmd =="P1": 
                     data = line.split(",")
-                    for dt in data:
-                        self.pitch1.append(dt.strip())
+                    self.pitch.append([data[0].strip(), data[4].strip(), data[5].strip(), data[6].strip(), data[7].strip(), data[8].strip()])
                 if cmd =="PS":
                     data = line.split(",")
-                    if len(data) == 3: self.pitchsequence.append([int(data[0].strip()), data[1].strip(), int(data[2].strip()) ])
+                    if len(data) == 3: 
+                        self.pitchsequence.append([int(data[0].strip()), data[1].strip(), int(data[2].strip()) ])
                 if cmd =="ND":
                     data = line.split(",")
                     if float(data[3].strip()) > 0: 
@@ -7736,6 +7841,7 @@ class PATTERN:
                         int(data[7].strip()) + self.Nstart, int(data[6].strip()) + self.Nstart, 8])                    
                 if cmd == "BCEN":
                     data = line.split(",")
+                    temp = [beamname]
                     for dt in data:
                         if dt.strip() =="": continue 
                         if dt.strip() !="": bid =  int(dt.strip()) + self.Estart
@@ -7752,12 +7858,17 @@ class PATTERN:
                                         break
                                 
                                 self.Center.append(tmp)
+                                temp.append(tmp)
+                    centerbeams.append(temp)
+
+                                
                 if cmd == 'BCENG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
+                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -7773,9 +7884,12 @@ class PATTERN:
                                         break
                                 
                                 self.Center.append(tmp)
-
+                                temp.append(tmp)
+                    centerbeams.append(temp)
+                
                 if cmd == "BUF":
                     data = line.split(",")
+                    temp = [beamname]
                     for dt in data:
                         if dt.strip() =="": continue 
                         bid =  int(dt.strip()) + self.Estart
@@ -7792,12 +7906,15 @@ class PATTERN:
                                         break
                                 
                                 self.UpFront.append(tmp)
+                                temp.append(tmp)
+                    UpFwd.append(temp)
                 if cmd == 'BUFG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
+                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -7812,9 +7929,12 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.UpFront.append(tmp)
+                                self.UpFront.append(tmp)  # # upAft =[]; lwAft = []; UpFwd =[]
+                                temp.append(tmp)
+                    UpFwd.append(temp)
                 if cmd == "BUA":
                     data = line.split(",")
+                    temp = [beamname]
                     for dt in data:
                         if dt.strip() =="": continue 
                         bid =  int(dt.strip()) + self.Estart
@@ -7830,13 +7950,16 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.UpBack.append(tmp)
+                                self.UpBack.append(tmp) # # upAft =[]; lwAft = []; UpFwd =[]
+                                temp.append(tmp)
+                    upAft.append(temp)
                 if cmd == 'BUAG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
+                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -7851,10 +7974,12 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.UpBack.append(tmp)
+                                self.UpBack.append(tmp)# # upAft =[]; lwAft = []; UpFwd =[]
+                                temp.append(tmp)
+                    upAft.append(temp)
                 if cmd == "BLA":
                     data = line.split(",")
-                    
+                    temp = [beamname]
                     for dt in data:
                         if dt.strip() =="": continue 
                         bid =  int(dt.strip()) + self.Estart
@@ -7870,13 +7995,16 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.LowBack.append(tmp)
+                                self.LowBack.append(tmp)# # upAft =[]; lwAft = []; UpFwd =[]
+                                temp.append(tmp)
+                    lwAft.append(temp)
                 if cmd == 'BLAG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
+                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -7891,44 +8019,64 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.LowBack.append(tmp)
-        
+                                self.LowBack.append(tmp)# # upAft =[]; lwAft = []; UpFwd =[]
+                                temp.append(tmp)
+                    lwAft.append(temp)
+                # self.pitch=[P1, ELSET_NAME]
+                if cmd == 'SOLG': 
+                    temp = []
+                    data = line.split(",")
+                    if len(data) < 3 : continue
+                    data[0] = int(data[0].strip())
+                    data[1] = int(data[1].strip())
+                    data[2] = int(data[2].strip())
+                    for dn in range(data[0], data[1]+1, data[2]): 
+                        temp.append(dn + self.Estart)
+
+                    for p in self.pitch: 
+                        if p[1] == solidname: 
+                            if len(p) == 6: 
+                                p.append(temp)
+                            else: 
+
+                                for t in temp: 
+                                    try: 
+                                        p[7].append(t)
+                                    except:
+                                        print (p)
+
+                if cmd == 'SOL': 
+                    data = line.split(",")
+                    for d in data: 
+                        d = int(d.strip())
+                    for p in self.pitch: 
+                        if p[1] == solidname: 
+                            if len(p) == 6: 
+                                p.append(data)
+                            else: 
+                                for t in data: 
+                                    p[7].append(t)
+
+
         if len(self.Node) > 10_0000: 
             print ("\n Too many nodes in the mesh (=%d >100,000)"%(len(self.Node)))
             return 0
         if len(self.Solid) == 0: 
             print ("\n No information of pattern mesh\n")
             return 0
+
+        if len(self.pitch) > 1:
+            p0=self.pitch[0][0] 
+            s0 =self.pitch[0][1] 
+            i = 1
+            while i < len(self.pitch): 
+                if self.pitch[i][0] != p0 and self.pitch[i][1] != s0: 
+                    self.CombinePitches(self.pitch, self.pitchsequence, centerbeams, upAft, lwAft, UpFwd)
+                    break 
+                i += 1 
         
-        # if self.TreadDesignWidth == 0: 
-
-        #     tmp = 0
-        #     sho = 0 
-        #     for i, pf in enumerate(self.leftprofile): 
-        #         if abs(pf[0]) > 0.05 and i < len(self.leftprofile)-1: 
-        #             self.TreadDesignWidth += pf[1]
-        #             sho = 1
-        #         else: 
-        #             tmp = pf[1]
-        #             break 
-        #     if sho == 1: self.TreadDesignWidth -= tmp/3.0 *2
-        #     tmp = 0
-        #     sho = 0 
-        #     for i, pf in enumerate(self.rightprofile): 
-        #         if abs(pf[0]) > 0.05 and i < len(self.rightprofile)-1: 
-        #             self.TreadDesignWidth += pf[1]
-        #             sho = 1
-        #         else: 
-        #             tmp = pf[1]
-        #             break 
-        #     if sho==1: self.TreadDesignWidth -= tmp/3.0 *2
-
-        #     self.TreadDesignWidth = round(self.TreadDesignWidth, 9)
-        # else: 
         self.TreadDesignWidth = round(self.TreadDesignWidth/1000, 9)
-            
-        
-        # self.PatternWidth 
+
         tnode = np.array(self.Node)
         zs = tnode[:,3]
         self.diameter = np.max(zs) * 2.0
@@ -7948,17 +8096,332 @@ class PATTERN:
         #     print ("*Design Width was set to 'Total width -10mm'")
 
         return 1 
+    def CombinePitches(self, pitches, sequence, beams, upAft, lwAft, UpFwd): 
+        # print ("\n")
+        # for p in pitches: 
+        #     print (" %s, %s, No. of Elements=%d"%(p[0], p[1], len(p[2])))
+        
+        if len(pitches) > 2: 
 
+            print ("\n P3DM does not support the divided mesh yet.")
+            print (" They should be combined ahead")
+            print (" ")
+            return 
+        else: 
+            # print (" %d, %s, %d"%(sequence[0][0], sequence[0][1], sequence[0][2]))
+            # print (" %d, %s, %d"%(sequence[1][0], sequence[1][1], sequence[1][2]))
+            # tmp = [bm[0], bm[1], bm[2], [n1x, n1y, n1z], [n2x, n2y, n2z]]
+
+            P1=[]; P2=[]
+            nps = np.array(self.Solid)
+            npn = np.array(self.Node)
+            for pitch in pitches: 
+                if pitch[0] == sequence[0][1]:
+                    for beam in beams: 
+                        if beam[0] == pitch[2]: 
+                            if beam[1][3][0] > beam[1][4][0]: 
+                                p1xu  = beam[1][3][0]
+                                p1xd  = beam[1][4][0]
+                            else: 
+                                p1xu  = beam[1][4][0]
+                                p1xd  = beam[1][3][0]
+                            i = 2 
+                            while i < len(beam): 
+                                if beam[1][3][0] > beam[1][4][0]: 
+                                    if p1xu > beam[1][3][0]: 
+                                        p1xu  = beam[1][3][0]
+                                    if p1xd < beam[1][4][0]: 
+                                        p1xd  = beam[1][4][0]
+                                else: 
+                                    if p1xu > beam[1][4][0]: 
+                                        p1xu  = beam[1][4][0]
+                                    if p1xd < beam[1][3][0]: 
+                                        p1xd  = beam[1][3][0]
+                                i += 1 
+                    
+                    for p in pitch[6]: 
+                        try: 
+                            ix = np.where(nps[:,0]==p)[0][0]
+                            P1.append(nps[ix])
+                        except:
+                            continue 
+                    P1Solid = pitch[1]
+                    P1BCen = pitch[2]
+                    P1BUpAft = pitch[3]
+                    P1BLwAft = pitch[4]
+                    P1BUpFwd = pitch[5]
+                if pitch[0] == sequence[1][1]:
+                    for beam in beams: 
+                        if beam[0] == pitch[2]: 
+                            if beam[1][3][0] > beam[1][4][0]: 
+                                p2xu  = beam[1][3][0]
+                                p2xd  = beam[1][4][0]
+                            else: 
+                                p2xu  = beam[1][4][0]
+                                p2xd  = beam[1][3][0]
+                            i = 2 
+                            while i < len(beam): 
+                                if beam[1][3][0] > beam[1][4][0]: 
+                                    if p2xu > beam[1][3][0]: 
+                                        p2xu  = beam[1][3][0]
+                                    if p2xd < beam[1][4][0]: 
+                                        p2xd  = beam[1][4][0]
+                                else: 
+                                    if p2xu > beam[1][4][0]: 
+                                        p2xu  = beam[1][4][0]
+                                    if p2xd < beam[1][3][0]: 
+                                        p2xd  = beam[1][3][0]
+                                i += 1 
+                    for p in pitch[6]: 
+                        try: 
+                            ix = np.where(nps[:,0]==p)[0][0]
+                            P2.append(nps[ix])
+                        except:
+                            continue 
+                    P2Solid = pitch[1]
+                    P2BCen = pitch[2]
+                    P2BUpAft = pitch[3]
+                    P2BLwAft = pitch[4]
+                    P2BUpFwd = pitch[5]
+
+            if p1xu > p2xu : 
+                up = np.array(P1)
+                down = np.array(P2)
+                upT = p1xu 
+                upD = p1xd 
+                downT = p2xu 
+                downD = p2xd 
+                
+                UpSolid = P1Solid
+                DownSolid = P2Solid
+                UpCen = P1BCen
+                UpUpAft = P1BUpAft
+                UpLwAft = P1BLwAft
+                UpUpFwd = P1BUpFwd 
+
+                DwCen = P2BCen
+                DwUpAft = P2BUpAft
+                DwLwAft = P2BLwAft
+                DwUpFwd = P2BUpFwd
+            else: 
+                up = np.array(P2)
+                down = np.array(P1)
+
+                upT = p2xu 
+                upD = p2xd 
+                downT = p1xu 
+                downD = p1xd 
+
+                UpSolid = P2Solid
+                DownSolid = P1Solid
+
+                UpCen = P2BCen
+                UpUpAft = P2BUpAft
+                UpLwAft = P2BLwAft
+                UpUpFwd = P2BUpFwd 
+
+                DwCen = P1BCen
+                DwUpAft = P1BUpAft
+                DwLwAft = P1BLwAft
+                DwUpFwd = P1BUpFwd
+
+            shift = upD - downT 
+
+            print ("* Pitch Shift to combine = %.3fmm"%(shift*1000))
+            print ("* Solid Elset : %s, %s"%(UpSolid, DownSolid))
+            # print (" UP", UpCen, UpUpAft, UpLwAft, UpUpFwd)
+
+            idx = np.where(up[:,9] ==6)[0]
+            sol6 = up[idx]
+            idx = np.where(up[:,9] ==8)[0]
+            sol8 = up[idx]
+            nid6 = sol6[:,1:7]
+            nid8 = sol8[:,1:9]
+            nid6 = nid6.flatten()
+            nid8 = nid8.flatten()
+            nid = np.concatenate((nid6, nid8))
+            nid = np.unique(nid)
+
+            for bm in beams: 
+                if bm[0] == UpCen: 
+                    UpCen = bm 
+                    break 
+            for bm in upAft: 
+                if bm[0] == UpUpAft: 
+                    UpUpAft = bm 
+                    break 
+            for bm in lwAft: 
+                if bm[0] == UpLwAft: 
+                    UpLwAft = bm 
+                    break 
+            for bm in UpFwd: 
+                if bm[0] == UpUpFwd: 
+                    UpUpFwd = bm 
+                    break 
+
+            
+            bnds=[]
+            i = 1  
+            while i < len(UpCen): 
+                bnds.append(UpCen[i][1])
+                bnds.append(UpCen[i][2])
+                i += 1
+            i = 1  
+            while i < len(UpUpAft): 
+                bnds.append(UpUpAft[i][1])
+                bnds.append(UpUpAft[i][2])
+                i += 1
+            i = 1  
+            while i < len(UpLwAft): 
+                bnds.append(UpLwAft[i][1])
+                bnds.append(UpLwAft[i][2])
+                i += 1
+            i = 1  
+            while i < len(UpUpFwd): 
+                bnds.append(UpUpFwd[i][1])
+                bnds.append(UpUpFwd[i][2])
+                i += 1
+
+            bnds = np.array(bnds, dtype=np.int32)
+            nid = np.concatenate((nid, bnds))
+            nid = np.unique(nid)
+
+            print ("* Upper Pitch nodes =%d"%(len(nid)))
+
+
+            shiftedNode = []
+
+            for n in nid: 
+                ix = np.where(npn[:,0]==n)[0][0]
+                shiftedNode.append([npn[ix][0], npn[ix][1]-shift, npn[ix][2], npn[ix][3]])
+            shiftedNode = np.array(shiftedNode)
+
+            MatchingNodes=[]
+            for n in shiftedNode: 
+                ix1 = np.where(npn[:,1] > n[1]-0.0005)[0]
+                ix2 = np.where(npn[:,1] < n[1]+0.0005)[0]
+                ix = np.intersect1d(ix1, ix2)
+
+                ix1 = np.where(npn[:,2] > n[2]-0.0005)[0]
+                ix2 = np.where(npn[:,2] < n[2]+0.0005)[0]
+                iy = np.intersect1d(ix1, ix2)
+
+                ix1 = np.where(npn[:,3] > n[3]-0.0005)[0]
+                ix2 = np.where(npn[:,3] < n[3]+0.0005)[0]
+                iz = np.intersect1d(ix1, ix2)
+
+                idx = np.intersect1d(ix, iy)
+                idx = np.intersect1d(idx, iz)
+
+                if len(idx)> 0: 
+                    for ix in idx: 
+                        jx = np.where(up[:,1:9] == npn[ix][0])[0] 
+                        if len(jx) ==0: 
+                            MatchingNodes.append([n[0], npn[ix][0]])
+
+            print ("* Nodes on the connecting face =%d"%(len(MatchingNodes)))
+            for nd in MatchingNodes: 
+                ixs = np.where(down[:,1:9]==nd[1])[0]
+                # if len(ixs) > 0: print ("no of nodes on the face =%d"%(len(ixs)))
+                for ix in ixs: 
+                    if down[ix][1] == nd[1] : down[ix][1] = nd[0]
+                    if down[ix][2] == nd[1] : down[ix][2] = nd[0]
+                    if down[ix][3] == nd[1] : down[ix][3] = nd[0]
+                    if down[ix][4] == nd[1] : down[ix][4] = nd[0]
+                    if down[ix][5] == nd[1] : down[ix][5] = nd[0]
+                    if down[ix][6] == nd[1] : down[ix][6] = nd[0]
+                    if down[ix][7] == nd[1] : down[ix][7] = nd[0]
+                    if down[ix][8] == nd[1] : down[ix][8] = nd[0]
+            
+            self.Center =[]
+
+            for bm in beams: 
+                if bm[0] == UpCen: 
+                    i =1 
+                    while i < len(bm): 
+                        bm[3][0] -= shift 
+                        bm[4][0] -= shift 
+                        self.Center.append(bm[i])
+                        i += 1
+                else: 
+                    i =1 
+                    while i < len(bm): 
+                        self.Center.append(bm[i])
+                        i += 1
+
+            self.UpFront = UpUpFwd[1:]
+            for bm in self.UpFront: 
+                bm[3][0] -= shift 
+                bm[4][0] -= shift 
+
+            for bm in lwAft: 
+                if bm[0] != UpLwAft[0]: 
+                     self.LowBack = bm[1:]
+                    
+            for bm in UpFwd: 
+                if bm[0] != UpUpAft[0]: 
+                     self.UpBack = bm[1:]
+
+            
+
+            self.Solid = []
+            for sl in up: 
+                self.Solid.append(sl)
+            for sl in down: 
+                self.Solid.append(sl)
+
+            self.Node=[]
+            
+            cnt = 0
+            for n in npn: 
+                ix = np.where(shiftedNode[:,0]==n[0])[0]
+                if len(ix) > 0: 
+                    cnt += 1
+                    self.Node.append(shiftedNode[ix[0]])
+                else: 
+                    self.Node.append(n)
+
+            print ("* %d nodes are shifted by %.3fmm"%(cnt, shift*1000))
+
+            npn = np.array(self.Node)
+
+            for bm in self.Center: 
+                ix = np.where(npn[:,0]==bm[1])[0][0]
+                bm[3][0] = npn[ix][1]
+                ix = np.where(npn[:,0]==bm[2])[0][0]
+                bm[4][0] = npn[ix][1]
+
+            for bm in self.UpFront: 
+                ix = np.where(npn[:,0]==bm[1])[0][0]
+                bm[3][0] = npn[ix][1]
+                ix = np.where(npn[:,0]==bm[2])[0][0]
+                bm[4][0] = npn[ix][1]
+
+            for bm in self.LowBack: 
+                ix = np.where(npn[:,0]==bm[1])[0][0]
+                bm[3][0] = npn[ix][1]
+                ix = np.where(npn[:,0]==bm[2])[0][0]
+                bm[4][0] = npn[ix][1]
+
+            for bm in self.UpBack: 
+                ix = np.where(npn[:,0]==bm[1])[0][0]
+                bm[3][0] = npn[ix][1]
+                ix = np.where(npn[:,0]==bm[2])[0][0]
+                bm[4][0] = npn[ix][1]
+            
+        
     def Pitchlength(self): 
         pmin = 10000.0
         pmax = -10000.0
         x = int(self.GlobalXY/10)
         y = int(self.GlobalXY%10)
-        for bm in self.Center: 
+        for bm in self.Center:
+            # print ("PL Calculation BEAM", bm) 
             if pmin > bm[3][y-1]: pmin = bm[3][y-1]
             if pmin > bm[4][y-1]: pmin = bm[4][y-1]
             if pmax < bm[3][y-1]: pmax = bm[3][y-1]
             if pmax < bm[4][y-1]: pmax = bm[4][y-1]
+        # print (" Pitch Length=%f"%((pmax-pmin)))
         return (pmax-pmin)
         # print ("Pitch length =%.3fmm"%(self.pitchlength*1000))
     def Expansion(self, layoutOD, layoutTDW, layoutTW, layoutGD, user_pitch_no=0, t3dm=0, shoulder="R"):
@@ -18022,7 +18485,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                 # print (" Del L=%.3f, R=%.2f dist=%.3f ht=%.4f"%(del_length, lastR*1000, dist*1000, height*1000))
                 # print ("center, %.3f, %.3f"%(lastCnt[2]*1000, lastCnt[3]*1000))
                 flatten.Add([n[0], n[1], -length, height])
-
+    # sys.exit()
     # for on, fn in zip(orgn.Node, flatten.Node): 
     #     print ("%d, %.6f, %.6f, , %d, %.6f, %.6f"%(on[0], on[2], on[3], fn[0], fn[2], fn[3]))
 
@@ -18030,7 +18493,9 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
 
     # flatterned_sorted = flatten.Sort(item=2)
     npn = np.array(flatten.Node)
-    
+
+    # for n in npn: 
+    #     print("%d, %.3f, %.3f"%(n[0], n[2]*1000, n[3]*1000))
 
     ## search bottom nodes 
     # btm_edges = EDGE()
@@ -18052,7 +18517,9 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
 
     e1 = np.array(e1); e2 = np.array(e2); edges = np.array(edges)
     en = np.setdiff1d(e1, e2)
-    # print ("the No. of Tread Edge separated %d\n\n"%(len(en)))
+    print ("the No. of Tread Edge separated %d\n\n"%(len(en)))
+
+
     if len(en)>1: 
         connected = []
         for e in en: 
@@ -18074,19 +18541,33 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                 # print ("EDGE selected..")
     # print ("BTM Edges\n\n")
     # for ed in btm_edges:
-    #     print("%d, %d, %d"%(ed[4], ed[0], ed[1]))
-
+    #     # print("%d, %d, %d"%(ed[4], ed[0], ed[1]))
+    #     print("%d"%(ed[4]), end=",")
     # print ("end...")
-    # print ("* SEARCHING TREAD SIDE NODES")
+
+    print ("* SEARCHING TREAD SIDE NODES : No=%d"%(len(btm_edges)))
     i = 0
     N = len(btm_edges)-5
     cnt = 0 
+    errExit = 0 
     while 1:
         cnt += 1
         if i >= N or cnt > 100000: break 
-        ix = np.where(nodes[:,0]==btm_edges[0][0])[0][0]; n0=nodes[ix]
-        ix = np.where(nodes[:,0]==btm_edges[0][1])[0][0]; n1=nodes[ix]
-        ix = np.where(nodes[:,0]==btm_edges[1][1])[0][0] 
+        # print (btm_edges[0])
+        # print (btm_edges[1])
+        # print ("%d, %d, %d"%(btm_edges[0][0], btm_edges[0][1], btm_edges[1][1]))
+        try: 
+            ix = np.where(nodes[:,0]==btm_edges[0][0])[0][0]; n0=nodes[ix]
+            ix = np.where(nodes[:,0]==btm_edges[0][1])[0][0]; n1=nodes[ix]
+            ix = np.where(nodes[:,0]==btm_edges[1][1])[0][0] 
+        except: 
+
+            print (" Error to find the nodes on tread side.")
+            print (" Check shoulder drop value!!")
+            print (" Current shoulder drop = %.2fmm"%(shoDrop*1000))
+            errExit = 1
+            break 
+
         n2=nodes[ix]
         if abs(n0[2] - n1[2]) > abs(n0[3] - n1[3]) : 
             del(btm_edges[0])
@@ -18098,47 +18579,51 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
         del(btm_edges[0])
         if angle < 2.3: ## 130 degrees
             break 
-    cnt = 0 
-    while 1: 
-        cnt += 1
-        N = len(btm_edges)-1
-        if N < 5 or cnt > 100000: break 
-        ix = np.where(npn[:,0]==btm_edges[N][1])[0][0]; n0=npn[ix]
-        ix = np.where(npn[:,0]==btm_edges[N][0])[0][0]; n1=npn[ix]
-        ix = np.where(npn[:,0]==btm_edges[N-1][0])[0][0]; n2=npn[ix]
-        if abs(n0[2] - n1[2]) > abs(n0[3] - n1[3]) : 
+
+    if errExit ==0: 
+        cnt = 0 
+        while 1: 
+            cnt += 1
+            N = len(btm_edges)-1
+            if N < 5 or cnt > 100000: break 
+            ix = np.where(npn[:,0]==btm_edges[N][1])[0][0]; n0=npn[ix]
+            ix = np.where(npn[:,0]==btm_edges[N][0])[0][0]; n1=npn[ix]
+            ix = np.where(npn[:,0]==btm_edges[N-1][0])[0][0]; n2=npn[ix]
+            if abs(n0[2] - n1[2]) > abs(n0[3] - n1[3]) : 
+                del(btm_edges[N])
+                continue 
+            angle = Angle_3nodes(n0, n1, n2, xy=23)
+            if n0[2] > 0: 
+                treadSide2Nodes = [n0[0], n1[0]]
             del(btm_edges[N])
-            continue 
-        angle = Angle_3nodes(n0, n1, n2, xy=23)
-        if n0[2] > 0: 
-            treadSide2Nodes = [n0[0], n1[0]]
-        del(btm_edges[N])
-        if angle < 2.3: ## 130 degrees
-            break 
+            if angle < 2.3: ## 130 degrees
+                break 
 
-    # print ("BTM Edges")
-    # for ed in btm_edges:
-    #     print("%d,"%(ed[4]), end="")
+        # print ("BTM Edges")
+        # for ed in btm_edges:
+        #     print("%d,"%(ed[4]), end="")
 
-    btm_nodes=NODE()
-    for i, ed in enumerate(btm_edges): 
-        if i == 0: 
-            ix = np.where(npn[:,0]==ed[0])[0][0]
+        btm_nodes=NODE()
+        for i, ed in enumerate(btm_edges): 
+            if i == 0: 
+                ix = np.where(npn[:,0]==ed[0])[0][0]
+                btm_nodes.Add(npn[ix])
+            ix = np.where(npn[:,0]==ed[1])[0][0]
             btm_nodes.Add(npn[ix])
-        ix = np.where(npn[:,0]==ed[1])[0][0]
-        btm_nodes.Add(npn[ix])
-    # for n in btm_nodes.Node:
-    #     print("%d,"%(n[0]))
-    btm_nodes = btm_nodes.Sort(item=2)
+        # for n in btm_nodes.Node:
+        #     print("%d,"%(n[0]))
+        btm_nodes = btm_nodes.Sort(item=2)
 
-    ix = np.where(nodes[:,0]== treadSide2Nodes[0])[0][0]
-    sideNodes.append(nodes[ix])
-    ix = np.where(nodes[:,0]== treadSide2Nodes[1])[0][0]
-    sideNodes.append(nodes[ix])
+        ix = np.where(nodes[:,0]== treadSide2Nodes[0])[0][0]
+        sideNodes.append(nodes[ix])
+        ix = np.where(nodes[:,0]== treadSide2Nodes[1])[0][0]
+        sideNodes.append(nodes[ix])
 
-    print("* Reference nodes on Tread side %d, %d"%(treadSide2Nodes[0],treadSide2Nodes[1] ))
+        print("* Reference nodes on Tread side %d, %d"%(treadSide2Nodes[0],treadSide2Nodes[1] ))
 
-    return  np.array(btm_nodes), sideNodes
+        return  np.array(btm_nodes), sideNodes
+    else: 
+        return [], []
 
 def Pattern_Gauge_Adjustment_ToBody(bottom_nodes_sorted, pattern_nodes, pattern_btm_surf, pattern_solid, OD, GaugeConstantRange, pattern_org_nodes, surf_ptnside_pos, surf_ptnside_neg, xy=23, mg=0.5E-03): 
     #        _Tread_bottom_sorted, pattern.npn, pattern.freebottom, pattern.nps, layout.OD, gauge_constant_range, pattern.Node_Origin, pattern.surf_pattern_pos_side, pattern.surf_pattern_neg_side)
@@ -21052,6 +21537,7 @@ def NormalVector(x1, x2, x3, y1, y2, y3):
 
     det = a1 * b2 - a2 * b1
     return det
+
 
 ##########################################################################################
 # End of General Functions 

@@ -48,7 +48,7 @@ def RimDiameter(rd, group='PCR', rimType='Tubeless'):
         if r[0] == rd: 
             return r[1] 
     return 0.0
-		
+
 class Ui_Dialog(object):
     def readMaterial(self, fName): 
         with open(fName) as In: 
@@ -63,6 +63,7 @@ class Ui_Dialog(object):
         self.carcassDrumDia = 0.0
         self.beltLift = 1.03
         self.tireCenterMinR=0.0
+        self.RolledLayerGauge=[]
         mat = ""
         for line in lines: 
             cod = ""
@@ -74,6 +75,12 @@ class Ui_Dialog(object):
                     data = line.split(",")
                     data = data[1].split("=")
                     self.beltRadius.append([data[0].strip(), float(data[1].strip())])
+                
+                if "Rolled Layer gauge" in line: 
+                    data = line.split(",")
+                    data = data[1].split("=")
+                    self.RolledLayerGauge.append([data[0].strip(), float(data[1].strip())])
+
 
                 if "Under carcass gauge" in line: 
                     data = line.split("=")
@@ -531,10 +538,10 @@ class Ui_Dialog(object):
         self.label_16.setGeometry(QtCore.QRect(210, 70, 51, 16))
         self.label_16.setObjectName("label_16")
         self.check_freespin = QtWidgets.QCheckBox(self.groupBox)
-        self.check_freespin.setGeometry(QtCore.QRect(270, 70, 81, 16))
+        self.check_freespin.setGeometry(QtCore.QRect(263, 70, 81, 16))
         self.check_freespin.setObjectName("check_freespin")
         self.check_lateralForce = QtWidgets.QCheckBox(self.groupBox)
-        self.check_lateralForce.setGeometry(QtCore.QRect(270, 120, 141, 16))
+        self.check_lateralForce.setGeometry(QtCore.QRect(263, 120, 141, 16))
         self.check_lateralForce.setObjectName("check_lateralForce")
         self.Edit_lateral = QtWidgets.QLineEdit(self.groupBox)
         self.Edit_lateral.setGeometry(QtCore.QRect(130, 120, 71, 20))
@@ -547,7 +554,7 @@ class Ui_Dialog(object):
         self.label_17.setGeometry(QtCore.QRect(210, 120, 51, 16))
         self.label_17.setObjectName("label_17")
         self.check_rotationForce = QtWidgets.QCheckBox(self.groupBox)
-        self.check_rotationForce.setGeometry(QtCore.QRect(270, 144, 71, 16))
+        self.check_rotationForce.setGeometry(QtCore.QRect(263, 144, 71, 16))
         self.check_rotationForce.setObjectName("check_rotationForce")
         self.Edit_Rotation = QtWidgets.QLineEdit(self.groupBox)
         self.Edit_Rotation.setGeometry(QtCore.QRect(130, 144, 71, 20))
@@ -560,10 +567,10 @@ class Ui_Dialog(object):
         self.label_20.setGeometry(QtCore.QRect(210, 144, 51, 16))
         self.label_20.setObjectName("label_20")
         self.label_21 = QtWidgets.QLabel(self.groupBox)
-        self.label_21.setGeometry(QtCore.QRect(430, 144, 101, 16))
+        self.label_21.setGeometry(QtCore.QRect(318, 144, 81, 16))
         self.label_21.setObjectName("label_21")
         self.Edit_angularVelocity = QtWidgets.QLineEdit(self.groupBox)
-        self.Edit_angularVelocity.setGeometry(QtCore.QRect(350, 144, 71, 20))
+        self.Edit_angularVelocity.setGeometry(QtCore.QRect(387, 144, 61, 20))
         self.Edit_angularVelocity.setAlignment(QtCore.Qt.AlignCenter)
         self.Edit_angularVelocity.setObjectName("Edit_angularVelocity")
         self.label_22 = QtWidgets.QLabel(self.groupBox)
@@ -700,6 +707,33 @@ class Ui_Dialog(object):
         self.check_Tube = QtWidgets.QCheckBox(self.groupBox)
         self.check_Tube.setGeometry(QtCore.QRect(457, 182, 91, 16))
         self.check_Tube.setObjectName("check_Tube")
+
+        self.Edit_SA_Start = QtWidgets.QLineEdit(self.groupBox)
+        self.Edit_SA_Start.setGeometry(QtCore.QRect(387, 120, 61, 20))
+        self.Edit_SA_Start.setAlignment(QtCore.Qt.AlignCenter)
+        self.Edit_SA_Start.setObjectName("Edit_SA_Start")
+        self.label_RelaxationFy_SA = QtWidgets.QLabel(self.groupBox)
+        self.label_RelaxationFy_SA.setGeometry(QtCore.QRect(350, 100, 101, 20))
+        self.label_RelaxationFy_SA.setObjectName("label_RelaxationFy_SA")
+        self.Edit_SA_TimeStart = QtWidgets.QLineEdit(self.groupBox)
+        self.Edit_SA_TimeStart.setGeometry(QtCore.QRect(458, 120, 51, 20))
+        self.Edit_SA_TimeStart.setAlignment(QtCore.Qt.AlignCenter)
+        self.Edit_SA_TimeStart.setObjectName("Edit_SA_TimeStart")
+        self.Edit_SA_TimeDuration = QtWidgets.QLineEdit(self.groupBox)
+        self.Edit_SA_TimeDuration.setGeometry(QtCore.QRect(510, 120, 51, 20))
+        self.Edit_SA_TimeDuration.setAlignment(QtCore.Qt.AlignCenter)
+        self.Edit_SA_TimeDuration.setObjectName("Edit_SA_TimeDuration")
+        self.label_RelaxationFy_Time = QtWidgets.QLabel(self.groupBox)
+        self.label_RelaxationFy_Time.setGeometry(QtCore.QRect(459, 100, 111, 20))
+        self.label_RelaxationFy_Time.setObjectName("label_RelaxationFy_Time")
+        self.Edit_SR_TimeDuration = QtWidgets.QLineEdit(self.groupBox)
+        self.Edit_SR_TimeDuration.setGeometry(QtCore.QRect(510, 144, 51, 20))
+        self.Edit_SR_TimeDuration.setAlignment(QtCore.Qt.AlignCenter)
+        self.Edit_SR_TimeDuration.setObjectName("Edit_SR_TimeDuration")
+        self.Edit_SR_TimeStart = QtWidgets.QLineEdit(self.groupBox)
+        self.Edit_SR_TimeStart.setGeometry(QtCore.QRect(458, 144, 51, 20))
+        self.Edit_SR_TimeStart.setAlignment(QtCore.Qt.AlignCenter)
+        self.Edit_SR_TimeStart.setObjectName("Edit_SR_TimeStart")
 
 
         self.groupBox_Check = QtWidgets.QGroupBox(self.groupBox)
@@ -1156,7 +1190,19 @@ class Ui_Dialog(object):
 
             self.tableWidget.setItem(i+ nSD, 4,  QtWidgets.QTableWidgetItem( str(sd[1])) )
             self.tableWidget.setItem(i+ nSD, 5,  QtWidgets.QTableWidgetItem( str(sd[6])) )
-            self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
+            if not self.radio_TBR.isChecked() and ("BT" in sd[0] or  "SPC" in sd[0] or "JEC" in sd[0]  or "JFC" in sd[0]):
+                found = 0
+                for br in self.RolledLayerGauge: 
+                    if br[0] == sd[0]: 
+                        rad = round(float(sd[7]) - br[1] / 2.0 , 4) 
+                        found =1 
+                        # print (sd[0], "belt radius = modifined by", br[1] / 2.0)
+                        break 
+                if found ==1: self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(rad)) )
+                else: self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
+            else:
+                self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
+                
             self.tableWidget.setItem(i+ nSD, 7,  QtWidgets.QTableWidgetItem( str(sd[5])) )
             
             if len(sd)> 8:
@@ -1165,9 +1211,6 @@ class Ui_Dialog(object):
                 self.tableWidget.setItem(i+ nSD, 10,  QtWidgets.QTableWidgetItem( str(sd[11])) )
                 self.tableWidget.setItem(i+ nSD, 11,  QtWidgets.QTableWidgetItem( str(sd[10])) )
             
-                
-
-
         self.label_76 = QtWidgets.QLabel(self.groupBox_5)
         self.label_76.setGeometry(QtCore.QRect(10, 80, 161, 16))
         self.label_76.setObjectName("label_76")
@@ -1222,7 +1265,7 @@ class Ui_Dialog(object):
                 self.retranslateUi(Dialog)
             else: 
                 self.retranslateUi(Dialog)
-                self.saveDefault(self.saveDefaultFile)
+                self.saveDefault(fname=self.saveDefaultFile)
 
         self.kerfContact = self.initKerfContact 
         
@@ -1349,7 +1392,7 @@ class Ui_Dialog(object):
             self.Edit_stiffness_KV.setText("24.6")
             self.Edit_stiffness_KL.setText("20.03")
             self.Edit_stiffness_KT.setText("30.0")
-            self.check_GroupTBR.setChecked(False)
+            # self.check_GroupTBR.setChecked(False)
             self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_PCLT.GEOM")
             self.check_LowCure.setChecked(False)
             self.groupBox_Check.setChecked(True)
@@ -1357,7 +1400,7 @@ class Ui_Dialog(object):
             self.Edit_stiffness_KV.setText("24.6")
             self.Edit_stiffness_KL.setText("20.03")
             self.Edit_stiffness_KT.setText("30.0")
-            self.check_GroupTBR.setChecked(False)
+            # self.check_GroupTBR.setChecked(False)
             self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_PCLT.GEOM")
             self.check_LowCure.setChecked(False)
             self.groupBox_Check.setChecked(True)
@@ -1365,7 +1408,7 @@ class Ui_Dialog(object):
             self.Edit_stiffness_KV.setText("114.0")
             self.Edit_stiffness_KL.setText("38.0")
             self.Edit_stiffness_KT.setText("72.0")
-            self.check_GroupTBR.setChecked(True)
+            # self.check_GroupTBR.setChecked(True)
             if self.check_Tube.isChecked(): 
                 self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_TBTUBE.GEOM")
             else:
@@ -1373,9 +1416,30 @@ class Ui_Dialog(object):
             self.check_LowCure.setChecked(True)
             self.groupBox_Check.setChecked(False)
 
+        self.reCalculationDrumRadius()
+
+
+    def UpdateMaterialFromDB(self): 
+        success = PTN.Update_ISLM_Material(wdir=self.Edit_materialPosition.text(), cordSaveFile=self.cordDB, fileListFile=self.solidListFile, \
+            cordfile=self.localCordDBFile, cordDBFile=self.Edit_cordFile.text())
+        
+        if success ==1:     
+            # print ("* ISLM Mateiral DB was updated.")
+            self.tableWidget.setItem(0, 4, QtWidgets.QTableWidgetItem(""))
+            self.tableWidget.setItem(0, 5, QtWidgets.QTableWidgetItem(""))
+            self.tableWidget.setItem(0, 6, QtWidgets.QTableWidgetItem(""))
+            self.tableWidget.setItem(0, 7, QtWidgets.QTableWidgetItem(""))
+        else: 
+            print ("## cannot access to server")
+            self.tableWidget.setItem(0, 4, QtWidgets.QTableWidgetItem("Cannot"))
+            self.tableWidget.setItem(0, 5, QtWidgets.QTableWidgetItem("access"))
+            self.tableWidget.setItem(0, 6, QtWidgets.QTableWidgetItem("to"))
+            self.tableWidget.setItem(0, 7, QtWidgets.QTableWidgetItem("server"))
+
+
     def reCalculationDrumRadius(self):
 
-        
+        self.UpdateMaterialFromDB()
 
         if os.path.isfile(self.currentSMARTInput):
             with open(self.currentSMARTInput) as MAT: 
@@ -1423,18 +1487,19 @@ class Ui_Dialog(object):
                 else:
                     if cords ==1: 
                         words = line.split(",")
-                        cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
+                        try: 
+                            cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
                         # try: 
                         #     cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
-                        # except:
-                        #     cordInfo.append([words[0].strip(), words[2].strip(), 0.0, 0.0, 0.0, 0.0])
+                        except:
+                            cordInfo.append([words[0].strip(), words[2].strip(), 0.0, 0.0, 0.0, 0.0])
                     if cords ==2: 
                         words = line.split(",")
                         sdInfo.append([words[0].strip(), words[1].strip()])
 
             nSD = self.rebarStartRow
 
-        self.saveDefault(self.currentSMARTInput, mat=1)
+        self.saveDefault(fname=self.currentSMARTInput, mat=1)
         try:  
             self.beltLift = float(self.Edit_beltLift.text())
             self.carcassDrumDia = float(self.Edit_CcDrumDia.text())
@@ -1528,10 +1593,19 @@ class Ui_Dialog(object):
             self.tableWidget.setItem(i+ nSD, 5,  QtWidgets.QTableWidgetItem( str(sd[6])) )
 
             if "BT" in sd[0] or  "SPC" in sd[0] or "JEC" in sd[0]  or "JFC" in sd[0]  : 
+
                 for br in self.beltRadius: 
                     if br[0] == sd[0]: 
                         rad = br[1]/self.beltLift 
                         break 
+                if not self.radio_TBR.isChecked(): 
+                    for br in self.RolledLayerGauge: 
+                        if br[0] == sd[0]: 
+                            rad -= br[1] / 2.0 
+                            # print (sd[0], "belt radius = modifined by", br[1] / 2.0)
+                            break 
+                # else: 
+                #     print (sd[0], "belt radius ", rad)
                 sd[7] = round(rad, 4)
             if "C0" in sd[0] or "CC" in sd[0]: 
                 layer = float(sd[0][-1])
@@ -1589,23 +1663,6 @@ class Ui_Dialog(object):
         
     def materialDBCheck(self): 
         ## (wdir='', cordSaveFile='', fileListFile='', host='', user='', pw='', cordname=0, cordfile=''):
-        
-
-        success = PTN.Update_ISLM_Material(wdir=self.Edit_materialPosition.text(), cordSaveFile=self.cordDB, fileListFile=self.solidListFile, \
-            cordfile=self.localCordDBFile, cordDBFile=self.Edit_cordFile.text())
-        
-        if success ==1:     
-            print ("* ISLM Mateiral DB was updated.")
-            self.tableWidget.setItem(0, 4, QtWidgets.QTableWidgetItem(""))
-            self.tableWidget.setItem(0, 5, QtWidgets.QTableWidgetItem(""))
-            self.tableWidget.setItem(0, 6, QtWidgets.QTableWidgetItem(""))
-            self.tableWidget.setItem(0, 7, QtWidgets.QTableWidgetItem(""))
-        else: 
-            print ("## cannot access to server")
-            self.tableWidget.setItem(0, 4, QtWidgets.QTableWidgetItem("Cannot"))
-            self.tableWidget.setItem(0, 5, QtWidgets.QTableWidgetItem("access"))
-            self.tableWidget.setItem(0, 6, QtWidgets.QTableWidgetItem("to"))
-            self.tableWidget.setItem(0, 7, QtWidgets.QTableWidgetItem("server"))
 
         try: 
             with open(self.cordDB) as matf: 
@@ -1700,7 +1757,7 @@ class Ui_Dialog(object):
             
 
     def generateSMART_Inp(self): 
-        self.saveDefault(self.currentSMARTInput, mat=1)
+        self.saveDefault(fname=self.currentSMARTInput, mat=1)
 
         f = open(self.Edit_SmartSave.text(), 'w')
         f.write("*SIMULATION_TYPE  = 0       ( 0:TIRE, 1:LAT100, 2:NPT)\n")
@@ -1752,28 +1809,55 @@ class Ui_Dialog(object):
             f.write("*CONDITION_LOAD   =  %s, %s, %s, %s\n"%(self.Edit_pressKgf.text(), self.Edit_pressKgf.text(), self.Edit_loadKgf.text(),self.Edit_velocity.text()))
         
         f.write("*CAMBER_ANGLE     =  %s\n"%(self.Edit_camber.text()))
-        if not self.check_lateralForce.isChecked(): 
-            f.write("*LATERAL_CONTROL  =  0, %s\n"%(self.Edit_lateral.text()))
-        else:
-            try:
-                f.write("*LATERAL_CONTROL  =  1, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
-            except:
-                return 
 
-        if not self.check_rotationForce.isChecked():
-            try: 
-                if float(self.Edit_angularVelocity.text()) == 0 and  float(self.Edit_Rotation.text()) == 0: 
-                    f.write("*ROTATION_CONTROL =  0, 0.0\n")
-                else: 
-                    f.write("*ROTATION_CONTROL =  0, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
-            except:
-                return 
-                    
-        else:
-            try: 
-                # f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
-                f.write("*ROTATION_CONTROL =  1, %.1f\n"%(float(self.Edit_Rotation.text())*9.81))
-            except: return 
+        try: 
+            txt = self.Edit_SA_TimeStart.text()
+            SA_Start = float(txt.strip())
+            txt = self.Edit_SA_TimeDuration.text()
+            SA_Duration = float(txt.strip())
+        except: 
+            SA_Start = 0.0
+            SA_Duration = 0.0 
+
+        if SA_Start ==0.0 and SA_Duration ==0.0: 
+            if not self.check_lateralForce.isChecked(): 
+                f.write("*LATERAL_CONTROL  =  0, %s\n"%(self.Edit_lateral.text()))
+            else:
+                try:
+                    f.write("*LATERAL_CONTROL  =  1, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
+                except:
+                    return
+        else: 
+            init = self.Edit_SA_Start.text()
+            f.write("*LATERAL_CONTROL  =  3, %s, %.3f, %.3f, %s\n"%(init, SA_Start, SA_Duration, self.Edit_lateral.text() ))
+        try : 
+            txt = self.Edit_SR_TimeStart.text()
+            SR_Start = float(txt.strip())
+            txt = self.Edit_SR_TimeDuration.text()
+            SR_Duration = float(txt.strip())
+        except:
+            SR_Start = 0.0 
+            SR_Duration = 0.0 
+
+        if SR_Start ==0.0 and SR_Duration ==0.0: 
+            if not self.check_rotationForce.isChecked():
+                try: 
+                    if float(self.Edit_angularVelocity.text()) == 0 and  float(self.Edit_Rotation.text()) == 0: 
+                        f.write("*ROTATION_CONTROL =  0, 0.0\n")
+                    else: 
+                        f.write("*ROTATION_CONTROL =  0, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+                except:
+                    return 
+                        
+            else:
+                try: 
+                    # f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+                    f.write("*ROTATION_CONTROL =  1, %.1f\n"%(float(self.Edit_Rotation.text())*9.81))
+                except: return 
+        else: 
+            f.write("*ROTATION_CONTROL  =  3, %s, %.3f, %.3f\n"%(self.Edit_Rotation.text(), SR_Start, SR_Duration ))
+
+
         try: 
             f.write("*ROAD_GEOM        =  %.3f ( road=0, drum or disc.=diameter in meter: RR(1.707), CLEAT(2.50), Wear(3.048), LAT100(0.317) )\n"%(float(self.Edit_RoadDia.text())))
             f.write("*RIM_GEOM         =  %.1f, %.1f, %s\n"%(float(self.Edit_RDmm.text())/2.0, float(self.Edit_RWmm.text())/2.0, self.Edit_RimGeo.text()))
@@ -2317,8 +2401,15 @@ class Ui_Dialog(object):
             self.Edit_CcDrumDia.setText("%.3f"%(self.carcassDrumDia))
             self.Edit_CcGa.setText("%.3f"%(self.carcassGa))
         
-    def saveDefault(self, fname, mat=0): 
-        subf = open(fname, 'w')
+    def saveDefault(self, fname="SMART_Default.dat", mat=0): 
+        fname="SMART_Default.dat"
+        try: subf = open(fname, 'w')
+        except: 
+            print(' File "D:\\01_ISLM_Scripts\\03_P3DM_TB\SMART_Input_UI.py"')
+            print (" subf = open(%s, 'w')"%(fname) )
+            print (" ValueError: Cannot open console input buffer for writing")
+            return 
+        
         if self.check_GroupTBR.isChecked(): group="TBR"
         else: 
             if self.radio_LTR.isChecked(): group="LTR"
@@ -2491,7 +2582,7 @@ class Ui_Dialog(object):
         self.Edit_Rotation.setText(_translate("Dialog",  str(self.rotationValue)))
         self.label_19.setText(_translate("Dialog", "Rotation Control"))
         self.label_20.setText(_translate("Dialog", "%/kgf"))
-        self.label_21.setText(_translate("Dialog", "Angular velocity"))
+        self.label_21.setText(_translate("Dialog", "Angular vel."))
         self.Edit_angularVelocity.setText(_translate("Dialog",  str(self.angularVelocity)))
         self.label_22.setText(_translate("Dialog", "Road Friction (UO, ZP, KP, ZS, KS, ALPHA, TAUC, BETA) "))
         self.label_9.setText(_translate("Dialog", "Rim Width"))
@@ -2657,6 +2748,14 @@ class Ui_Dialog(object):
 
         self.push_showCompd.setText(_translate("Dialog", "Show Comp\'d List"))
         self.push_showCord.setText(_translate("Dialog", "Show Cord List"))
+
+        self.Edit_SA_Start.setText(_translate("Dialog", "0"))
+        self.label_RelaxationFy_SA.setText(_translate("Dialog", "Slip Angle Initial"))
+        self.Edit_SA_TimeStart.setText(_translate("Dialog", "0"))
+        self.Edit_SA_TimeDuration.setText(_translate("Dialog", "0"))
+        self.label_RelaxationFy_Time.setText(_translate("Dialog", "Time Start / Del T"))
+        self.Edit_SR_TimeDuration.setText(_translate("Dialog", "0"))
+        self.Edit_SR_TimeStart.setText(_translate("Dialog", "0"))
 
         ###########################################################
         ## Tips..

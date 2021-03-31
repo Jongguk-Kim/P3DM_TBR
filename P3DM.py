@@ -27,6 +27,11 @@ import win32gui
 import SMART_Input_UI as SMART 
 import RegDB as regDB
 
+try: 
+    import paramiko as FTP 
+except: 
+    print ("No paramiko module.. ")
+
 class StdoutRedirect(QtCore.QObject):
     printOccur = QtCore.pyqtSignal(str, str, name="print")
  
@@ -1003,7 +1008,7 @@ class Ui_MainWindow(object):
         try : 
             success = PTN.Update_ISLM_Material(wdir=self.materialDir,  cordSaveFile=self.localCordDB, fileListFile=self.fileListFile, \
                 host=host, user=user, pw=pw, cordfile=self.ISLM_cordDBFile)
-            if success ==1:     print ("* Mateiral DB was updated.")
+            if success ==1:     print ("\n* Mateiral DB was updated.")
             else: print ("## cannot access to server")
            
             # print ("* ISLM Mateiral DB was updated.")
@@ -1594,13 +1599,16 @@ class Ui_MainWindow(object):
                 print ("## Select a pattern mesh")
                 return 
 
-            bottomEdges=SurfaceBoundary(self.pattern.freebottom)
-            edgeGroup=PTN.MakeEdgesToBlockGroup(bottomEdges)
-            if len(edgeGroup)>1: 
-                print ("#########################################")
-                print ("## Bottom Surface has (a) hole(s) : %d"%(len(edgeGroup)-1))
-                print ("## Check bottom surface ")
-                print ("#########################################")
+            try: 
+                bottomEdges=SurfaceBoundary(self.pattern.freebottom)
+                edgeGroup=PTN.MakeEdgesToBlockGroup(bottomEdges)
+                if len(edgeGroup)>1: 
+                    print ("#########################################")
+                    print ("## Bottom Surface has (a) hole(s) : %d"%(len(edgeGroup)-1))
+                    print ("## Check bottom surface ")
+                    print ("#########################################")
+            except:
+                print (" Pattern mesh is not opened.")
             
     def removal_tread(self): 
         self.radioDefault.setChecked(True)
@@ -2359,7 +2367,7 @@ class Ui_MainWindow(object):
 
             if self.ABAQUS.isChecked() == True:  
                 abq = 1
-                namechange = 0 
+                namechange = [0, 0] 
             else: abq = 0 
             # print (" Pattern off", POFFSET)
             PTN.Write_SMART_PatternMesh(file=savefile +".trd", nodes=self.fullnodes, elements=self.fullsolids , elsets=self.elset3d, XTRD=self.surf_XTRD1001, \
@@ -5023,6 +5031,18 @@ def SurfaceBoundary(surface):
     return np.array(bndedge)
 if __name__ == "__main__":
     import sys
+
+    # ftp = FTP.SSHClient()
+    # ftp.set_missing_host_key_policy(FTP.AutoAddPolicy())
+    # user = 'h20200155'
+    # pw = 'h20200155'
+    # try: 
+    #     ftp.connect(host, username=user, password=pw)
+    #     sftp = ftp.open_sftp()
+    #     dirList =sftp.listdir(wdir)
+    #     dirList = sorted(dirList)
+
+    # except: pass 
     
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
