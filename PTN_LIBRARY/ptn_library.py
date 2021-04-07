@@ -2470,7 +2470,10 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 f.write("*** Reinforcement cord max radius lifted, %5s=%.4f\n"%(bt[0], bt[1]*beltLift))
                 
         f.write("*** Under carcass gauge =%.3f\n"%(IL_Ga))
-        f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
+        try: 
+            f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
+        except:
+            pass 
         f.write("*** Tire Center Min.Radius=%.3f\n"%(center_minR))
         f.write("*********************************************************\n")
         f.write("*INCLUDE, INP=%s\n"%(axi.split("/")[-1]))
@@ -18021,7 +18024,7 @@ def AttatchSquarePatternSideNodes(layout_sidenodes, npn, orgn, surf_posSide, sur
     # print (layout_sidenodes[0][2], ",", layout_sidenodes[0][3])
     # print (layout_sidenodes[1][2], ",", layout_sidenodes[1][3])
     # print (layout_sidenodes[2][2], ",", layout_sidenodes[2][3])
-    
+
     sideNodes=[]
     for sf, sf1 in zip(surf_posSide, surf_negSide): 
         sideNodes.append(sf[7]);    sideNodes.append(sf[8]);    sideNodes.append(sf[9]);    sideNodes.append(sf[10])
@@ -18322,9 +18325,13 @@ def Unbending_layoutTread(nodes, Tread, LProfile, RProfile, Lcurves, Rcurves, OD
         GD = round(R - np.min(up_flatten[:, 3]), 4)
     return np.array(flatterned_sorted), GD
 def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, shoDrop=0.0): 
-    # print("UNBENDING Layout tread")
+    # print("** Unbending Tread elements in Layout \n")
 
     edge_tread = Tread.OuterEdge(nodes)
+
+    # print (len(edge_tread.Edge), " >> edge tread no.")
+    # print (" Tire Radius =%.2f"%(OD/2.0*1000))
+    # sys.exit()
 
     edgenodes=[]
     for ed in edge_tread.Edge:
@@ -18417,8 +18424,8 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                     
                     height = round(height, 4)
                     flatten.Add([n[0], n[1],  length, height])
-                    # print ([n[0], n[1],  length, height])
-                    # print ("R=%.1f, ht=%.5f"%(pf[0], height*1000))
+                    # print ("Flattened > ", [n[0], n[1],  length, height])
+                    # print ("      TR=%.1f, dist from top=%.5f"%(pf[0]*1000, (R-height)*1000))
                     fd = 1
                     break 
                 else: 
@@ -18497,15 +18504,15 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
     # btm_edges = EDGE()
     btm_edges = []
     e1=[]; e2=[]; edges=[]
-    # print ("## TREAD EDGE TOP")
+    # print ("## TREAD EDGE TOP R=%.2f"%(R*1000))
     for ed in edge_tread.Edge:
         ix1 = np.where(npn[:,0] == ed[0])[0][0]
         ix2 = np.where(npn[:,0] == ed[1])[0][0]
 
         # print (" %.5f, %.5f,\n %.5f, %5.5f,"%(npn[ix1][2], npn[ix1][3], npn[ix2][2], npn[ix2][3]))
         if npn[ix1][3] < R or npn[ix2][3] < R: 
-            # print ("%d (%.2f), %d (%.2f)"%(ed[0], npn[ix1][3]*1000, ed[1], npn[ix2][3]*1000))
-            # print("%d,"%(ed[4]), end=" ")
+            # print ("Tread %d (%.2f), %d (%.2f)"%(ed[0], npn[ix1][3]*1000, ed[1], npn[ix2][3]*1000))
+            # print("      %d,"%(ed[4]), end=" ")
             btm_edges.append(ed)
             e1.append(ed[0])
             e2.append(ed[1])
@@ -18513,7 +18520,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
 
     e1 = np.array(e1); e2 = np.array(e2); edges = np.array(edges)
     en = np.setdiff1d(e1, e2)
-    print ("the No. of Tread Edge separated %d\n\n"%(len(en)))
+    # print ("the No. of Tread Edge separated %d\n\n"%(len(en)))
 
 
     if len(en)>1: 
@@ -18537,11 +18544,11 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                 # print ("EDGE selected..")
     # print ("BTM Edges\n\n")
     # for ed in btm_edges:
-    #     # print("%d, %d, %d"%(ed[4], ed[0], ed[1]))
-    #     print("%d"%(ed[4]), end=",")
+        # print("%d, %d, %d"%(ed[4], ed[0], ed[1]))
+        # print("%d"%(ed[4]), end=",")
     # print ("end...")
 
-    print ("* SEARCHING TREAD SIDE NODES : No=%d"%(len(btm_edges)))
+    # print ("* SEARCHING TREAD SIDE NODES : No=%d"%(len(btm_edges)))
     i = 0
     N = len(btm_edges)-5
     cnt = 0 
@@ -18881,6 +18888,8 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
     x = int(xy/10); y = int(xy%10)
     prf = []
     print ("\n## Bending Pattern - Positive side profile")
+
+    
     lsum = 0 
     if profiles[-1][0] < 0: del(profiles[-1])
     for pf in profiles:
@@ -18903,6 +18912,17 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
         px = 0.0
         py = 0.0 
         deformed = [nd[0], nd[1], nd[2], nd[3]]
+
+        ##########################################################################################
+        ## for debugging 
+        ##########################################################################################
+        # if nd[3] == 0.5135: show=1
+        # else: show =  0 
+        # if show ==1: 
+        #     print ("**************************************************")
+        #     print ("** Node %d, %2f, %2f, %2f (OD/2=%.2f)"%(nd[0]-10**7, nd[1]*1000, nd[2]*1000, nd[3]*1000,OD/2.0 ))
+        ##########################################################################################
+
         if abs(nd[2]) < mg : 
             px = nd[x]; py=nd[y]
         else: 
@@ -18935,8 +18955,10 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
             cx = round(curves[npf][2][x], 9); cy = round(curves[npf][2][y], 9)
             r = profiles[npf][0]
             del_l = abs(nd[x]) - s_length 
-            # if del_l > profiles[npf][1]: 
-            #     print ("%d, x=%.1f, Curve L=%.3f, Del=%.3f"%(npf, nd[x]*1000, profiles[npf][1]*1000, del_l*1000))
+            # if show ==1:
+            #     if del_l > profiles[npf][1]: 
+            #         print ("%d, x=%.1f, Curve L=%.3f, Del=%.3f"%(npf, nd[x]*1000, profiles[npf][1]*1000, del_l*1000))
+            
             h = OD/2.0 - nd[y] 
 
             if negR == 0: 
@@ -18953,10 +18975,10 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
                 px = cx - (r+h) * cos(A)
                 py = cy - (r+h) * sin(A)
 
-
-        # if py > OD/2 or r < 0 : 
-            # print (" curve R=,%.6f, flat X=,%.6f, Ht=,%.6f, bended x=,%.6f, y=,%.6f, angle=,%.3f, sx=,%.6f, sy=,%6f, cx=,%.6f, cy=,%.6f"%(r, nd[x], h, px, py, degrees(A), sx,sy, cx, cy))
-            # print ("del L, %.6f, Del Angle, %.3f, start Angle=%.3f"%(del_l, degrees(del_l / r ), degrees(asin((cy - sy)/r)) ))
+        # if show ==1:
+        #     if py > OD/2 or r < 0 : 
+        #         print (" curve R=,%.6f, flat X=,%.6f, Ht=,%.6f, bended x=,%.6f, y=,%.6f, angle=,%.3f, sx=,%.6f, sy=,%6f, cx=,%.6f, cy=,%.6f"%(r, nd[x], h, px, py, degrees(A), sx,sy, cx, cy))
+        #         print ("del L, %.6f, Del Angle, %.3f, start Angle=%.3f"%(del_l, degrees(del_l / r ), degrees(asin((cy - sy)/r)) ))
 
 
         if nd[2]>0: deformed[x] = px 
@@ -20979,9 +21001,9 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                     if surf[10] <10**7 :       n4 = n1 
                     else:                      n4 = surf[10] + ptn_offset * i 
 
-            if (surf[0]==10**7+3450) and i ==0 : 
-                print ("3450: %8d %9d %9d %9d %9d %9d %9d %9d %9d"%(counting_surface, n1, n2, n3, n4, i+1, 1, 0, 1))
-                print (surf)
+            # if (surf[0]==10**7+3450) and i ==0 : 
+            #     print ("3450: %8d %9d %9d %9d %9d %9d %9d %9d %9d"%(counting_surface, n1, n2, n3, n4, i+1, 1, 0, 1))
+            #     print (surf)
             allnds.append(n1); allnds.append(n2); allnds.append(n3); allnds.append(n4)
             counting_surface += 1 
             if revPtn == False:     f.write( "%8d %9d %9d %9d %9d %9d %9d %9d %9d\n"%(counting_surface, n1, n2, n3, n4, i+1, 1, 0, 1))

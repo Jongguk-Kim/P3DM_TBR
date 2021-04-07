@@ -1411,6 +1411,14 @@ class Ui_MainWindow(object):
         
         self.layout = PTN.MESH2D(self.layoutmesh)
         self.lineEdit_BDWidth.setText(str(round(self.layout.beadWidth*1000,2)))
+        try: 
+            if len(self.layout.Tread.Element) == 0 and self.layout.T3DMMODE : 
+                self.layout.OD = self.pattern.diameter
+                self.layout.TDW = self.pattern.TreadDesignWidth
+                self.layout.GD = self.pattern.ModelGD 
+                # print ("TIRE OD =%.2f"%(self.layout.OD*1000))
+        except:
+            pass 
 
         if self.layout.IsError == 100: 
             del(self.layout)
@@ -1516,6 +1524,15 @@ class Ui_MainWindow(object):
                 print ("*TREAD_DESIGN_WIDTH : OOO.OO")
                 print ("********************************************\n")
                 return 
+
+            try: 
+                if len(self.layout.Tread.Element) == 0 and self.layout.T3DMMODE : 
+                    self.layout.OD = self.pattern.diameter
+                    self.layout.TDW = self.pattern.TreadDesignWidth
+                    self.layout.GD = self.pattern.ModelGD 
+                    # print ("TIRE OD =%.2f"%(self.layout.OD*1000))
+            except:
+                pass 
 
             if self.pattern.IsError ==1: 
                 return 0 
@@ -1640,7 +1657,7 @@ class Ui_MainWindow(object):
                 self.shoulderGa = PTN.ShoulderTreadGa(self.layout.OD, self.layout.RightProfile, self.layout.R_curves, \
                     self.flattened_Tread_bottom_sorted, self.layout.TDW, shoR=self.layout.r_shocurve)
 
-            elif self.layout.shoulderType == 'S'  and len(self.layout.tdnodes.Node) > 0: 
+            elif self.layout.shoulderType == 'S'  and len(self.layout.tdnodes.Node) > 0 and self.layout.T3DMMODE ==0: 
                 self.flattened_Tread_bottom_sorted,   self.layout.sideNodes=PTN.Unbending_squareLayoutTread(self.layout.tdnodes, self.layout.Tread, \
                     self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop)
                 self.shoulderGa = 1.0
@@ -1680,7 +1697,9 @@ class Ui_MainWindow(object):
                 print ("## Check the pattern shape. ")
                 print ("******************************************")
             # print ("*layout TDW=%.2f (Target=%.2f)"%(self.layout.TDW*1000, self.layout.TargetPatternWidth*1000))
-            
+            if self.layout.OD ==0.0: 
+                self.layout.OD = np.max(self.pattern.npn[:,3]) * 2.0
+
             auto_pitch=self.pattern.Expansion(self.layout.OD, self.layout.TDW, self.layout.TargetPatternWidth,\
                  self.layout.GD, user_pitch_no=self.user_number_pitch, t3dm=self.layout.T3DMMODE, shoulder=self.layout.shoulderType)
 
@@ -2088,6 +2107,7 @@ class Ui_MainWindow(object):
                 # print (" Profile information before bending ")
                 # for pf in self.layout.RightProfile:
                 #     print(pf)
+                
                 self.pattern.npn = PTN.BendingSquarePattern(OD=self.layout.OD, profiles=self.layout.RightProfile, curves=self.layout.R_curves,\
                         nodes=self.pattern.npn, xy=23)
 
@@ -2109,7 +2129,7 @@ class Ui_MainWindow(object):
             self.ptn_bended = PTN.COPYPTN(self.pattern)
             # if self.layout.T3DMMODE ==0 : or self.check_FricView.isChecked() == True : 
             #     self.check_FricView.setDisabled(True)
-            self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
+            if len(self.layout.Tread.Element): self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
 
             if self.layout.shoulderType=="R" : 
                 self.pattern.npn = PTN.RepositionNodesAfterShoulder(pf_ending, self.ptn_gauged.npn, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side, \
@@ -2405,10 +2425,11 @@ class Ui_MainWindow(object):
             except:
                 print ("\n Single pitch mesh was not created.")
             filename = savefile+"-L2DM.inp"
-            PTN.Creating_tread_removed_layout(fname=filename, nodes=self.layout.body_nodes, elements=self.layout.Element, elsets=self.layout.Elset,\
-             surfaces=self.layout.Surface, ties=self.layout.Tie, treads=self.layout.Tread, all_nodes=self.layout.Node)
-            print ("## Tread Removed Mesh is created.")
-            print ("  %s\n"%(filename.split("/")[-1]))
+            if len(self.layout.Tread.Element) > 0: 
+                PTN.Creating_tread_removed_layout(fname=filename, nodes=self.layout.body_nodes, elements=self.layout.Element, elsets=self.layout.Elset,\
+                surfaces=self.layout.Surface, ties=self.layout.Tie, treads=self.layout.Tread, all_nodes=self.layout.Node)
+                print ("## Tread Removed Mesh is created.")
+                print ("  %s\n"%(filename.split("/")[-1]))
 
             # self.nd_deleted=[]; self.fullnodes=[], P0_TOP, P0_SelfContact  ## 
             # P0_TOP = np.concatenate((P0_TOP), axis=0)
@@ -3205,6 +3226,7 @@ class myCanvas(FigureCanvas):
         self.p2=[]
         self.distance = 0.0 
         self.clicked = 0 
+        self.totalLength =0.0
         
         self.dots=[]
         self.lines=[]
@@ -3458,6 +3480,7 @@ class myCanvas(FigureCanvas):
 
             elif event.button ==3:
                 self.clicked += 1
+                if self.clicked ==1: self.totalLength = 0 
 
                 if self.snap_mode == 1: 
                     # indx = min(np.searchsorted(self.pointx, event.xdata), len(self.pointx)-1)
@@ -3509,10 +3532,12 @@ class myCanvas(FigureCanvas):
                 d, = plt.plot(tx, ty, 'o', color='red')
                 self.dots.append(d)
                 N = len(self.lxs)-1
+                
                 if N> 0: 
                     self.distance = round( sqrt((self.lxs[N]-self.lxs[N-1])**2 + (self.lys[N]-self.lys[N-1])**2 ) *1000, 2)
                     ch = plt.text((self.lxs[N]+self.lxs[N-1])/2.0, (self.lys[N]+self.lys[N-1])/2.0, str(self.distance), color="black", size=self.fontsize)
                     self.chars.append(ch)
+                    self.totalLength += self.distance
 
                     ln, = plt.plot([self.lxs[N-1], self.lxs[N]],[self.lys[N-1], self.lys[N]], color='orange')
                     self.lines.append(ln)
@@ -3549,7 +3574,7 @@ class myCanvas(FigureCanvas):
                         n1 = [0, 0, self.lxs[N], self.lys[N]]
                         n2 = [0, 0, self.lxs[N-1], self.lys[N-1]]
                         n3 = [0, 0, self.lxs[N-2], self.lys[N-2]]
-                        print ("  Angle =%.3f"%(PTN.Angle_3nodes(n1, n2, n3)*180.0/3.14159))
+                        print ("  Angle =%.3f (Length sum=%.3f)"%(PTN.Angle_3nodes(n1, n2, n3)*180.0/3.14159, self.totalLength))
 
                 self.figure.canvas.draw_idle()
 
