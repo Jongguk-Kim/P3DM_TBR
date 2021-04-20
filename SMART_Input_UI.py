@@ -323,19 +323,19 @@ class Ui_Dialog(object):
                         words = line.split("=")[1]
                         data = words.split(",")
                         self.Edit_lateral.setText(data[1].strip())
-                        if data[0].strip() == '1': 
+                        if data[0].strip() == '0':  ## force control 
                             self.check_lateralForce.setChecked(True)
-                        else:
+                        else:                       ## slip angle control 
                             self.check_lateralForce.setChecked(False)
                     elif "ROTATION_CONTROL" in line: 
                         cmd = ''
                         words = line.split("=")[1]
                         data = words.split(",")
                         self.Edit_Rotation.setText(data[1].strip())
-                        if data[0].strip() == '1': 
+                        if data[0].strip() == '0':   ## force control 
                             self.check_rotationForce.setChecked(True)
                             self.Edit_angularVelocity.setText("0")
-                        else:
+                        else:                        ## slip ratio control 
                             self.check_rotationForce.setChecked(False)
                             try:
                                 self.Edit_angularVelocity.setText(data[2].strip())
@@ -1821,10 +1821,10 @@ class Ui_Dialog(object):
 
         if SA_Start ==0.0 and SA_Duration ==0.0: 
             if not self.check_lateralForce.isChecked(): 
-                f.write("*LATERAL_CONTROL  =  0, %s\n"%(self.Edit_lateral.text()))
+                f.write("*LATERAL_CONTROL  =  1, %s\n"%(self.Edit_lateral.text()))
             else:
                 try:
-                    f.write("*LATERAL_CONTROL  =  1, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
+                    f.write("*LATERAL_CONTROL  =  0, %.1f\n"%(float(self.Edit_lateral.text())*9.81))
                 except:
                     return
         else: 
@@ -1843,16 +1843,16 @@ class Ui_Dialog(object):
             if not self.check_rotationForce.isChecked():
                 try: 
                     if float(self.Edit_angularVelocity.text()) == 0 and  float(self.Edit_Rotation.text()) == 0: 
-                        f.write("*ROTATION_CONTROL =  0, 0.0\n")
+                        f.write("*ROTATION_CONTROL =  1, 0.0\n")
                     else: 
-                        f.write("*ROTATION_CONTROL =  0, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
+                        f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
                 except:
                     return 
                         
             else:
                 try: 
                     # f.write("*ROTATION_CONTROL =  1, %s, %s\n"%(self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
-                    f.write("*ROTATION_CONTROL =  1, %.1f\n"%(float(self.Edit_Rotation.text())*9.81))
+                    f.write("*ROTATION_CONTROL =  0, %.1f\n"%(float(self.Edit_Rotation.text())*9.81))
                 except: return 
         else: 
             f.write("*ROTATION_CONTROL  =  3, %s, %.3f, %.3f\n"%(self.Edit_Rotation.text(), SR_Start, SR_Duration ))
@@ -2457,11 +2457,11 @@ class Ui_Dialog(object):
         if self.check_freespin.isChecked(): ch=1 
         else: ch = 0 
         subf.write("*Free spin=%d\n"%(ch))
-        if self.check_lateralForce.isChecked(): ch=1 
-        else: ch = 0 
+        if self.check_lateralForce.isChecked(): ch=0 
+        else: ch = 1 
         subf.write("*Lateral control=%d, %s\n"%(ch, self.Edit_lateral.text()))
-        if self.check_rotationForce.isChecked(): ch=1 
-        else: ch = 0 
+        if self.check_rotationForce.isChecked(): ch=0 
+        else: ch = 1 
         subf.write("*Rotation control=%d, %s, %s\n"%(ch, self.Edit_Rotation.text(), self.Edit_angularVelocity.text()))
         subf.write("*Test Rim width=%s\n"%(self.Edit_RWmm.text()))
         subf.write("*Test Rim Dia=%s\n"%(self.Edit_RDmm.text()))

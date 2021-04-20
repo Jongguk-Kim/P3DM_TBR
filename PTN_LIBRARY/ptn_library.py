@@ -4447,6 +4447,7 @@ class MESH2D:
         print ("* Right Last Tread EL to delete =%4d, \n  Distance from Center=%7.3f, drop=%7.3f"%(RightEL, dist*1000, drop*1000))
         print ("* Profile Width for pattern = %.3f"%(self.TargetPatternWidth*1000))
         return LeftEL, LeftY, RightEL, RightY, [L_curve, R_curve]
+
     def Searching_Upper_elements(self, el, solids, nodes, el2remove=[], btm_face=0, show=0, parallel=0 ): 
         ix1 = np.where(nodes[:,0] == el[1])[0][0]; n1 = nodes[ix1]
         ix2 = np.where(nodes[:,0] == el[2])[0][0]; n2 = nodes[ix2]
@@ -4460,6 +4461,7 @@ class MESH2D:
         # if el[0] == 2788 or el[0] == 2855  or el[0] == 2871 : 
         #     print (">>>> %d"%(el[0]))
         #     show = 1
+        show = 0 
         if show==1: 
             print ("\n   START : ", el, " bottom face=",  btm_face)
             # print ("    %d, %7.3f, %7.3f, %7.3f"%(n1[0], n1[1]*1000,  n1[2]*1000,  n1[3]*1000 ))
@@ -4488,7 +4490,8 @@ class MESH2D:
                         print ("    %d, %7.3f, %7.3f, %7.3f"%(n2[0], n2[1]*1000,  n2[2]*1000,  n2[3]*1000 ))
                         print ("    %d, %7.3f, %7.3f, %7.3f"%(n3[0], n3[1]*1000,  n3[2]*1000,  n3[3]*1000 ))
                         print ("    %d, %7.3f, %7.3f, %7.3f"%(n4[0], n4[1]*1000,  n4[2]*1000,  n4[3]*1000 ))
-                        sys.exit()
+                        # sys.exit()
+                        return 
                 bf = f
             else: 
                 bf = f = btm_face 
@@ -4572,13 +4575,16 @@ class MESH2D:
                         V2 =[0, 0, abs(sN3[2])-abs(sN2[2]), sN3[3]-sN2[3]]
                         btwAngle=Angle_Between_Vectors(V1,V2) 
 
-                        if btwAngle > 1.1: ## about above 63 degrees 
+                        if btwAngle > 1.221: ## about above 70.0 degrees 
                             estrain = 1
                             if show == 1: 
-                                print (" ^^^^^^^^^^^^^   direction is turned , Angle=%.1f"%(degrees(btwAngle)))
+                                print ("sn2", sN2);     print ("fn2", fN2);   print ("sn3", sN3);     print ("sn4", sN4)
+
+                                print (" >> Direction is turned , Angle=%.1f"%(degrees(btwAngle)))
                                 
                                 print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
-                                print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x=%.3f, n2x=%.3f, out of the bottom line"%(el[0], rmin*1000, rmax*1000, inext[0], abs(InNode1[2])*1000, abs(InNode2[2])*1000))
+                                print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x, n2x, out of the bottom line"%\
+                                                (el[0], rmin*1000, rmax*1000, inext[0]))
                             return el2remove, restrain 
 
                 ran = np.array([EN1[2], EN2[2]])
@@ -5040,6 +5046,7 @@ class MESH2D:
         EL3Next = 0 
 
         ppp = 0 
+        debug=0 
         while next_face != 0: 
             ppp += 1 
             if ppp > 1000: 
@@ -5060,7 +5067,7 @@ class MESH2D:
             ps = nextsolid
             preface = next_face 
             nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
-            # print ("*ps", ps, "preface",  preface, "next face", next_face)
+            if debug==1: print ("*ps", ps, "preface",  preface, "next face", next_face)
 
             if len(nextsolid) ==0: ## element has tie surface on the right (positive).. 
                 # print (" MEET TIE>>", ps, preface)
@@ -5139,6 +5146,7 @@ class MESH2D:
                         if bf > nsol[0][5] : bf -= nsol[0][5]
 
                         ups, cont = self.Searching_Upper_elements(nsol[0], solids, nep, el2remove=ups, btm_face=bf, show=0)
+                        if debug==1: print ("  EL to del> ", ups)
                         t_ending =0 
                         for up in ups: 
                             deletes.append(up)
@@ -5176,7 +5184,10 @@ class MESH2D:
             if bf > nextsolid[5]: bf = 1 
             # if nextsolid[0] == 2604: sh = 1 
             # else: sh = 0 
-            ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=0)
+            
+            ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=1)
+            if debug==1: print ("  EL to del>> ", ups)
+            # sys.exit()
             for up in ups: 
                 deletes.append(up)
                 element_to_delete.append(up)
@@ -5266,7 +5277,7 @@ class MESH2D:
             if ending ==1: 
                 break 
 
-
+        # sys.exit()
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
         #############################################################
@@ -8047,7 +8058,9 @@ class PATTERN:
                 if cmd == 'SOL': 
                     data = line.split(",")
                     for d in data: 
-                        d = int(d.strip())
+                        d = d.strip()
+                        if d!="": 
+                            d = int(d)
                     for p in self.pitch: 
                         if p[1] == solidname: 
                             if len(p) == 6: 
@@ -10896,7 +10909,7 @@ class PATTERN:
                             Trimmed.append(edges[k])
                             # print ("7. Trimmed", edges[k][3]-10**7)
                             if k <1: 
-                                print ("ERROR, NO EDGE between Edges")
+                                print ("Warning, NO EDGE between Edges")
                                 break 
                                 
                             
@@ -16751,6 +16764,88 @@ def NormalVector_plane(n1, n2, n3):
 
     return [0, II, JJ, KK]
 
+def IntersectionPointOf2Lines(L1=None, L2=None, xy=23): 
+    
+    # L1 = [N1, N2], L2=[N3, N4]
+    x = int(xy/10); y=int(xy%10)
+
+    x1=L1[0][x]; y1=L1[0][y]
+    x2=L1[1][x]; y2=L1[1][y]
+    x3=L2[0][x]; y3=L2[0][y]
+    x4=L2[1][x]; y4=L2[1][y]
+
+    N = None 
+
+    if  round(x1, 6) == round(x2, 6) and round(x3, 6) == round(x4, 6) and round(x2, 6) == round(x3, 6): 
+        print ("All nodes are at the same line [x=%f]"%(x1))
+        return N 
+    
+    if  round(y1, 6) == round(y2, 6) and round(y3, 6) == round(y4, 6) and round(y2, 6) == round(y3, 6): 
+        print ("All nodes are at the same line [y=%f]"%(y1))
+        return N 
+
+    if  round(x1, 6) == round(x2, 6) and round(y1, 6) == round(y2, 6) : 
+        print ("The nodes on 1st Line is at the same position")
+        return N 
+
+    if  round(x3, 6) == round(x4, 6) and round(y3, 6) == round(y4, 6) : 
+        print ("The nodes on 2nd Line is at the same position")
+        return N 
+
+
+    if round(x1, 6) == round(x2, 6) and round(x3, 6) != round(x4, 6):  
+        iX = x1 
+        if round(y3, 6) == round(y4, 6): 
+            iY = y3 
+            # print("c1")
+        else: 
+            iY = (y4-y3) / (x4-x3) * (iX - x3) + y3 
+            # print("c2")
+    elif round(x1, 6) != round(x2, 6) and round(x3, 6) == round(x4, 6):  
+        iX = x3 
+        if round(y1, 6) == round(y2, 6): 
+            iY = y1 
+            # print("c3")
+        else: 
+            iY = (y2-y1) / (x2-x1) * (iX - x1) + y1 
+            # print("c4")
+
+
+    elif round(y1, 6) == round(y2, 6) and round(y3, 6) != round(y4, 6): 
+        iY = y1 
+        if round(x3, 6) == round(x4, 6): 
+            iX = x3 
+            # print("c5")
+        else: 
+            iX = (x4-x3) / (y4-y3) * (iY - y3) + x3 
+            # print("c6")
+    elif round(y1, 6) != round(y2, 6) and round(y3, 6) == round(y4, 6): 
+        iY = y3 
+        if round(x1, 6) == round(x2, 6): 
+            iX = x1 
+            # print("c7")
+        else: 
+            iX = (x2-x1) / (y2-y1) * (iY - y1) + x1 
+            # print("c8")
+
+    else: 
+        A1 = (y2-y1) / (x2-x1)
+        A2 = (y4-y3) / (x4-x3)
+
+        if round(A1, 6) == round(A2, 6): ## parallel 
+            return N 
+
+        B1 = A1 * x1 - y1 
+        B2 = A2 * x3 - y3 
+
+        iX = (B1-B2) / (A1-A2)
+        iY = A1*(iX - x1) + y1 
+
+    N = [0, 0, 0, 0]
+    N[x] = iX; N[y]=iY 
+    return N 
+
+
 def TiltShoulderNodes(angle=0.0, nodes=[], less=10000.0, more=10000.0, buffer=0, shoulder_radius=0): 
     R = np.max(nodes[:,3]) 
     Hpw = np.max(nodes[:,2])
@@ -19162,7 +19257,9 @@ def ShoulderTreadGa(OD, profiles, curves, layout_btm_nodes, TDW, shoR=0, xy=23):
     return mga 
 
 def AttatchBottomNodesToBody(bodynodes=[], bodyelements=[], ptnnodes=[], ptnbottom=[], start=0, shoulder='R',\
-    ): 
+    ptnelements=None): 
+    if isinstance(ptnelements, type(None)):  ptnelements=[]
+
     btnodes = ptnbottom[:,7:]
     btnodes = np.unique(btnodes)
     btm = []
@@ -19234,31 +19331,72 @@ def AttatchBottomNodesToBody(bodynodes=[], bodyelements=[], ptnnodes=[], ptnbott
     for nd in btm: 
         # if nd[0] == 4282+10**7 or nd[0] == 4355 + 10**7 : sh = 1
         # else: sh = 0 
+
+        und = None
+
+        k = 0 
+        while k < 4: 
+            k += 1
+            ixs = np.where(ptnelements[:, k] == nd[0])[0]
+            if len(ixs) > 0: 
+                ix = ixs[0]
+                if ptnelements[ix][8] > 0:   offn = 4  
+                else: offn = 3 
+                
+                upN = ptnelements[ix][k + offn] 
+
+                ix = np.where(ptnnodes[:,0]==upN)[0][0]
+                und = ptnnodes[ix]
+                break 
+        
         fd = 0 
-        for bs in base: 
-            dist, cn = DistanceFromLineToNode2D(nd, nodes=bs, xy=23)
-            if cn[2]*nd[2] < 0: continue
-            # if dist < 0.05e-3 : 
-            #     fd = 1
-            #     break  
-            if bs[0][3] > bs[1][3]: 
-                up=bs[0][3]; down=bs[1][3]
-            else: 
-                up=bs[1][3]; down=bs[0][3]
+        ixf = np.where(ptnnodes[:, 0] == nd[0])[0][0]
 
-            if bs[0][2] > bs[1][2]: 
-                lt=bs[1][2]; rt = bs[0][2]
-            else: 
-                lt=bs[0][2]; rt = bs[1][2]
+        # print (" Up/Dw Nodes %d-%d"%(und[0]-10**7, nd[0]-10**7))
+        if isinstance(und, type(None)): 
+            for bs in base: 
+                dist, cn = DistanceFromLineToNode2D(nd, nodes=bs, xy=23)
+                if cn[2]*nd[2] < 0: continue  ## for error case. 
+                # if dist < 0.05e-3 : 
+                #     fd = 1
+                #     break  
+                if bs[0][3] > bs[1][3]: 
+                    up=bs[0][3]; down=bs[1][3]
+                else: 
+                    up=bs[1][3]; down=bs[0][3]
 
-            # if sh == 1: print (" %d (%.2f,%.2f)> (%.2f,%.2f)- (%.2f,%.2f)/(%.2f,%.2f)"%(nd[0]-10**7, nd[2]*1000, nd[3]*1000, cn[2]*1000, cn[3]*1000, bs[0][2]*1000, bs[1][2]*1000, down*1000, up*1000))
-            if cn[2] >= lt and cn[2] <= rt and down<=cn[3] and cn[3] <=up: 
-                # if sh == 1: print (" **************** MATCH")               
-                fd = 1 
-                ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
-                ptnnodes[ix][2] = cn[2]
-                ptnnodes[ix][3] = cn[3]
-                break
+                if bs[0][2] > bs[1][2]: 
+                    lt=bs[1][2]; rt = bs[0][2]
+                else: 
+                    lt=bs[0][2]; rt = bs[1][2]
+
+                # if sh == 1: print (" %d (%.2f,%.2f)> (%.2f,%.2f)- (%.2f,%.2f)/(%.2f,%.2f)"%(nd[0]-10**7, nd[2]*1000, nd[3]*1000, cn[2]*1000, cn[3]*1000, bs[0][2]*1000, bs[1][2]*1000, down*1000, up*1000))
+                if cn[2] >= lt and cn[2] <= rt and down<=cn[3] and cn[3] <=up: 
+                    # if sh == 1: print (" **************** MATCH")               
+                    fd = 1 
+                    ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
+                    ptnnodes[ix][2] = cn[2]
+                    ptnnodes[ix][3] = cn[3]
+                    break
+        
+        else: 
+            for i, bs in enumerate(base): 
+                iN = IntersectionPointOf2Lines([und, nd], bs, xy=23)
+                
+                if isinstance(iN, type(None)): continue 
+                if iN[2]*nd[2] < 0: continue  ## for error case. 
+
+                if bs[0][2] < bs[1][2]: 
+                    lN = bs[0]; rN = bs[1]
+                else: 
+                    lN = bs[1]; rN = bs[0]
+                if lN[2]<=iN[2] and iN[2]<=rN[2]:
+                    # print ("%d, %.3f, %.3f -> %.3f, %.3f"%(ptnnodes[ixf][0]-10**7, ptnnodes[ixf][2]*1000, ptnnodes[ixf][3]*1000, iN[2]*1000, iN[3]*1000))
+                    ptnnodes[ixf][2] = iN[2]
+                    ptnnodes[ixf][3] = iN[3] 
+                    fd =1 
+                    break 
+        
         if fd == 0: 
             # print (">> %d, %.3f, %.3f"%(nd[0]-10**7, nd[2]*1000, nd[3]*1000))
             mdist = 10e10
@@ -19274,10 +19412,10 @@ def AttatchBottomNodesToBody(bodynodes=[], bodyelements=[], ptnnodes=[], ptnbott
                     mdist = dist 
                     md = bs[1]
                     # if dist < 0.01: print ("     %d, %.3f, %.3f, d=%.3f"%(bs[1][0], bs[1][2]*1000, bs[1][3]*1000, dist*1000))
-            ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
-            ptnnodes[ix][2] = md[2]
-            ptnnodes[ix][3] = md[3]
-            
+            # ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
+            ptnnodes[ixf][2] = md[2]
+            ptnnodes[ixf][3] = md[3]
+    # sys.exit()        
     return ptnnodes
 def BendintPatternInCircumferentialDirection(nodes, OD): 
     R = OD/2.0 

@@ -2147,7 +2147,7 @@ class Ui_MainWindow(object):
                         self.layout.sideNodes, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side,\
                         self.pattern.TreadDesignWidth, self.layout.TDW, self.pattern.sideBtmNode )
             
-            self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, ptnbottom=self.pattern.freebottom, start=start, shoulder=self.layout.shoulderType)
+            self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, ptnbottom=self.pattern.freebottom, start=start, shoulder=self.layout.shoulderType, ptnelements=self.pattern.nps)
 
             if self.layout.shoulderType == 'S' :   self.layout.group ="TBR"
             if self.layout.group =="TBR" : subGa_margin = 0.001 
@@ -3994,7 +3994,7 @@ class myCanvas(FigureCanvas):
                     r = npn[k][3]
                 ny.append(r)
                 # allx.append(npn[k][2]); ally.append(r)
-            plt.scatter(nx, ny, c='gray', marker='o', edgecolor=None, s=1.0)
+            plt.scatter(nx, ny, c='gray', marker='o', edgecolor=None, s=.50)
             # allx=np.array(allx); ally=np.array(ally)
             # plt.scatter(allx, ally, c='lightgray', edgecolor=None, s=0.01)
 
