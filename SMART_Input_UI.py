@@ -2002,8 +2002,12 @@ class Ui_Dialog(object):
         else: pci = 1
         if self.check_LowCure.isChecked():       lcure = 1
         else: lcure = 0
-        f.write("*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=%s\n"%(pci, lcure, \
-            self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text(), self.Edit_PCI_press_kgf.text()))
+        if pci ==1: 
+            f.write("*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=%s\n"%(pci, lcure, \
+                self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text(), self.Edit_PCI_press_kgf.text()))
+        else: 
+            f.write("*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=0\n"%(pci, lcure, \
+                self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text() ))
         # line = "*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=%s\n"%(pci, lcure, \
             # self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text(), self.Edit_PCI_press_kgf.text())
         # lineSolid.append(line)

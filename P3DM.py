@@ -26,6 +26,7 @@ from operator import mul as OP_mul
 import win32gui
 import SMART_Input_UI as SMART 
 import RegDB as regDB
+import warnings 
 
 try: 
     import paramiko as FTP 
@@ -63,6 +64,7 @@ class Ui_MainWindow(object):
             pass
 
         self.mainWindowName = "P3DM - pattern mesh expansion"
+        warnings.filterwarnings('ignore')
 
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1200, 900)
@@ -451,15 +453,21 @@ class Ui_MainWindow(object):
 
         self.actionMaterial_DB = QtWidgets.QAction(MainWindow)
         self.actionMaterial_DB.setObjectName("actionMaterial_DB")
+        self.actionRotatePattern = QtWidgets.QAction(MainWindow)
+        self.actionRotatePattern.setObjectName("actionRotatePattern")
         
         self.menuFILE.addAction(self.actionSMART)
+        self.menuFILE.addAction(self.actionRotatePattern)
         self.menuFILE.addAction(self.actionMaterial_DB)
+        
         self.menubar.addAction(self.menuFILE.menuAction())
 
         self.menuFILE.setTitle("INP")
         self.actionSMART.setText("SMART")
+        self.actionRotatePattern.setText("Generate Rotated ptn")
         self.actionMaterial_DB.setText("Register DB")
         self.actionSMART.triggered.connect(self.openInputWindow)
+        self.actionRotatePattern.triggered.connect(self.Generate_Rotated_PTN)
         self.actionMaterial_DB.triggered.connect(self.registerMaterialDB)
         ############################################################
 
@@ -629,7 +637,6 @@ class Ui_MainWindow(object):
         self.P3DMLayout = 0 
         self.P3DMPattern = 0  
         self.ShowingImage = 'none'
-
         
         self.fullmeshSave=""
 
@@ -856,6 +863,14 @@ class Ui_MainWindow(object):
         self.btn_material.setShortcut(_translate("MainWindow", "Ctrl+U"))
         self.btn_material.setToolTip("Shortcut to Quit: Ctrl+U")
 
+    def Generate_Rotated_PTN(self): 
+        if self.readpattern:  
+            savefile, _= QtWidgets.QFileDialog.getSaveFileName(None, "Save files as",self.patternmesh[:-4]+"-Reversed.ptn" , "Pattern Mesh(*.ptn)")
+            if savefile: PTN.Generate_Rotated_PTN(self.patternmesh, savefile)
+        else: 
+            pass 
+
+
     def ptn_checking(self): 
         
         if self.readpattern: 
@@ -881,7 +896,17 @@ class Ui_MainWindow(object):
                 nodes = self.pattern.npn
                 solids = self.ptn_model.nps 
                 
-
+            PTN.PatternElementDuplicationCheck(solids)
+            
+            NodesInSolid=PTN.SearchingNodesInElement(nodes, solids)
+            if len(NodesInSolid): 
+                for ns in NodesInSolid: 
+                    txt = ""
+                    for n in ns[1]: 
+                        txt+= str(int(n))+", "
+                    txt=txt[:-2]
+                    print (" %s in Element %d"%(txt, ns[0]))
+            
             cnt, cln = PTN.NodeDistanceChecking(nodes, solids, margin=margin)
             if cnt > 0: 
                 dupn = []
@@ -949,7 +974,7 @@ class Ui_MainWindow(object):
             PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
                 elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element,\
                         materialDir=self.materialDir, btAngles=BT_angles, \
-                            overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
+                            overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000, pattern=self.readpattern)
 
                 
     def Update_ISLM_Material(self): 
@@ -2129,7 +2154,8 @@ class Ui_MainWindow(object):
             self.ptn_bended = PTN.COPYPTN(self.pattern)
             # if self.layout.T3DMMODE ==0 : or self.check_FricView.isChecked() == True : 
             #     self.check_FricView.setDisabled(True)
-            if len(self.layout.Tread.Element): self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
+            if len(self.layout.Tread.Element)  : 
+                self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
 
             if self.layout.shoulderType=="R" : 
                 self.pattern.npn = PTN.RepositionNodesAfterShoulder(pf_ending, self.ptn_gauged.npn, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side, \
@@ -2354,7 +2380,7 @@ class Ui_MainWindow(object):
             = PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
                 surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
                 offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
-                    rev=self.check_Direction.isChecked())
+                    rev=self.check_Direction.isChecked(), shoulderType=self.layout.shoulderType)
             
 
         if self.filesaved == 0 and len(solid_err) == 0: 
@@ -2406,7 +2432,7 @@ class Ui_MainWindow(object):
             else:  overtype = "SOT"
             PTN.SmartMaterialInput(axi=savefile +".axi", trd=savefile +".trd", layout=self.layoutmesh, \
                 elset=self.layout.Elset.Elset, node=self.layout.Node.Node, element=self.layout.Element.Element,\
-                     materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000)
+                     materialDir=self.materialDir, btAngles=BT_angles, overtype=overtype, PCIPress=self.PCIPress, bdw=self.layout.beadWidth*1000, pattern=self.readpattern)
             line = "Full tire meshes were saved.\n"
             self.fullmeshSave=savefile 
             self.Update_ISLM_Material()

@@ -9,7 +9,11 @@ import os, sys, time, json
 import matplotlib.pyplot as plt
 import subprocess
 
+from scipy.optimize import linprog
+from scipy.spatial import ConvexHull
+
 from numpy.lib.arraysetops import intersect1d 
+import warnings 
 
 try: 
     import paramiko as FTP 
@@ -45,7 +49,7 @@ TireRubberComponents = [
     'SRTT', # Associated with PK1, PK2, RFM and FLI components
     'SUT' , 'UTR', 'SUT1' , 'UTR1',# SubTread
     'TRW' , # Tread Wing
-    
+    'ES2' , # Belt Edge Strip in TBR
     'WSW'  # While Sidewall
 ]
 TireTreadComponents = [
@@ -1150,6 +1154,30 @@ def ElementDuplicationCheck(AllElements):
                 print ('## Error! CGAX4H ' + str(el[0]) + ' is overlapped.')
                 dup =  1
     return dup 
+def PointsInOutPolyhedron(points, pnt): 
+    """
+    points : points of the polyhedron 
+            the points should make convexhull.
+            [[x, y, z], [x, y, z]]
+    point : the point to check if it is in the polyhedron or not 
+            =[x,y,z]
+    """
+    
+    hull = ConvexHull(points, incremental=True)
+    hull_points = hull.points[hull.vertices, :]
+
+    N = hull_points.shape[0]
+    c = np.ones(N)
+    A_eq = np.concatenate((hull_points, np.ones((N,1))), 1).T   # rows are x, y, z, 1
+    b_eq = np.concatenate((pnt, (1,)))
+    warnings.filterwarnings('ignore')
+    result = linprog(c, A_eq=A_eq, b_eq=b_eq)
+    warnings.filterwarnings('default')
+
+    if result.status == 0: return True 
+    else: return False 
+
+    
 def LayoutProfileDefineForExpansion(profiles, halfTDW, ShoR=0.05, t3dm=0):
 
     sl = 0 
@@ -2273,7 +2301,7 @@ def GetRimDia_Size(size=""):
 
 def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[], \
     materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[], overtype='',\
-         PCIPress="", bdw=0): 
+         PCIPress="", bdw=0, pattern=0): 
 
     equ_Density = 1 
     
@@ -2458,7 +2486,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
             elif ("C0" in mat or "CC" in mat ) and tireGroup == 'TBR':  f.write("%4s,    CC, ES...., 120.0, 1.0, 1, 90.0, Dia.OnDrum\n"%(mat))
             elif "BD" in mat  :                       f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 45.0, 0.0\n"%(mat))
             elif "CH1" in mat  or "SCF" in mat:                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 30.0, 0.0\n"%(mat))
-            elif "CH2" in mat  or "NCF" in mat:                      f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 30.0, 0.0\n"%(mat))
+            elif "CH2" in mat  or "NCF" in mat:                      f.write("%4s,    NA, ET...., 120.0, 1.0, 0, -30.0, 0.0\n"%(mat))
             elif "SPC" in mat  :                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 0.0,  0.0\n"%(mat))
         
         # f.write("*** Belt cord max radius lifted\n")
@@ -2490,7 +2518,10 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 for mat in mat_solids: 
                     if 'CTR' in name.upper() or 'CTB' in name.upper(): 
                         if "CTR" in mat[0].strip() or "CTB" in mat[0].strip(): 
-                            f.write("%4s,      %s,   120,   1.0, %10.2f, 0.95, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
+                            if pattern ==0: 
+                                f.write("%4s,      %s,   120,   1.0, %10.2f, 0.95, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
+                            else: 
+                                f.write("%4s,      %s,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
                             name_compound.append(mat[1][-3:])
                             break 
                     elif 'SUT' in name.upper() or 'UTR' in name.upper(): 
@@ -2599,12 +2630,15 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                                                                         mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
                             cordCord.append(mat[1])
                         elif "CH" in mat[0]  :
+                            if "CH1" in mat[0]: strAngle='30.0'
+                            elif "CH2" in mat[0]: strAngle='-30.0'
+                            else: strAngle ='30.0'
                             if "ES" in mat[1]:                       
-                                f.write("%4s,    NA, %s, 120.0, 1.0, 1,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                        mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 1, %5s,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], strAngle, mat[4], mat[2]*1000, mat[5], mat[6]))
                             else:
-                                f.write("%4s,    NA, %s, 120.0, 1.0, 0,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                        mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 0, %5s,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], strAngle, mat[4], mat[2]*1000, mat[5], mat[6]))
                             cordCord.append(mat[1])
                         elif "SPC" in mat[0]  :
                             for dia in beltHalfDia: 
@@ -3910,7 +3944,7 @@ class MESH2D:
         # print (" circle point : start x, y, end x, y, center x, y, R=%.5f"%(self.OD/2))
         # for cv in self.R_curves: 
         #     print ("%.6f, %6f, %6f, %6f, %6f, %6f"%(cv[0][2], cv[0][3], cv[1][2], cv[1][3], cv[2][2], cv[2][3]))
-
+    
     def RemoveTieOnTread(self): 
         ## Remove tie on the removed tread 
         # print ("DELETING TIE ON TREAD")
@@ -4461,7 +4495,7 @@ class MESH2D:
         # if el[0] == 2788 or el[0] == 2855  or el[0] == 2871 : 
         #     print (">>>> %d"%(el[0]))
         #     show = 1
-        show = 0 
+        # show = 1 
         if show==1: 
             print ("\n   START : ", el, " bottom face=",  btm_face)
             # print ("    %d, %7.3f, %7.3f, %7.3f"%(n1[0], n1[1]*1000,  n1[2]*1000,  n1[3]*1000 ))
@@ -4750,10 +4784,41 @@ class MESH2D:
             if eset[0] != 'CTB' and eset[0] != 'CTR' and eset[0] != 'SUT' and eset[0] != 'UTR' : 
                 ESET.Elset.append(eset)
         return EL, ESET, ETL 
+    def RemovedTreadHeight(self, els, npn, elements):
+        tNodes=[]
+        for el in els: 
+            ix = np.where(elements[:,0]==el)[0][0]
+            i =1
+            
+            while i <= elements[ix][5] :
+                ij = np.where(npn[:,0]==elements[ix][i])[0][0]
+                tNodes.append(npn[ij])
+                i += 1
+        cvxNodes = iConvexHull(tNodes, xy=23)
+        mn = np.min(cvxNodes[:,3])
+        for i, n in enumerate(cvxNodes):
+            if mn == n[3]: 
+                imin = i 
+                break 
+
+        heights = 0.0
+        lstY = abs(cvxNodes[imin][2])
+        for i, n in enumerate(cvxNodes):
+            if imin ==i : continue 
+            if abs(n[2]) >= lstY : 
+                lstY = abs(n[2])
+                heights = sqrt((cvxNodes[imin][1]-n[1])**2 + (cvxNodes[imin][2]-n[2])**2 + (cvxNodes[imin][3]-n[3])**2)
+                # print (cvxNodes[imin][0], ",", n[0], " D=", heights*1000)
+        
+        return heights
+
+
     def RemoveTread(self, el, nd, elset, LeftProfile, RightProfile, TDW, ModelPatternTotalWidth=0, ModelPatternDesignWidth=0, LastLeft=0, LastRight=0, LY=0.0, RY=0.0, debug=0): 
 
         # target_halfwidth = self.Define_PatternWidth(LeftProfile, RightProfile, TDW, ModelPatternTotalWidth, ModelPatternDesignWidth)
         t0 = time.time()
+
+        marginHt2Remove = 2.5E-3
 
         LayoutOuter = self.Edge_TireProfile
 
@@ -5020,7 +5085,16 @@ class MESH2D:
         BottomFace_centerEL = btm_face
 
         debug =1
-         
+
+        mustbeDeleted=[] 
+        for e in el.Element:
+            if e[5]=='CTR' or e[5]=='CTB': 
+                ix = np.where(npn[:,0]==e[1])[0][0]
+                if abs(npn[ix][2]) < TDW*0.45: 
+                    mustbeDeleted.append(e[0])
+
+        # print (" ELEMENTS should be deleted")
+        # print (mustbeDeleted)
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
         element_to_delete=[]
@@ -5146,6 +5220,7 @@ class MESH2D:
                         if bf > nsol[0][5] : bf -= nsol[0][5]
 
                         ups, cont = self.Searching_Upper_elements(nsol[0], solids, nep, el2remove=ups, btm_face=bf, show=0)
+
                         if debug==1: print ("  EL to del> ", ups)
                         t_ending =0 
                         for up in ups: 
@@ -5182,52 +5257,71 @@ class MESH2D:
             ups.append(nextsolid[0])
             bf = next_face + 1
             if bf > nextsolid[5]: bf = 1 
-            # if nextsolid[0] == 2604: sh = 1 
+            # if nextsolid[0] == 2558: sh = 1 
             # else: sh = 0 
             
-            ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=1)
+            ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=0)
+            marginht = 0 
+            marginwidth = 0 
+            for m in range(1, 4): 
+                ix = np.where(npn[:,0]==nextsolid[m])[0][0]
+                if abs(npn[ix][2])> TDW*0.45:
+                    marginwidth =1 
+
+            if marginwidth ==1: 
+                ht = self.RemovedTreadHeight(ups, npn, solids)
+                
+                if ht < marginHt2Remove: 
+                    ending  = 1 
+                    meetlast = 1 
+                    marginht = 1 
+            
             if debug==1: print ("  EL to del>> ", ups)
             # sys.exit()
-            for up in ups: 
-                deletes.append(up)
-                element_to_delete.append(up)
-                if LastRight_EL == up : 
-                    meetlast = 1 
-                    if cont == 0 : 
-                        ending = 1
-                if skip == 0: 
-                    if meetlast == 1:
-                        ending =  1 
-            # print ("1", nextsolid[0],  bf, ups, ending)
-            if ending ==1:
-                # print ("FOUND Last ################")
-                ps = nextsolid
-                preface = next_face 
-                nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1) 
-                if len(nextsolid) > 0 :
-                    if start_triangular == 0: 
-                        _, face = Contact_relation_2Elements(nextsolid, ps)
-                        nf = face + 1 
-                        if nf > nextsolid[5] : nf = 1 
-                    else: 
-                        nf = next_face  
-                    checkups =[]
-                    checkups.append(nextsolid[0])
-                    bf = next_face + 1
-                    if bf > nextsolid[5]: bf = 1 
-                    checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
-                    adding = 0 
-                    for up in checkups: 
-                        if LastRight_EL == up: 
-                            adding = 1 
-                            break 
-                    if adding == 1: 
+            if marginht == 0: 
+                for up in ups: 
+                    deletes.append(up)
+                    element_to_delete.append(up)
+                    if LastRight_EL == up : 
+                        meetlast = 1 
+                        if cont == 0 : 
+                            ending = 1
+                    if skip == 0: 
+                        if meetlast == 1:
+                            ending =  1 
+                # print ("1", nextsolid[0],  bf, ups, ending)
+                if ending ==1:
+                    # print ("FOUND Last ################")
+                    ps = nextsolid
+                    preface = next_face 
+                    nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1) 
+                    if len(nextsolid) > 0 :
+                        if start_triangular == 0: 
+                            _, face = Contact_relation_2Elements(nextsolid, ps)
+                            nf = face + 1 
+                            if nf > nextsolid[5] : nf = 1 
+                        else: 
+                            nf = next_face  
+                        checkups =[]
+                        checkups.append(nextsolid[0])
+                        bf = next_face + 1
+                        if bf > nextsolid[5]: bf = 1 
+                        checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
+                        adding = 0 
                         for up in checkups: 
-                            deletes.append(up)
-                            element_to_delete.append(up)
+                            if LastRight_EL == up: 
+                                adding = 1 
+                                break 
+                        if adding == 1: 
+                            for up in checkups: 
+                                deletes.append(up)
+                                element_to_delete.append(up)
 
-                print ("  Profile Right Last Elements(%d)\n   to be deleted with"%(LastRight_EL), ups)
-                break 
+                    print ("  Profile Right Last Elements(%d)\n   to be deleted with"%(LastRight_EL), ups)
+                    break 
+            else: 
+                print ("  Stopped to search tread to remove (Ht=%.1fmm)"%(ht*1000), ups)
+                break
             if meetlast == 1: skip = 0 
             if nextsolid[5] == 4: EL3Next = 0
 
@@ -5255,7 +5349,10 @@ class MESH2D:
                 # print ("B ns", nxsolid, "face=", face)
                 nxsolid, nxface = self.SearchNextSolids(nxsolid, face=face, np_solid=solids, direction=1)
                 # print (ps, " >> C ns:", nxsolid, "face=", nxface, " < Up element on 3-node Element")
-                ups.append(nxsolid[0])
+                if len(nxsolid) > 0: 
+                    ups.append(nxsolid[0])
+                # else: 
+                #     return NEL, NELSET, Deleted
                 # print (ups)
                 # face = nxface
 
@@ -5434,59 +5531,81 @@ class MESH2D:
             # print (nextsolid, bf )
             ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=0)
             # print (nextsolid, bf, " UPS : ", ups)
-            for up in ups: 
-                deletes.append(up)
-                element_to_delete.append(up)
-                if LastLeft_EL == up : 
+
+            marginht = 0 
+            marginwidth = 0 
+            for m in range(1, 4): 
+                ix = np.where(npn[:,0]==nextsolid[m])[0][0]
+                if abs(npn[ix][2])> TDW*0.45:
+                    marginwidth =1 
+
+            if marginwidth ==1: 
+                ht = self.RemovedTreadHeight(ups, npn, solids)
+                
+                if ht < marginHt2Remove: 
+                    ending  = 1 
                     meetlast = 1 
-                    if cont == 0 : 
-                        ending = 1
-                if skip == 0: 
-                    if meetlast == 1:
-                        ending =  1 
-            if ending ==1: 
-                ps = nextsolid       
-                preface = next_face 
-                nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=-1)
-                if len(nextsolid) > 0: 
-                    if start_triangular == 0: 
-                        _, face = Contact_relation_2Elements(nextsolid, ps)
-                        nf = face - 1 
-                        if nf ==0: nf = nextsolid[5]
-                    else: 
-                        nf = next_face 
-                        next_face += 1
-                        if next_face == nextsolid[5] : next_face = 1
-                        nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
+                    marginht = 1 
+            
+            if debug==1: print ("  EL to del>> ", ups)
+            # sys.exit()
+            if marginht == 0: 
+                for up in ups: 
+                    deletes.append(up)
+                    element_to_delete.append(up)
+                    if LastLeft_EL == up : 
+                        meetlast = 1 
+                        if cont == 0 : 
+                            ending = 1
+                    if skip == 0: 
+                        if meetlast == 1:
+                            ending =  1 
+                if ending ==1: 
+                    ps = nextsolid       
+                    preface = next_face 
+                    nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=-1)
+                    if len(nextsolid) > 0: 
+                        if start_triangular == 0: 
+                            _, face = Contact_relation_2Elements(nextsolid, ps)
+                            nf = face - 1 
+                            if nf ==0: nf = nextsolid[5]
+                        else: 
+                            nf = next_face 
+                            next_face += 1
+                            if next_face == nextsolid[5] : next_face = 1
+                            nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
 
-                    checkups =[]
-                    checkups.append(nextsolid[0])
-                    bf = next_face -1 
-                    if bf ==0: bf = nextsolid[5]
-                    # print (nextsolid, bf )
-                    checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
-                    adding = 0 
-                    for up in checkups: 
-                        if LastLeft_EL == up : 
-                            adding =1 
-                            break 
-                    sameEl = 0
-                    for up in checkups: 
-                        for u in ups: 
-                            if u==up: 
-                                sameEl+=1 
-                                break
-                    if sameEl > 1: 
+                        checkups =[]
+                        checkups.append(nextsolid[0])
+                        bf = next_face -1 
+                        if bf ==0: bf = nextsolid[5]
+                        # print (nextsolid, bf )
+                        checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
                         adding = 0 
-                    
-                    if adding == 1: 
                         for up in checkups: 
-                            deletes.append(up)
-                            element_to_delete.append(up)
+                            if LastLeft_EL == up : 
+                                adding =1 
+                                break 
+                        sameEl = 0
+                        for up in checkups: 
+                            for u in ups: 
+                                if u==up: 
+                                    sameEl+=1 
+                                    break
+                        if sameEl > 1: 
+                            adding = 0 
+                        
+                        if adding == 1: 
+                            for up in checkups: 
+                                deletes.append(up)
+                                element_to_delete.append(up)
 
-                # print (" Tread Last EL to remove %d is in "%(LastLeft_EL), ups)
-                print ("*  Profile Left Last Elements(%d)\n   to be deleted with"%(LastLeft_EL), ups)
-                break 
+                    # print (" Tread Last EL to remove %d is in "%(LastLeft_EL), ups)
+                    print ("*  Profile Left Last Elements(%d)\n   to be deleted with"%(LastLeft_EL), ups)
+                    break 
+            else: 
+                print ("  Stopped to search tread to remove (Ht=%.1fmm)"%(ht*1000), ups)
+                break
             if meetlast == 1: skip = 0 
             if nextsolid[5] == 4: EL3Next = 0
 
@@ -5531,10 +5650,10 @@ class MESH2D:
             if ending ==1: 
                 break 
 
-
+        element_to_delete += mustbeDeleted
         element_to_delete = np.array(element_to_delete)
         element_to_delete = np.unique(element_to_delete)
-    
+
         NEL=ELEMENT()
         undelete = []
         cnt = 0 
@@ -5562,7 +5681,7 @@ class MESH2D:
                     element_to_delete= np.delete(element_to_delete, i)
                     break 
                 i += 1
-
+        
         ############################################################
         ## in case the element is divided into 2 elements 
         ## sometimes there are some elements to be deleted (isolated elements, no connection with other elelemnts )
@@ -7108,8 +7227,8 @@ class PATTERN:
         if len(self.UpFront) > 0: 
             ix = np.where(self.npn[:,0]== self.UpFront[0][1])[0][0]
             if self.npn[ix][3] != self.HalfDia: 
-                print ("# Half diameter=%.2f, Guide Ht=%.2f"%(self.HalfDia*1000, self.npn[ix][3]*1000))
-                print ("  Nodes are shifted (%.4f)"%((self.HalfDia - self.npn[ix][3])*1000))
+                print ("# Half diameter=%.2fmm, Guide Ht=%.2fmm"%(self.HalfDia*1000, self.npn[ix][3]*1000))
+                print ("  Nodes are shifted (%.4fmm)"%((self.HalfDia - self.npn[ix][3])*1000))
                 self.npn[:,3] += self.HalfDia - self.npn[ix][3]
 
                 self.diameter = round(self.npn[ix][3] *2.0, 5)
@@ -7439,6 +7558,18 @@ class PATTERN:
             print ("* Groove depth=%.2fmm"%(self.ModelGD*1000))
             print ("* Pitch length=%.2fmm"%(self.pitchlength*1000))
             print ("*********************************************\n")
+
+            # print()
+            # ix = np.where(self.Surface[:,0]==10**7+5862)[0]
+            # for x in ix : 
+            #     surf = self.Surface[x]
+            #     print ("Surf %d, F=%d, %d, %d, %d, %d"%(surf[0]-10**7, surf[1], surf[7]-10**7, surf[8]-10**7, surf[9]-10**7, surf[10]-10**7))
+            
+            # ix = np.where(self.KerfsideSurface[:,0]==10**7+5862)[0]
+            # for x in ix : 
+            #     surf = self.KerfsideSurface[x]
+            #     print ("ADDF %d, F=%d, %d, %d, %d, %d"%(surf[0]-10**7, surf[1], surf[7]-10**7, surf[8]-10**7, surf[9]-10**7, surf[10]-10**7))
+            
 
             NodesInFullDepthGrooves = self.NodesInSurface(self.SF_fulldepthgroove)
             self.Boundary_fulldepthgroove = self.SurfaceBoundary(self.SF_fulldepthgroove)  ## the nodes are counter-clockwise 
@@ -7823,14 +7954,21 @@ class PATTERN:
                     if len(data) == 3: 
                         self.pitchsequence.append([int(data[0].strip()), data[1].strip(), int(data[2].strip()) ])
                 if cmd =="ND":
+                    skip = 0 
                     data = line.split(",")
-                    if float(data[3].strip()) > 0: 
-                        self.Node.append([float(int(data[0].strip()) + self.Nstart),  round(float(data[1].strip()) * self.pitchscaling, 7), \
-                                    round(float(data[2].strip()) * self.pitchscaling, 7),  round(float(data[3].strip()) * self.pitchscaling, 7)])
-                    else: 
-                        print ("* All the Z values of the nodes should be positive")
-                        print ("  This mesh can not be expanded.")
-                        return 101 
+                    if len(data)>=4: 
+                        if float(data[3].strip()) > 0: 
+                            self.Node.append([float(int(data[0].strip()) + self.Nstart),  round(float(data[1].strip()) * self.pitchscaling, 7), \
+                                        round(float(data[2].strip()) * self.pitchscaling, 7),  round(float(data[3].strip()) * self.pitchscaling, 7)])
+                        else: 
+                            print ("* All the Z values of the nodes should be positive")
+                            print ("  This mesh can not be expanded.")
+                            return 101 
+
+                    # except:
+                    #     print ("ERROR!! ", line, data)
+                    #     return 101
+                        
 
                     # if self.MaxY < float(data[2].strip()) * self.pitchscaling: self.MaxY = float(data[2].strip()) * self.pitchscaling
                     # if self.MinY > float(data[2].strip()) * self.pitchscaling: self.MinY = float(data[2].strip()) * self.pitchscaling
@@ -10270,58 +10408,59 @@ class PATTERN:
         main = np.array(main)
         boundary = self.SurfaceBoundary(top_surf)
         adds = []
-        for bd in boundary: 
-            adj_sf = 1 
-            cnt = 0 
-            ups=[bd[0], bd[1]]
-            pre = []
-            while adj_sf: 
-                cnt += 1
-                if cnt > 15: break 
+        if len(main): 
+            for bd in boundary: 
+                adj_sf = 1 
+                cnt = 0 
+                ups=[bd[0], bd[1]]
+                pre = []
+                while adj_sf: 
+                    cnt += 1
+                    if cnt > 15: break 
 
-                adf1 = np.where(free[:,7:]==ups[0])[0]
-                adf2 = np.where(free[:,7:]==ups[1])[0]
-                adf = np.intersect1d(adf1, adf2)
-                if len(adf) ==0 or len(adf) > 2: 
-                    break 
-                # print (" start > %d"%(len(adf)))
+                    adf1 = np.where(free[:,7:]==ups[0])[0]
+                    adf2 = np.where(free[:,7:]==ups[1])[0]
+                    adf = np.intersect1d(adf1, adf2)
+                    if len(adf) ==0 or len(adf) > 2: 
+                        break 
+                    # print (" start > %d"%(len(adf)))
 
-                if cnt > 1 and len(adf) ==1: 
-                    break 
-                if len(adf) == 2: 
-                    if free[adf[0]][6] < free[adf[1]][6] : 
-                        adf = [adf[0]]
-                    else: 
-                        adf = [adf[1]]
-                
-                if cnt == 1:  ## check it belongs to the main groove side at the 1st loop
-                    ix1 = np.where(main[:,7:]==free[adf[0]][7])[0]
-                    ix2 = np.where(main[:,7:]==ups[0])[0]
-                    ixa = np.intersect1d(ix1, ix2)
-
-                    ix1 = np.where(main[:,7:]==free[adf[0]][8])[0]
-                    ix2 = np.where(main[:,7:]==ups[1])[0]
-                    ixb = np.intersect1d(ix1, ix2)
-
-                    if len(ixa) == 0 or len(ixb) == 0: 
+                    if cnt > 1 and len(adf) ==1: 
+                        break 
+                    if len(adf) == 2: 
+                        if free[adf[0]][6] < free[adf[1]][6] : 
+                            adf = [adf[0]]
+                        else: 
+                            adf = [adf[1]]
+                    
+                    if cnt == 1 :  ## check it belongs to the main groove side at the 1st loop
                         ix1 = np.where(main[:,7:]==free[adf[0]][7])[0]
-                        ix2 = np.where(main[:,7:]==ups[1])[0]
+                        ix2 = np.where(main[:,7:]==ups[0])[0]
                         ixa = np.intersect1d(ix1, ix2)
 
                         ix1 = np.where(main[:,7:]==free[adf[0]][8])[0]
-                        ix2 = np.where(main[:,7:]==ups[0])[0]
+                        ix2 = np.where(main[:,7:]==ups[1])[0]
                         ixb = np.intersect1d(ix1, ix2)
-                        if len(ixa) == 0 or len(ixb) == 0: 
-                            break 
-               
-                main = np.append(main, [free[adf[0]]], axis=0) 
-                adds.append(free[adf[0]])
 
-                downnodes = OtherNodes_InSurface(free[adf[0]], [ups[0], ups[1]])
-                ups= [downnodes[0][0], downnodes[1][0]]
-                # print ("add ", bd, "> ", ups, "surf %d, %d"%(free[adf[0]][0]-10**7, free[adf[0]][1]))
-                pre = free[adf[0]]
-                ## next loop 
+                        if len(ixa) == 0 or len(ixb) == 0: 
+                            ix1 = np.where(main[:,7:]==free[adf[0]][7])[0]
+                            ix2 = np.where(main[:,7:]==ups[1])[0]
+                            ixa = np.intersect1d(ix1, ix2)
+
+                            ix1 = np.where(main[:,7:]==free[adf[0]][8])[0]
+                            ix2 = np.where(main[:,7:]==ups[0])[0]
+                            ixb = np.intersect1d(ix1, ix2)
+                            if len(ixa) == 0 or len(ixb) == 0: 
+                                break 
+                
+                    main = np.append(main, [free[adf[0]]], axis=0) 
+                    adds.append(free[adf[0]])
+
+                    downnodes = OtherNodes_InSurface(free[adf[0]], [ups[0], ups[1]])
+                    ups= [downnodes[0][0], downnodes[1][0]]
+                    # print ("add ", bd, "> ", ups, "surf %d, %d"%(free[adf[0]][0]-10**7, free[adf[0]][1]))
+                    pre = free[adf[0]]
+                    ## next loop 
                 
         for sf in adds: 
             ix1 = np.where(free[:, 0]==sf[0])[0]
@@ -13730,7 +13869,8 @@ class PATTERN:
                                 # if orgn[ndn][0] == 3505+10**7: print ("*## 3505")
                             if debugmode ==1: print ("No of edges in the group=%d"%(len(sgroup)))
                             # print ("1")
-                            trans=self.MoveNodesBetween2Nodes(N00=orgn[indx[0]], NN0=orgn[indx[N]], N01=self.npn[indx[0]], NN1=self.npn[indx[N]], orgn=orgn, indexes=indx, debug=debugmode)
+                            N = len(indx)
+                            trans=self.MoveNodesBetween2Nodes(N00=orgn[indx[0]], NN0=orgn[indx[-1]], N01=self.npn[indx[0]], NN1=self.npn[indx[-1]], orgn=orgn, indexes=indx, debug=debugmode)
                             pN=len(trans)
                             if N > 1: 
                                 for k in range(1, pN+1): 
@@ -15879,24 +16019,44 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
     btmmax = 0 
     truncation = 5
     layer = -1
+
+    checkEL = 5841; checkEL1 = 5862
+
+    vertLine = [0, 0, 0, 1]
+
     for solid in nps:
 
-        # if solid[0]-10**7 == 928: 
-        #     print ("%d, %d, %d, %d, %d, %d, %d, %d, %d"%(solid[0]-10**7, solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7,solid[7]-10**7, solid[8]-10**7))
-
+        
         if solid[9] == 6: N=7     ## solid[9] == 6
         else: N=9                 ## solid[9] == 8
+
+        # if solid[0]-10**7 == checkEL: 
+        #     print ("The No. of Node=%d"%(N-1))
+        #     print ("%d, %d, %d, %d, %d, %d, %d, %d, %d"%(solid[0]-10**7, solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7,solid[7]-10**7, solid[8]-10**7))
+
+
         nodes_coord = []
+        elementNodes = []
+        angles=[]
+
         sx = 0.0;   sy = 0.0;      sz = 0.0
         topnode = []
+        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            # print (" Calculation the center of the faces")
         for i in range(1, N):
             index = np.where(npn[:, 0] == solid[i])
             tx = npn[index[0][0]][1]; ty=npn[index[0][0]][2]; tz =npn[index[0][0]][3]
             sx += tx;                  sy += ty;                 sz += tz 
-
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: print(npn[index[0][0]])
             # if round(tz, 7) == round(diameter/2.0, 7) : topnode.append(npn[index[0][0]][0])
             if abs(round(tz -R, truncation)) < 0.5E-3 : topnode.append(npn[index[0][0]][0])
             nodes_coord.append([tx,ty,tz])
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("node=%d"%(solid[0]-10**7), int(npn[index[0][0]][0])-10**7)
+            idx = index[0][0]
+            elementNodes.append(npn[index[0][0]])
+
+
 
         SolidCenter = [round(sx/solid[9], truncation), round(sy/solid[9], truncation), round(sz/solid[9], truncation)] 
 
@@ -15906,7 +16066,7 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
         top = 0 
         gap = R*2 
         
-        
+        # if solid[0]-10**7 == checkEL:  print ("The No. of Node=%d"%(N-1))
         
         if N == 9: 
             i = 0; j=1; m=2; n=3
@@ -15914,54 +16074,96 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation)
             centers.append([ssx, ssy, ssz, 1])
+            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
+            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("1: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
+            #     print("1:", Normal)
             if ssz >= topmargin and R-ssz < gap : 
                 top =1 
                 gap = R-ssz 
+                # if solid[0]-10**7 == checkEL:       print (" Top %d case "%(top))
 
             i = 4; j=5; m=6; n=7
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 2])
+            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
+            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("2: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
+            #     print(Normal)
+
             if ssz >= topmargin and R-ssz < gap : 
                 top =2 
                 gap = R-ssz 
+                # if solid[0]-10**7 == checkEL:           print (" Top %d case "%(top))
 
             i = 0; j=1; m=5; n=4
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 3])
+            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
+            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("3: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
+            #     print(Normal)
             if ssz >= topmargin and R-ssz < gap : 
                 top =3 
                 gap = R-ssz 
+                # if solid[0]-10**7 == checkEL:            print (" Top %d case "%(top))
 
             i = 1; j=2; m=6; n=5
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 4])
+            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
+            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("4: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
+            #     print(Normal)
             if ssz >= topmargin and R-ssz < gap : 
                 top =4 
                 gap = R-ssz 
+                # if solid[0]-10**7 == checkEL:                     print (" Top %d case "%(top))
 
             i = 2; j=3; m=7; n=6
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 5])
+            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
+            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("5: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
+            #     print(Normal)
             if ssz >=topmargin and R-ssz < gap : 
                 top =5 
                 gap = R-ssz 
+                # if solid[0]-10**7 == checkEL:                     print (" Top %d case "%(top))
 
             i = 3; j=0; m=4; n=7
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 6])
+            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
+            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("6: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
+            #     print(Normal)
+                
             if ssz >=topmargin and R-ssz < gap : 
                 top =6 
                 gap = R-ssz 
+                # if solid[0]-10**7 == checkEL:                     print (" Top %d case "%(top))
+
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("The No. of nodes=%d Top %d case "%(N-1, top))
+            #     print ("ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
         else:
             i = 0; j=1; m=2
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] )  / 3.0, truncation)
@@ -16007,13 +16209,15 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             if ssz >= topmargin and R-ssz < gap : 
                 top =5 
                 gap = R-ssz 
-        # if top > 0: 
-        #     print (" %d (N=%d) TOP Face=%d "%(solid[0]-10**7, N-1, top))
+        
+        
+        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+        #     print (" %d (No. of nodes=%d) TOP Face=%d "%(solid[0]-10**7, N-1, top))
         #     if len(centers) ==6: 
-        #         print ("%5.2f,%5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000,R1000-centers[5][2]*1000))
+        #         print ("Dist from Top: %5.2f,%5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000,R1000-centers[5][2]*1000))
         #     else: 
-        #         print ("%5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000))
-
+        #         print ("Dist from Top: %5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000))
+        
         if top == 0 or N != 9: 
             cnt = 0
             mz = 100000.0
@@ -16022,25 +16226,31 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             for cz in centers: 
                 if cz[1] > my2: my2 = cz[1]
                 if cz[1] < my1: my1 = cz[1]
-            # print ("*********")
+            # if solid[0]-10**7 == checkEL:print ("*********")
             for i, cz in enumerate(centers): 
-                # if solid[0]-10**7 == 260: 
-                #     print ("%d, %f"%(i, cz[2]*1000))
-                if cz[2] < mz: 
-                    # if solid[0]-10**7 == 260:   print (" >> max...")
+                # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:   print("CZ=%.3f vs MZ=%.3f"%(cz[2]*1000, mz*1000))
+                if cz[2] < mz and abs(angles[i]) > 0.785398 : 
                     mz = cz[2]
-                    if cz[1] > my1 and cz[1] < my2: cnt = i
-        else : 
-            if N==9 and top == 2 : cnt = 0 
-            elif N==9 and top == 1 : cnt = 1
+                    if my1 < cz[1] and cz[1] < my2: 
+                        cnt = i
+                        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:   print ("%d my1=%.3f, cz[1]=%.3f, my2=%.2f cz=%.2f"%(i, my1*1000, cz[1]*1000, my2*1000, cz[2]*1000))
+        elif N==9 : 
+            if top == 2  :  cnt = 0 
+            elif top == 1 : cnt = 1
+            elif  top == 3 :cnt = 4
+            elif top == 4 : cnt = 5
+            elif top == 5 : cnt = 2
+            else :          cnt = 3
 
-            elif N==9 and top == 3 : cnt = 4
-            elif N==9 and top == 4 : cnt = 5
-            elif N==9 and top == 5 : cnt = 2
-            elif N==9 : cnt = 3
+        #     if solid[0]-10**7 == checkEL: print ("top=%d, cnt=%d"%(top, cnt))
+
+        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:print ("N=%d, top=%d, cnt=%d"%(N, top, cnt))
 
         if N ==9: 
-            # print ("## ROTATION C3D8 %d"%(cnt), solid[0]-10000000, " \n ", solid[1]-10000000, solid[2]-10000000, solid[3]-10000000, solid[4]-10000000, solid[5]-10000000, solid[6]-10000000, solid[7]-10000000, solid[8]-10000000)
+            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+            #     print ("The No. of Node=%d"%(N-1))
+            #     print ("## ROTATION C3D8 cnt=%d"%(cnt), solid[0]-10**7, " \n nodes=", solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7, solid[7]-10**7, solid[8]-10**7)
+            #     print ("%d, %d, %d, %d, %d, %d, %d, %d, %d"%(solid[0]-10**7, solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7,solid[7]-10**7, solid[8]-10**7))
             if cnt == 0:   orders = [[0, 1, 4, 3, 2, 5, 8, 7, 6, 9] , [0, 1, 5, 4, 3, 2] ]  # [0, 1, 2, 3, 4, 5]  ## orders = [[el[0], N1[i]],   centers of faces ()]
             elif cnt == 1: orders = [[0, 6, 7, 8, 5, 2, 3, 4, 1, 9] , [1, 0, 3, 4, 5, 2] ]  # [[0,   6, 5, 8, 7,   2, 1, 4, 3, 9] , [1, 0,   2, 5, 4, 3] ]
 
@@ -16050,7 +16260,7 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             elif cnt == 5: orders = [[0, 1, 5, 8, 4, 2, 6, 7, 3, 9] , [5, 3, 2, 1, 4, 0] ]  # [[0,   1, 4, 8, 5,   2, 3, 7, 6, 9] , [5, 3,   0, 4, 1, 2] ]
             else:  
                 orders = [[0, 1, 4, 3, 2, 5, 8, 7, 6, 9] , [0, 1, 5, 4, 3, 2] ]
-                print ("## ERROR no combination C3D8 ", solid[0]-10000000, " \n ", solid[1]-10000000, solid[2]-10000000, solid[3]-10000000, solid[4]-10000000, solid[5]-10000000, solid[6]-10000000, solid[7]-10000000, solid[8]-10000000)
+                print ("## Warning no combination C3D8 ", solid[0]-10**7, " \n ", solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7, solid[7]-10**7, solid[8]-10**7)
                 # errsolid = [solid]
                 # text = "!! Error in solid construction %d"%(solid[0]-10**7)
         else: 
@@ -16069,6 +16279,7 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
         tmp = []
         for i in orders[0]: 
             tmp.append(solid[i])
+            # if solid[0]-10**7 == checkEL: print ("%d-%i"%(i, solid[i]-10**7))
 
         tmp.append(SolidCenter[0])
         tmp.append(SolidCenter[1])
@@ -16087,10 +16298,10 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
                     tmp.append(nodes_coord[i-1][1])
                     tmp.append(nodes_coord[i-1][2])
 
-        # if solid[0]-10**7 == 260: 
-        #     print (" cnt =", cnt )
+        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
+        #     print ("*** The No. of Node=%d"%(N-1))
+        #     print (" cnt =%d, element id, node ids"%(cnt))
         #     print ("%d, %d, %d, %d, %d, %d, %d, %d, %d"%(tmp[0]-10**7, tmp[1]-10**7, tmp[2]-10**7, tmp[3]-10**7, tmp[4]-10**7, tmp[5]-10**7, tmp[6]-10**7,tmp[7]-10**7, tmp[8]-10**7))
-        # print (solid[0])
         
         margin = 0.15E-03
         pl =0 
@@ -16125,6 +16336,7 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
     Surface = np.array(Surface)
     text += "\n* The node order of PTN was checked(%dEA)\n"%(changed)
     errsolid = []
+    # sys.exit()
     return nps, Surface, text, errsolid
 def Point_Plane_Distance(n, nodes): 
     n1 = nodes[0]; n2 = nodes[1]; n3 = nodes[2] 
@@ -16160,6 +16372,85 @@ def Point_Plane_Distance(n, nodes):
         
     return D, det 
 
+def SearchingNodesInElement(npn=None, nps=None): 
+    NodesInSolid = []
+    print ("** SEARCHING NODES IN ELEMENT")
+    nds = nps[:,1:9] 
+    nds = np.unique(nds)
+    if nds[0] ==0: 
+        nds = np.delete(nds, 0)
+    ns = []
+    for n in nds: 
+        ix = np.where(npn[:,0]==n)[0][0]
+        ns.append(npn[ix])
+    nds = np.array(ns)
+    
+    for sd in nps: 
+        xs=[];         ys=[];         zs=[]
+        ix = np.where(nds[:,0]==sd[1])[0][0]
+        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+        ix = np.where(nds[:,0]==sd[2])[0][0]
+        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+        ix = np.where(nds[:,0]==sd[3])[0][0]
+        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+        ix = np.where(nds[:,0]==sd[4])[0][0]
+        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+        ix = np.where(nds[:,0]==sd[5])[0][0]
+        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+        ix = np.where(nds[:,0]==sd[6])[0][0]
+        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+        if sd[9] == 8: 
+            ix = np.where(nds[:,0]==sd[7])[0][0]
+            xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+            ix = np.where(nds[:,0]==sd[8])[0][0]
+            xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
+
+        xmin=min(xs); xmax=max(xs)
+        ymin=min(ys); ymax=max(ys)
+        zmin=min(zs); zmax=max(zs)
+
+        ix1 = np.where(nds[:,1]>=xmin)[0]
+        ix2 = np.where(nds[:,1]<=xmax)[0]
+        ix = np.intersect1d(ix1, ix2)
+
+        ix1 = np.where(nds[:,2]>=ymin)[0]
+        ix2 = np.where(nds[:,2]<=ymax)[0]
+        iy = np.intersect1d(ix1, ix2)
+
+        ix1 = np.where(nds[:,3]>=zmin)[0]
+        ix2 = np.where(nds[:,3]<=zmax)[0]
+        iz = np.intersect1d(ix1, ix2)
+
+        ix = np.intersect1d(ix, iy)
+        ix = np.intersect1d(ix, iz)
+
+        if len(ix)>0: 
+            i = 0
+            while i < len(ix): 
+                j = 1 
+                fd = 0 
+                while j <= sd[9]: 
+                    if nds[ix[i]][0] == sd[j]: 
+                        ix = np.delete(ix, i)
+                        fd = 1 
+                        break 
+                    j += 1
+                if fd ==1: continue 
+                i += 1 
+            if len(ix) > 0: 
+                points=[]
+                for x, y, z in zip(xs, ys, zs): 
+                    points.append([x, y, z])
+                inNode=[]
+                for x in ix: 
+                    pnt = [nds[x][1],nds[x][2], nds[x][3]]
+                    isIn = PointsInOutPolyhedron(np.array(points), pnt)
+
+                    if isIn == True: 
+                        inNode.append(nds[x][0]-10**7)
+                if len(inNode)>0: 
+                    NodesInSolid.append([sd[0]-10**7, inNode])
+    return  NodesInSolid           
 
 def NodeDistanceChecking(nodes, nps, margin=0.1E-03): 
 
@@ -16173,6 +16464,8 @@ def NodeDistanceChecking(nodes, nps, margin=0.1E-03):
         newnode.append(nodes[id0])
     nodes = np.array(newnode)
 
+    ## node distance checking 
+    
     count =0 
     smalldist = []
     dists = []
@@ -16215,6 +16508,50 @@ def NodeDistanceChecking(nodes, nps, margin=0.1E-03):
         md = np.min(dists)
         print ("* Mininum distance of pattern nodes %.2f"%(md*1000))
     return count, smalldist 
+
+def PatternElementDuplicationCheck(nps): 
+    print ("** ELEMENT DUPLICATION CHECK ")
+    dup = []
+    for sd in nps:
+        fd = 0 
+        for d in dup: 
+            if d == sd[0]: 
+                fd=1
+                break 
+        if fd==1: continue 
+        ix1 = np.where(nps[:,1:8]==sd[1])[0]
+        ix2 = np.where(nps[:,1:8]==sd[2])[0]
+        ix3 = np.where(nps[:,1:8]==sd[3])[0]
+        ix4 = np.where(nps[:,1:8]==sd[4])[0]
+        ix5 = np.where(nps[:,1:8]==sd[5])[0]
+        ix6 = np.where(nps[:,1:8]==sd[6])[0]
+
+        ix = np.intersect1d(ix1, ix2)
+        ix = np.intersect1d(ix, ix3)
+        ix = np.intersect1d(ix, ix4)
+        ix = np.intersect1d(ix, ix5)
+        ix = np.intersect1d(ix, ix6)
+
+        if sd[9] == 8 : 
+            ix7 = np.where(nps[:,1:8]==sd[7])[0]
+            ix8 = np.where(nps[:,1:8]==sd[8])[0]
+
+        if len(ix)>1: 
+            i = 0 
+            while i < len(ix): 
+                if sd[0] == nps[ix[i]][0]: 
+                    ix = np.delete(ix, i, axis=0)
+                    continue 
+                i += 1
+            print (" ")
+            print ("%4d (%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d)"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7,sd[8]-10**7))
+            for x in ix: 
+                dup.append(nps[x][0])
+                print ("%4d (%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d)"%(nps[x][0]-10**7, nps[x][1]-10**7, nps[x][2]-10**7, nps[x][3]-10**7, nps[x][4]-10**7, nps[x][5]-10**7, nps[x][6]-10**7, nps[x][7]-10**7, nps[x][8]-10**7))
+
+    print ("")
+
+
 
 def SearchingNode(nid, npn, index=1): 
     ix = np.where(npn[:,0]==nid)[0]
@@ -17012,9 +17349,6 @@ def RepositionNodesAfterShoulder_old(shopoint=[], endpoint=[], ptn_tw=0.0, curre
             N = NormalPositionFromLineInPlane(position_ratio=position_ratio, ref_line=ref_line, n=n)
 
             nodes[ix][x] = N[x]
-            # nodes[ix][y] = N[y]
-
-
     return nodes 
 
 def Get_layout_treadbottom(flatten, allnodes): 
@@ -19427,7 +19761,8 @@ def BendintPatternInCircumferentialDirection(nodes, OD):
         bended.append([nd[0], r  * sin(theta), nd[2], r  * cos(theta),  r,  theta])
     return np.array(bended)
 def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_down, surf_free=[], \
-    surf_btm=[], surf_side=[], elset=[], offset=10000, pl=0, ptn_org=[], ptn_pl=0, pd=[], rev=False, newPitchNodes=[]): # pn: the number of pitches, 
+    surf_btm=[], surf_side=[], elset=[], offset=10000, pl=0, ptn_org=[], ptn_pl=0, pd=[], rev=False, newPitchNodes=[], \
+        shoulderType='R'): # pn: the number of pitches, 
     ## the nodes should have its radius for the processing speed.
     # pn : pitch number, OD : Tire OD (target) 
     # surf_side = [neg_pitch_side, pos_pitch_side]
@@ -19615,19 +19950,20 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
             surf_free = np.delete(surf_free, idx[0], 0)
 
     surf_to_body=[]
-    for sf in surf_side[0]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
-        #print("SIDE %d, Face=%d"%(sf[0]-10**7, sf[1]))
-        ix1 = np.where(surf_free[:,0] == sf[0])[0]
-        ix2 = np.where(surf_free[:,1] == sf[1])[0]
-        idx = np.intersect1d(ix1, ix2) 
-        if len(idx) == 1: 
-            surf_to_body.append(sf)
-    for sf in surf_side[1]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
-        ix1 = np.where(surf_free[:,0] == sf[0])[0]
-        ix2 = np.where(surf_free[:,1] == sf[1])[0]
-        idx = np.intersect1d(ix1, ix2) 
-        if len(idx) == 1: 
-            surf_to_body.append(sf)
+    if shoulderType == 'R': 
+        for sf in surf_side[0]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
+            #print("SIDE %d, Face=%d"%(sf[0]-10**7, sf[1]))
+            ix1 = np.where(surf_free[:,0] == sf[0])[0]
+            ix2 = np.where(surf_free[:,1] == sf[1])[0]
+            idx = np.intersect1d(ix1, ix2) 
+            if len(idx) == 1: 
+                surf_to_body.append(sf)
+        for sf in surf_side[1]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
+            ix1 = np.where(surf_free[:,0] == sf[0])[0]
+            ix2 = np.where(surf_free[:,1] == sf[1])[0]
+            idx = np.intersect1d(ix1, ix2) 
+            if len(idx) == 1: 
+                surf_to_body.append(sf)
     for sf in surf_btm: 
         ix1 = np.where(surf_free[:,0] == sf[0])[0]
         ix2 = np.where(surf_free[:,1] == sf[1])[0]
@@ -21694,6 +22030,102 @@ def NormalVector(x1, x2, x3, y1, y2, y3):
     det = a1 * b2 - a2 * b1
     return det
 
+def iConvexHull(oNode, XY=23, **args):
+    for key, value in args.items():
+        if key == 'xy':
+            XY = int(value)
+            
+    x=int(XY/10); y = int(XY)%10
+    if isinstance(oNode, list): 
+        LNode=NODE()
+        for nd in oNode: 
+            LNode.Add(nd)
+        oNode = LNode 
+    I = len(oNode.Node)
+
+    node=NODE()
+    for i in range(I):
+        node.Add([oNode.Node[i][0], oNode.Node[i][1], oNode.Node[i][2], oNode.Node[i][3]])
+    SortedNode=NODE()
+    if len(oNode.Node) == 0:
+        return SortedNode
+        
+    min = 10000000000000.0
+    nmin = 0
+    max = -100000000000.0
+    
+    for i in range(I):
+        if node.Node[i][y] < min:
+            min = node.Node[i][y]
+            tNode = node.Node[i]
+        if node.Node[i][y] > max:
+            max = node.Node[i][y]
+            mNode = node.Node[i]
+    SortedNode.Add(tNode)
+    
+    Center = tNode
+          
+    nmax = 0
+    pangle = 0.0
+    stopangle = pi*(2 - 1.0/180.0)
+    
+    for i in range(I):
+        
+        mAngle = 10000.0
+                         
+        for j in range(I):
+            if Center[0] != node.Node[j][0]:
+                N1 = [Center[0], Center[1], Center[2], Center[3]]
+                N1[x]+= 1.0
+                N2 = node.Node[j]
+                if Center[y]<N2[y] :
+                    angle = CalculateAngleFrom3Node(N1, N2, Center, XY=XY)
+                else:
+                    angle = pi * 2 - CalculateAngleFrom3Node(N1, N2, Center, XY=XY) 
+                
+                if mAngle > angle and angle >= pangle:
+                    tCenter = N2
+                    mAngle = angle
+        
+        if SortedNode.Node[0][0] == tCenter[0]:
+            break
+        if angle > stopangle: 
+            break
+            
+        SortedNode.Add(tCenter)
+        Center = tCenter
+        pangle = mAngle
+
+    return  np.array(SortedNode.Node)
+
+def CalculateAngleFrom3Node(N1, N2, Center, XY=13, **args):
+    for key, value in args.items():
+        if key == 'xy':
+            XY = int(value)
+    
+    ix = int(XY/10)
+    iy = int(XY)%10  
+    
+    V1x = N1[ix] - Center[ix]
+    V1y = N1[iy] - Center[iy]
+    V2x = N2[ix] - Center[ix]
+    V2y = N2[iy] - Center[iy]
+    
+    L1 = sqrt(V1x*V1x + V1y*V1y)
+    L2 = sqrt(V2x*V2x + V2y*V2y)
+    
+    # print 'L1', L1, ',V1:', V1x, ',', V1y
+    # print "L2", L2, ',V2:', V2x, ',', V2y
+    try:
+        return acos(round((V1x*V2x+V1y*V2y)/(L1*L2), 10))
+    except: 
+        
+        print ("ERROR. During Calculating Angle between Nodes - a in acos(a) is over 1.0 or L1*L2 = 0")
+        print ("  Length : ", L1,',', L2)
+        print ("  Node 1 : ", N1)
+        print ("  Node 2 : ", N2)
+        print ("  Center : ", Center)
+        return 0
 
 ##########################################################################################
 # End of General Functions 
@@ -22534,3 +22966,149 @@ def NodeDuplication_check(nodes)   :
         sys.exit()
     else: 
         return nodes 
+
+
+def Generate_Rotated_PTN(ptnFile, savefile): 
+    with open(ptnFile) as PN: 
+        lines = PN.readlines()
+    ProfileL =""
+    ProfileR = ""
+    nodes =[]
+    Remarks =""
+    information =""
+    PitchDif = []
+    PitchAry = []
+
+    name_UPAFT=[]
+    name_UPFWD=[]
+    name_LWAFT=[]
+
+    elements =""
+    esets = ""
+    PACmd =""
+    cmd = None 
+    for line in lines: 
+        if "**" in line: 
+            Remarks += line 
+            continue 
+        if "*" in line: 
+            
+            if "*PITCH_SCALING" in line :  
+                information +=  line 
+                continue 
+            elif "*PROFILE_SCALING" in line :  
+                information +=  line 
+                continue 
+            elif "*HALF_DIAMETER" in line :  
+                information +=  line 
+                continue 
+            elif "*CENTER_ANGLE" in line :  
+                information +=  line 
+                continue 
+            elif "*TREAD_DESIGN_WIDTH" in line :  
+                information +=  line 
+                continue 
+            elif "*GUIDELINE_TOLERANCE" in line :  
+                information +=  line 
+                continue 
+
+            elif "*PROFILE_LHS" in line :  
+                cmd = 'PL'
+                continue 
+            elif "*PROFILE_RHS" in line :  
+                cmd = 'PR'
+                continue 
+            elif "*PITCH_DEFINITION_FIRST" in line :  
+                cmd = "PD"
+                continue 
+            elif "*PITCH_ARRAY_FIRST" in line :  
+                cmd = "PA"
+                PACmd = line 
+                continue 
+            elif '*NODE' in line: 
+                cmd ="ND"
+            elif '*ELEMENT' in line and 'TYPE' in line: 
+                elements+= line 
+                cmd ="EL"
+            elif '*ELSET' in line:
+                fd = 0  
+                for i, nm in enumerate(name_UPFWD): 
+                    if nm in line: 
+                        line = line.replace(nm, name_UPAFT[i]) 
+                        fd =1 
+                        break 
+                if fd ==0: 
+                    for i, nm in enumerate(name_UPAFT): 
+                        if nm in line: 
+                            line = line.replace(nm, name_UPFWD[i]) 
+                            fd =1 
+                            break 
+                esets += line 
+                cmd = "ES"
+            else: 
+                cmd = None 
+
+        else: 
+            if cmd =='PL':  ProfileL += line 
+            if cmd =='PR':  ProfileR += line 
+            if cmd == 'PD': 
+                PitchDif.append(line)
+                dt = line.split(",")
+                name_UPAFT.append(dt[6].strip())
+                name_LWAFT.append(dt[7].strip())
+                name_UPFWD.append(dt[8].strip())
+                
+            if cmd == 'PA': PitchAry.append(line)
+            if cmd == 'ND': 
+                data = line.split(",")
+                data[0] = int(data[0].strip())
+                data[1] = float(data[1].strip())
+                data[2] = float(data[2].strip())
+                data[3] = float(data[3].strip())
+                nodes.append([data[0], data[1], data[2], data[3]])
+            if cmd == 'EL': 
+                elements+= line 
+            if cmd == 'ES': 
+                esets += line 
+
+
+    fp = open(savefile, 'w')
+
+    fp.write(information)
+    
+    fp.write("*PROFILE_LHS\n")
+    fp.write(ProfileR)
+    fp.write("*PROFILE_RHS\n")
+    fp.write(ProfileL)
+    fp.write("*PITCH_DEFINITION_FIRST\n")
+    for txt in PitchDif: 
+        fp.write(txt)
+    dt = PACmd.split(",")
+    nCmd =''
+    for d in dt: 
+        if "DIRECTION" in d.strip(): 
+            t = d.split("=")
+            if 'CW' in t[1]: 
+                d = "DIRECTION=CW"
+            else:
+                d = "DIRECTION=CCW"
+        nCmd += d.strip() +", "
+    nCmd = nCmd[:-2]+"\n"
+    fp.write(nCmd)
+
+    for txt in PitchAry: 
+        fp.write(txt)
+
+    fp.write("*NODE, SYSTEM=R\n")
+    rot =radians(180.0)
+    for nd in nodes: 
+        nd = RotateNode(nd, angle=rot, xy=21)
+        fp.write("%10d, %13.8E, %13.8E, %13.8E\n"%(nd[0], nd[1], nd[2], nd[3]))
+
+    fp.write(elements)
+    fp.write(esets)
+
+    fp.close()
+    print ("*******************************")
+    print ("** Pattern Mesh was saved.")
+    print ("*******************************")
