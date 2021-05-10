@@ -723,6 +723,8 @@ class Ui_Dialog(object):
         self.Edit_SA_TimeDuration.setGeometry(QtCore.QRect(510, 120, 51, 20))
         self.Edit_SA_TimeDuration.setAlignment(QtCore.Qt.AlignCenter)
         self.Edit_SA_TimeDuration.setObjectName("Edit_SA_TimeDuration")
+        
+
         self.label_RelaxationFy_Time = QtWidgets.QLabel(self.groupBox)
         self.label_RelaxationFy_Time.setGeometry(QtCore.QRect(459, 100, 111, 20))
         self.label_RelaxationFy_Time.setObjectName("label_RelaxationFy_Time")
@@ -734,13 +736,12 @@ class Ui_Dialog(object):
         self.Edit_SR_TimeStart.setGeometry(QtCore.QRect(458, 144, 51, 20))
         self.Edit_SR_TimeStart.setAlignment(QtCore.Qt.AlignCenter)
         self.Edit_SR_TimeStart.setObjectName("Edit_SR_TimeStart")
-
-
+        
         self.groupBox_Check = QtWidgets.QGroupBox(self.groupBox)
         self.groupBox_Check.setGeometry(QtCore.QRect(9, 274, 551, 71))
         self.groupBox_Check.setCheckable(True)
 
-        self.gridLayout_2.addWidget(self.groupBox, 1, 2, 1, 3)
+        self.gridLayout_2.addWidget(self.groupBox, 1, 3, 1, 3)
 
         if self.PCI == 1:     self.groupBox_Check.setChecked(True)
         else:                 self.groupBox_Check.setChecked(False)
@@ -1232,28 +1233,34 @@ class Ui_Dialog(object):
 
         self.push_showCompd.clicked.connect(self.openMaterialFile)
         self.push_showCord.clicked.connect(self.openCordFile)
-
+        
+        self.pushSaveAs = QtWidgets.QPushButton(Dialog)
+        self.pushSaveAs.setMinimumSize(QtCore.QSize(100, 30))
+        self.pushSaveAs.setMaximumSize(QtCore.QSize(100, 30))
+        self.pushSaveAs.setObjectName("pushSaveAs")
+        self.gridLayout_2.addWidget(self.pushSaveAs, 0, 0, 1, 1)
+        self.pushSave = QtWidgets.QPushButton(Dialog)
+        self.pushSave.setMinimumSize(QtCore.QSize(100, 30))
+        self.pushSave.setMaximumSize(QtCore.QSize(100, 30))
+        self.pushSave.setObjectName("pushSave")
+        self.gridLayout_2.addWidget(self.pushSave, 0, 1, 1, 1)
 
         self.Edit_SmartSave = QtWidgets.QLineEdit(Dialog)
         self.Edit_SmartSave.setMinimumSize(QtCore.QSize(0, 30))
         self.Edit_SmartSave.setObjectName("Edit_SmartSave")
-        self.gridLayout_2.addWidget(self.Edit_SmartSave, 0, 1, 1, 2)
-        self.pushSave = QtWidgets.QPushButton(Dialog)
-        self.pushSave.setMinimumSize(QtCore.QSize(200, 30))
-        self.pushSave.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.pushSave.setObjectName("pushSave")
-        self.gridLayout_2.addWidget(self.pushSave, 0, 0, 1, 1)
+        self.gridLayout_2.addWidget(self.Edit_SmartSave, 0, 2, 1, 2)
+
         self.pushDefault = QtWidgets.QPushButton(Dialog)
         self.pushDefault.setMinimumSize(QtCore.QSize(100, 30))
-        self.pushDefault.setMaximumSize(QtCore.QSize(100, 16777215))
+        self.pushDefault.setMaximumSize(QtCore.QSize(100, 30))
         self.pushDefault.setObjectName("pushDefault")
-        self.gridLayout_2.addWidget(self.pushDefault, 0, 3, 1, 1)
+        self.gridLayout_2.addWidget(self.pushDefault, 0, 4, 1, 1)
         self.push_openSample = QtWidgets.QPushButton(Dialog)
         self.push_openSample.setMinimumSize(QtCore.QSize(100, 30))
-        self.push_openSample.setMaximumSize(QtCore.QSize(100, 16777215))
+        self.push_openSample.setMaximumSize(QtCore.QSize(100, 30))
         self.push_openSample.setObjectName("push_openSample")
         self.push_openSample.clicked.connect(self.openSample)
-        self.gridLayout_2.addWidget(self.push_openSample, 0, 4, 1, 1)
+        self.gridLayout_2.addWidget(self.push_openSample, 0, 5, 1, 1)
 
         self.currentSMARTInput = "currentSmartInput.tmp"
         if os.path.isfile(self.currentSMARTInput): 
@@ -1270,6 +1277,7 @@ class Ui_Dialog(object):
         self.kerfContact = self.initKerfContact 
         
         self.pushSave.clicked.connect(self.generateSMART_Inp)
+        self.pushSaveAs.clicked.connect(self.generateSMART_Inp_As)
         self.pushDefault.clicked.connect(self.saveDefault)
         self.radio_PCR.clicked.connect(self.tireGroupChange)
         self.radio_LTR.clicked.connect(self.tireGroupChange)
@@ -1377,11 +1385,54 @@ class Ui_Dialog(object):
 
         self.TempReadInOut() # read in or out the temperature result file 
 
-        self.gridLayout_2.addWidget(self.groupBox_5, 2, 0, 1, 5)
-        self.gridLayout_2.addWidget(self.groupBox_2, 1, 0, 1, 2)
+        self.gridLayout_2.addWidget(self.groupBox_2, 1, 0, 1, 3)
+        self.gridLayout_2.addWidget(self.groupBox_5, 2, 0, 1, 6)
+        
 
-        
-        
+    def Transient(self) : 
+        valTR = self.Edit_SR_TimeStart.text()
+        valDR = self.Edit_SR_TimeDuration.text()
+        valTS = self.Edit_SA_TimeStart.text()
+        valDS = self.Edit_SA_TimeDuration.text()
+
+        try:
+            RT = float(valTR.strip())
+            RD = float(valDR.strip())
+            ST = float(valTS.strip())
+            SD = float(valDS.strip())
+            if RT !=0 or RD != 0 or ST != 0 or SD != 0: 
+                self.check_rotationForce.setChecked(False)
+                self.check_rotationForce.setDisabled(True)
+                self.check_lateralForce.setChecked(False)
+                self.check_lateralForce.setDisabled(True)
+            else: 
+                self.check_rotationForce.setEnabled(True)
+                self.check_lateralForce.setEnabled(True)
+
+
+        except: pass 
+
+        # try: 
+        #     ST = float(valTS.strip())
+        #     SD = float(valDS.strip())
+
+        #     if ST != 0 or SD != 0: 
+        #         self.check_lateralForce.setChecked(False)
+        #         self.check_lateralForce.setDisabled(True)
+        # except:            pass 
+
+        # valT = self.Edit_SA_TimeStart.text()
+        # valD = self.Edit_SA_TimeDuration.text()
+        # try: 
+        #     time = float(valT.strip())
+        #     dur = float(valD.strip()) 
+        #     if time !=0.0 or dur !=0.0 and not rot_checked:
+        #         self.check_rotationForce.setChecked(False)
+        #         self.check_rotationForce.setDisabled(True)
+        # except: pass 
+
+    
+
         
     def readCurrentInput(self, fname): 
         self.readDefault(fname, mat=1)
@@ -1529,13 +1580,13 @@ class Ui_Dialog(object):
                 self.tableWidget.setItem(m, 8, QtWidgets.QTableWidgetItem( str(0.00)) )
 
                 try: sd[5]=self.tableWidget.item(m, 9).text().strip()
-                except: sd[5]=1.00
+                except: pass # sd[5]=1.00
                 self.tableWidget.setItem(m, 9, QtWidgets.QTableWidgetItem( str(sd[5])) )
 
                 try: sd[6]=self.tableWidget.item(m,10).text().strip()
-                except: sd[6]=0.00
+                except: pass # sd[6]=0.00
                 try: sd[7]=self.tableWidget.item(m,11).text().strip()
-                except: sd[7]=0.00
+                except: pass # sd[7]=0.00
                 self.tableWidget.setItem(m, 10, QtWidgets.QTableWidgetItem( str(sd[6])) )
                 self.tableWidget.setItem(m, 11, QtWidgets.QTableWidgetItem( str(sd[7])) )
 
@@ -1755,6 +1806,20 @@ class Ui_Dialog(object):
             else: 
                 self.includingMaterial.append(sl+".PYN")
             
+    def generateSMART_Inp_As(self): 
+
+        fname = self.Edit_SmartSave.text().strip()
+        splited = fname.split("/")
+        filename = splited[-1]
+        savedirectory = ''
+        for fd in splited: 
+            if fd == filename: break 
+            savedirectory += "fd"+"/"
+
+        savefile, _= QtWidgets.QFileDialog.getSaveFileName(None, "Save as", savedirectory+"/"+filename, "SMART INPUT(*.inp)")
+        if savefile: 
+            self.Edit_SmartSave.setText(savefile)
+            self.generateSMART_Inp()
 
     def generateSMART_Inp(self): 
         self.saveDefault(fname=self.currentSMARTInput, mat=1)
@@ -1861,6 +1926,14 @@ class Ui_Dialog(object):
         try: 
             f.write("*ROAD_GEOM        =  %.3f ( road=0, drum or disc.=diameter in meter: RR(1.707), CLEAT(2.50), Wear(3.048), LAT100(0.317) )\n"%(float(self.Edit_RoadDia.text())))
             f.write("*RIM_GEOM         =  %.1f, %.1f, %s\n"%(float(self.Edit_RDmm.text())/2.0, float(self.Edit_RWmm.text())/2.0, self.Edit_RimGeo.text()))
+
+            if float(self.Edit_RDmm.text()) == 0 or float(self.Edit_RWmm.text()) == 0: 
+                self.self.Edit_RDmm.setStyleSheet("color:red;" "border-style: solid;" "border-color: #FA8072;" )
+                self.self.Edit_RWmm.setStyleSheet("color:red;" "border-style: solid;" "border-color: #FA8072;" )
+                print ("## Error!! Check Rim Dimension.")
+                os.remove(self.Edit_SmartSave.text())
+                # os.system("del %s"%(self.Edit_SmartSave.text()))
+                return 
         except:
             return 
         f.write("*RIM_OR_HUB_REAL_MASS =%s   (RIM=1.0, LAT100=0.05, NPT=1.0)\n"%(self.Edit_RimMass.text()))
@@ -1998,8 +2071,8 @@ class Ui_Dialog(object):
         # line = " %s, %s\n"%(self.Edit_BetweenBelts.text(), self.Edit_beltThickSubtraction.text()); lineSolid.append(line)
         f.write("*CORD_FILE=%s\n"%(self.Edit_cordFile.text()))
         # line = "*CORD_FILE=%s\n"%(self.Edit_cordFile.text()); lineSolid.append(line)
-        if self.groupBox_Check.isChecked():       pci = 0
-        else: pci = 1
+        if self.groupBox_Check.isChecked():       pci = 1
+        else: pci = 0
         if self.check_LowCure.isChecked():       lcure = 1
         else: lcure = 0
         if pci ==1: 
@@ -2034,8 +2107,8 @@ class Ui_Dialog(object):
                 # lineRebar.append(line)
             else:
                 if float(rebar[8]) > 0 and float(rebar[9]) > 0 and float(rebar[11]) > 0: 
-                    f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] ))
-                    # line = "%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] )
+                    f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[11], rebar[10] ))  ## corrected... 
+                    # line = "%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s, %10s, %10s, %10s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7], rebar[8], rebar[9], rebar[10], rebar[11] )  ## < rebar[10], rebar[11] ..> error 
                     # lineRebar.append(line)
                 else: 
                     f.write("%4s, %4s, %10s, %6s, %6s, %4s, %6s, %10s\n"%(rebar[0], rebar[1], rebar[2], rebar[3], rebar[4], rebar[5], rebar[6], rebar[7]))
@@ -2551,6 +2624,7 @@ class Ui_Dialog(object):
         
         self.groupBox.setTitle(_translate("Dialog", "Boundary Condition"))
         self.label.setText(_translate("Dialog", "Pressure"))
+        self.label.setStyleSheet("color:red;")
         self.Edit_pressKgf.setText(_translate("Dialog",  str(self.Press)))
         self.label_2.setText(_translate("Dialog", "kgf/cm2"))
         self.Edit_presskPa.setText(_translate("Dialog",  str(round(self.Press*98.07, 2))))
@@ -2559,11 +2633,13 @@ class Ui_Dialog(object):
         self.Edit_pressPSI.setText(_translate("Dialog",  str(round(self.Press*14.22, 2))))
         self.label_6.setText(_translate("Dialog", "lbs"))
         self.label_7.setText(_translate("Dialog", "Load"))
+        self.label_7.setStyleSheet("color:red;")
         self.Edit_loadLbs.setText(_translate("Dialog",  str(round(self.Load*2.205, 2))))
         self.Edit_loadKgf.setText(_translate("Dialog",  str(self.Load)))
         self.label_8.setText(_translate("Dialog", "kgf"))
         self.Edit_velocity.setText(_translate("Dialog",  str(self.Velocity)))
         self.label_15.setText(_translate("Dialog", "Velocity"))
+        self.label_15.setStyleSheet("color:red;")
         self.label_16.setText(_translate("Dialog", "km/h"))
         self.check_freespin.setText(_translate("Dialog", "Free spin"))
         if self.freeSpin ==1: 
@@ -2587,9 +2663,11 @@ class Ui_Dialog(object):
         self.label_19.setText(_translate("Dialog", "Rotation Control"))
         self.label_20.setText(_translate("Dialog", "%/kgf"))
         self.label_21.setText(_translate("Dialog", "Angular vel."))
+        self.label_21.setStyleSheet("color:blue;")
         self.Edit_angularVelocity.setText(_translate("Dialog",  str(self.angularVelocity)))
         self.label_22.setText(_translate("Dialog", "Road Friction (UO, ZP, KP, ZS, KS, ALPHA, TAUC, BETA) "))
         self.label_9.setText(_translate("Dialog", "Rim Width"))
+        self.label_9.setStyleSheet("color:red;")
         self.label_13.setText(_translate("Dialog", "mm"))
         self.Edit_RWmm.setText(_translate("Dialog",  str(self.RW)))
         self.Edit_RWInch.setText(_translate("Dialog",  str(round(self.RW/25.4,2))))
@@ -2608,6 +2686,7 @@ class Ui_Dialog(object):
         self.label_39.setText(_translate("Dialog", "mm"))
         self.Edit_RDmm.setText(_translate("Dialog",  str(self.RD)))
         self.label_40.setText(_translate("Dialog", "Rim Diameter"))
+        self.label_40.setStyleSheet("color:red;")
         self.Edit_RDinch.setText(_translate("Dialog", str(round(self.RD/25.4, 1))))
         self.label_41.setText(_translate("Dialog", "Inch"))
         self.Edit_RimFriction.setText(_translate("Dialog",  str(self.rimFriction )))
@@ -2615,6 +2694,7 @@ class Ui_Dialog(object):
         self.groupBox_Check.setTitle(_translate("Dialog", "PCI"))
         self.label_65.setText(_translate("Dialog", "Rim Width"))
         self.label_66.setText(_translate("Dialog", "Pressure"))
+        # self.label_66.setStyleSheet("color:red;")
         self.Edit_PCI_press_kPa.setText(_translate("Dialog",  str(self.PCIPress*98.07)))
         
         self.Edit_PCI_press_psi.setText(_translate("Dialog",  str(self.PCIPress*14.22)))
@@ -2630,10 +2710,12 @@ class Ui_Dialog(object):
         self.label_71.setText(_translate("Dialog", "psi"))
         self.check_LowCure.setText(_translate("Dialog", "Low Temperature Cure"))
         self.Edit_BSD.setText(_translate("Dialog",  str(self.BSD)))
-        
+                
         self.label_72.setText(_translate("Dialog", "BSD(mm)"))
+        self.label_72.setStyleSheet("color:red;")
         self.Edit_coreWidth.setText(_translate("Dialog",  str(self.BDWidth)))
         self.label_73.setText(_translate("Dialog", "BD Cord Width(mm)"))
+        self.label_73.setStyleSheet("color:red;")
         self.groupBox_2.setTitle(_translate("Dialog", "Define Simulation"))
         self.Edit_Inflation_Time1.setText(_translate("Dialog", str(self.PCITime1)))
         self.label_11.setText(_translate("Dialog", "Inflation Time (PCI)"))
@@ -2728,7 +2810,8 @@ class Ui_Dialog(object):
         self.label_76.setText(_translate("Dialog", "Belt Thickness Subtraction"))
         self.Edit_beltThickSubtraction.setText(_translate("Dialog", str(self.btSubtraction)))
         self.Edit_BetweenBelts.setText(_translate("Dialog", self.Between))
-        self.pushSave.setText(_translate("Dialog", "SMART INPUT SAVE"))
+        self.pushSaveAs.setText(_translate("Dialog", "SAVE AS"))
+        self.pushSave.setText(_translate("Dialog", "SAVE"))
         self.pushDefault.setText(_translate("Dialog", "Save Default"))
 
         self.Edit_beltLift.setText(_translate("Dialog", "1.03"))
@@ -2755,11 +2838,19 @@ class Ui_Dialog(object):
 
         self.Edit_SA_Start.setText(_translate("Dialog", "0"))
         self.label_RelaxationFy_SA.setText(_translate("Dialog", "Slip Angle Initial"))
+        self.label_RelaxationFy_SA.setStyleSheet("color:blue;")
         self.Edit_SA_TimeStart.setText(_translate("Dialog", "0"))
         self.Edit_SA_TimeDuration.setText(_translate("Dialog", "0"))
         self.label_RelaxationFy_Time.setText(_translate("Dialog", "Time Start / Del T"))
+        self.label_RelaxationFy_Time.setStyleSheet("color:blue;")
         self.Edit_SR_TimeDuration.setText(_translate("Dialog", "0"))
         self.Edit_SR_TimeStart.setText(_translate("Dialog", "0"))
+
+        self.Edit_SR_TimeStart.textChanged.connect(self.Transient)
+        self.Edit_SR_TimeDuration.textChanged.connect(self.Transient)
+        self.Edit_SA_TimeStart.textChanged.connect(self.Transient)
+        self.Edit_SA_TimeDuration.textChanged.connect(self.Transient)
+
 
         ###########################################################
         ## Tips..

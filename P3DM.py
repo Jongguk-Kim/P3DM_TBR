@@ -2122,8 +2122,7 @@ class Ui_MainWindow(object):
                         self.pattern.freebottom, self.pattern.nps, self.layout.OD, gauge_constant_range,\
                         self.pattern.Node_Origin, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side)
                 
-            self.ptn_gauged = PTN.COPYPTN(self.pattern)
-
+            self.ptn_gauged = PTN.COPYPTN(self.pattern)  ## important!! Don't move the position.. 
 
             if self.layout.shoulderType=="R" and self.layout.T3DMMODE== 0: 
                 self.pattern.npn =PTN.BendingPattern(OD=self.layout.OD, Rprofiles=self.layout.RightProfile, \
@@ -2137,11 +2136,9 @@ class Ui_MainWindow(object):
                         nodes=self.pattern.npn, xy=23)
 
             # self.ptn_bended = PTN.COPYPTN(self.pattern)
-
             if self.layout.T3DMMODE == 1: 
                 self.pattern.npn = PTN.NodesOnSolids(self.pattern.npn, self.pattern.nps)
-            
-            # try: 
+            self.ptn_bended = PTN.COPYPTN(self.pattern)
             if self.layout.shoulderType=="R"  : 
                 self.pattern.npn, self.edge_body, self.pd, pf_ending = PTN.Adjust_PatternBottomSideNodes(self.layout.Node, self.layout.Element, \
                     self.layout.Tread, self.pattern.npn, self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side,\
@@ -2150,36 +2147,32 @@ class Ui_MainWindow(object):
             elif self.layout.shoulderType=="S" and self.layout.T3DMMODE == 0:
                 self.pattern.npn, self.pattern.sideBtmNode = PTN.AttatchSquarePatternSideNodes(self.layout.sideNodes, self.pattern.npn, self.pattern.Node_Origin, \
                                     self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side)
-
             self.ptn_bended = PTN.COPYPTN(self.pattern)
             # if self.layout.T3DMMODE ==0 : or self.check_FricView.isChecked() == True : 
             #     self.check_FricView.setDisabled(True)
             if len(self.layout.Tread.Element)  : 
                 self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
-
-            if self.layout.shoulderType=="R" : 
+            if self.layout.shoulderType=="R" : #and self.layout.T3DMMODE ==0: 
                 self.pattern.npn = PTN.RepositionNodesAfterShoulder(pf_ending, self.ptn_gauged.npn, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side, \
                         self.pattern.npn,  self.layout.TDW, self.layout.RightProfile, self.layout.R_curves, self.layout.L_curves,\
                         btm_surf=self.pattern.freebottom, ptn_R=self.pattern.diameter/2.0, ptn_TDW=self.pattern.TreadDesignWidth,\
                         bodynodes=self.layout.Node, bodybottom=self.nodes_layout_treadbottom, ptn_orgn=self.pattern.Node_Origin)
-                
-                if self.layout.T3DMMODE ==0: start = self.layout.TDW/2-20.0E-03
-                else:    start = 0.0
-            else: 
-                start = 0.0
 
+            # self.ptn_bended = PTN.COPYPTN(self.pattern)
             if self.layout.shoulderType=="S" and self.layout.T3DMMODE==0: 
                 self.pattern.npn = PTN.ShiftShoulderNodesSquarePattern(self.pattern.npn, self.pattern.Node_Origin, self.layout.RightProfile, self.layout.R_curves,\
                         self.layout.sideNodes, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side,\
                         self.pattern.TreadDesignWidth, self.layout.TDW, self.pattern.sideBtmNode )
-            
-            self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, ptnbottom=self.pattern.freebottom, start=start, shoulder=self.layout.shoulderType, ptnelements=self.pattern.nps)
+            start = 0             
+            self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, \
+                bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, \
+                    ptnbottom=self.pattern.freebottom, start=start, \
+                        shoulder=self.layout.shoulderType, ptnelements=self.pattern.nps)
 
             if self.layout.shoulderType == 'S' :   self.layout.group ="TBR"
             if self.layout.group =="TBR" : subGa_margin = 0.001 
             elif self.layout.group =="LTR": subGa_margin = 0.0003 
             else: subGa_margin = 0.0003
-
             self.ptn_elset, self.pattern.nps, self.pattern.npn, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
                  self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, NewELMatching, NewSurfs\
                  = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
@@ -2210,7 +2203,6 @@ class Ui_MainWindow(object):
                                 # print("GRV", self.pattern.PTN_AllFreeSurface[x][0], "Face", self.pattern.PTN_AllFreeSurface[x][1])
 
                 self.pattern.PTN_AllFreeSurface = np.concatenate((self.pattern.PTN_AllFreeSurface, NewSurfs), axis=0)   
-
             ###################################################################
             ## pattern direction change 
             ###################################################################
@@ -2559,7 +2551,7 @@ class Ui_MainWindow(object):
             self.ShowingImage = 'none'
     def showsolid(self): 
         self.UncheckOverlayRadio()
-
+        points=[[1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1]]
         if self.readpattern and self.ShowingImage != 'layout': 
             solid = self.SearchedSolids(id=0)
             try: 
@@ -2577,16 +2569,39 @@ class Ui_MainWindow(object):
                     npn = self.pattern.npn 
                 if len(solid) > 0:  print ("\n Pattern Element" )
                 for sd in solid: 
+                    ix=np.where(npn[:,0]==sd[1])[0][0]; n1=npn[ix]
+                    ix=np.where(npn[:,0]==sd[2])[0][0]; n2=npn[ix]
+                    ix=np.where(npn[:,0]==sd[3])[0][0]; n3=npn[ix]
+                    ix=np.where(npn[:,0]==sd[4])[0][0]; n4=npn[ix]
+                    ix=np.where(npn[:,0]==sd[5])[0][0]; n5=npn[ix]
+                    ix=np.where(npn[:,0]==sd[6])[0][0]; n6=npn[ix]
                     if sd[7] > 0: 
-                        print ("%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7, sd[8]-10**7 ))
+                        ix=np.where(npn[:,0]==sd[7])[0][0]; n7=npn[ix]
+                        ix=np.where(npn[:,0]==sd[8])[0][0]; n8=npn[ix]
+                        Js =[]
+                        for pt in points: 
+                            Js.append( PTN.Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, r=pt[0], s=pt[1], t=pt[2]))
+                            # print("%e"%(PTN.Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, r=pt[0], s=pt[1], t=pt[2])))
+                        print ("%4d(%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d, J=%.1E)"%(sd[0]-10**7, sd[1]-10**7,\
+                             sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7, sd[8]-10**7 , min(Js)*10**9))
                     else: 
-                        print ("%5d,%5d,%5d,%5d,%5d,%5d,%5d"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7))
+                        Js =[]
+                        for m, pt in enumerate(points):
+                            if m ==0 or m ==1 or m ==4 or m==5: continue 
+                            # if m ==0: pt =[0, 0, -1]
+                            # if m == 4: pt = [1, 0, 1]
+                            # if m == 1: pt = [0, 0, -1]
+                            # if m == 5: pt = [1, 0, 1]
+                            Js.append( PTN.Jacobian_Hexahedron(n1, n1, n2, n3, n4, n4, n5, n6, r=pt[0], s=pt[1], t=pt[2]) )
+                            # print("%e"%(PTN.Jacobian_Hexahedron(n1, n1, n2, n3, n4, n4, n5, n6, r=pt[0], s=pt[1], t=pt[2])))
+                        print ("%4d(%4d,%4d,%4d,%4d,%4d,%4d, J=%.1E)"%(sd[0]-10**7, sd[1]-10**7,\
+                             sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, min(Js)*10**9))
 
                 self.figure.plot_error(solid, npn) 
                 self.ShowingImage = '3D'
             except: 
-                pass 
-                # self.message.setText("Solid element cannot be plotted.")
+                print("Solid element cannot be plotted.")
+
         elif self.readlayout: 
             npp = []
             for el in self.InitialLayout.Element.Element: 

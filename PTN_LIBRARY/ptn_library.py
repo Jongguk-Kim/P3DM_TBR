@@ -9,16 +9,16 @@ import os, sys, time, json
 import matplotlib.pyplot as plt
 import subprocess
 
-from scipy.optimize import linprog
-from scipy.spatial import ConvexHull
 
 from numpy.lib.arraysetops import intersect1d 
 import warnings 
 
 try: 
     import paramiko as FTP 
+    from scipy.optimize import linprog
+    from scipy.spatial import ConvexHull
 except: 
-    print ("No paramiko module.. ")
+    print ("No paramiko, scipy module.. ")
 
 # import PTN_LIBRARY.ptn_library as PTN 
 
@@ -776,12 +776,16 @@ def ReadMoldProfileFromPatternMeshFile(ptnfile):
                 word = list(line.split(","))
                 RightProfile.append([round(float(word[0].strip())*scaling_factor, 5), round(float(word[1].strip())*scaling_factor, 9)])
             if command == "node": 
-                word = list(line.split(","))
-                nid = int(word[0].strip())
-                nx = float(word[1].strip())
-                ny = float(word[2].strip())
-                nz = float(word[3].strip())
-                nodes.append([nid, round(nx*scaling_factor, 10),  round(ny*scaling_factor, 10),  round(nz*scaling_factor, 10)])
+                if not line =="": 
+                    word = list(line.split(","))
+                    try: 
+                        nid = int(word[0].strip())
+                        nx = float(word[1].strip())
+                        ny = float(word[2].strip())
+                        nz = float(word[3].strip())
+                        nodes.append([nid, round(nx*scaling_factor, 10),  round(ny*scaling_factor, 10),  round(nz*scaling_factor, 10)])
+                    except: 
+                        continue 
 
     nodes = np.array(nodes)
     cz = nodes[:,3]
@@ -1162,20 +1166,24 @@ def PointsInOutPolyhedron(points, pnt):
     point : the point to check if it is in the polyhedron or not 
             =[x,y,z]
     """
+
+    try: 
     
-    hull = ConvexHull(points, incremental=True)
-    hull_points = hull.points[hull.vertices, :]
+        hull = ConvexHull(points, incremental=True)
+        hull_points = hull.points[hull.vertices, :]
 
-    N = hull_points.shape[0]
-    c = np.ones(N)
-    A_eq = np.concatenate((hull_points, np.ones((N,1))), 1).T   # rows are x, y, z, 1
-    b_eq = np.concatenate((pnt, (1,)))
-    warnings.filterwarnings('ignore')
-    result = linprog(c, A_eq=A_eq, b_eq=b_eq)
-    warnings.filterwarnings('default')
+        N = hull_points.shape[0]
+        c = np.ones(N)
+        A_eq = np.concatenate((hull_points, np.ones((N,1))), 1).T   # rows are x, y, z, 1
+        b_eq = np.concatenate((pnt, (1,)))
+        warnings.filterwarnings('ignore')
+        result = linprog(c, A_eq=A_eq, b_eq=b_eq)
+        warnings.filterwarnings('default')
 
-    if result.status == 0: return True 
-    else: return False 
+        if result.status == 0: return True 
+        else: return False
+    except:
+        pass 
 
     
 def LayoutProfileDefineForExpansion(profiles, halfTDW, ShoR=0.05, t3dm=0):
@@ -2590,6 +2598,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 for mat in mat_cords:
                     if name == mat[0].strip() or ( "OJF" in name  and "JFC" in mat[0]):  
                         ## mat_cords.append([name, code, toping_density, cord_density, line_density])
+                        # mat_cords.append([name,1= code, 2=toping_density, 3=cord_density, 4=line_density, 5=wt * cf/(cf+rf), 6=Area, 7=topping compd, 8=ga])
                         name_compound.append(mat[7][-3:])
                         if "BT" in mat[0]:
                             for dia in beltHalfDia: 
@@ -3116,8 +3125,10 @@ class MESH2D:
                 for lp, rp in zip(self.LeftProfile, self.RightProfile) : 
                     self.TW+= lp[1]
                     self.TW+= rp[1]
-                    if lp[0] == 10.0: 
+                    if lp[0] == 10.0 or lp[0] == 0.0: 
                         isSTL =  1
+                        lp[0] = 10000.0
+                        rp[0] = 10000.0
 
         if self.shoulderType =='R':     print ("* Shoulder profile type : %s"%("ROUND\n"))
         else:                           print ("* Shoulder profile type : %s"%("SQUARE\n"))
@@ -3139,8 +3150,8 @@ class MESH2D:
             self.LeftProfile, self.RightProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
                  dropDiff, r=r, halfOD=self.OD/2.0)
             print ("* A curve is added to Tread curves")
-            for pf in self.LeftProfile: 
-                print ("  R=%.1f, Length=%.2f"%(pf[0]*1000, pf[1]*1000))
+            for pf, pf1 in zip(self.LeftProfile, self.RightProfile): 
+                print ("  R=%.1f/%.1f, Length=%.2f/%.2f"%(pf[0]*1000, pf1[0]*1000, pf[1]*1000, pf1[1]*1000))
             print("")
             
         ## Preprocessing CUTE INP  ###################################################################################
@@ -3688,7 +3699,7 @@ class MESH2D:
             els =[]
             ndi = []
             for el in self.Element.Element: 
-                if el[5] == "CTR" or el[5] == "CTB" or el[5] == "SUT" or el[5] == "UTR" or el[5] == "TRW": 
+                if el[5] == "CTR" or el[5] == "CTB" or el[5] == "SUT" or el[5] == "UTR" or el[5] == "TRW" or el[5] == "BSW": 
                     ix1 = np.where(npn[:, 0] ==el[1])[0][0]
                     ix2 = np.where(npn[:, 0] ==el[2])[0][0]
                     ix3 = np.where(npn[:, 0] ==el[3])[0][0]
@@ -3770,8 +3781,36 @@ class MESH2D:
                         negDirection.append(nxt[2])
                     if nxt[3] != bn1 and nxt[3] != bn2: 
                         negDirection.append(nxt[3])
-                    if nxt[4] != bn1 and nxt[4] != bn2: 
-                        negDirection.append(nxt[4])
+                    if nxt[4]: 
+                        if nxt[4] != bn1 and nxt[4] != bn2: 
+                            negDirection.append(nxt[4])
+                    else: 
+                        n2 = negDirection[0]
+                        for k in range(1, 4): 
+                            if els[ix[0]][k] == n2 : 
+                                if k ==1: n1 = els[ix[0]][2]
+                                elif k ==2: n1 = els[ix[0]][3]
+                                else: n1 = els[ix[0]][1]
+                                break 
+                        ix1 = np.where(els[:,1:5] == n1)[0]
+                        ix2 = np.where(els[:,1:5] == n2)[0]
+                        ix = np.intersect1d(ix1, ix2)
+
+                        if els[ix[0]][0] == bottoms[-1][0] :   nx = ix[1]
+                        else:                               nx = ix[0]
+                        nxt = els[nx]
+                        bottoms.append(nxt)
+                        # print ("* %d"%(bottoms[-1][0]))
+                        n3 = 0 
+                        for k in range(1, 5): 
+                            if els[nx][k] == n2 : 
+                                if k ==1: n3 = els[nx][2]
+                                elif k ==2: n3 = els[nx][3]
+                                elif k ==3: n3 = els[nx][4]
+                                else: n3 = els[nx][1]
+                                break 
+                        negDirection= [n3, n2]
+
                 elif len(ix) > 2: 
                     print ("## Too many element with node %d, %d"%(negDirection[0], negDirection[1]))
                     for x in ix: 
@@ -3779,7 +3818,7 @@ class MESH2D:
                     print("")
                     break 
                 else:
-                    break ## end searching  
+                    break ## end searching    
                 cnt += 1
                 if cnt > 200: 
                     print ("## Too many iteration to search tread bottom.")
@@ -3790,21 +3829,13 @@ class MESH2D:
             while 1:
                 ix1 = np.where(els[:,1:5] == posDirection[0])[0]
                 ix2 = np.where(els[:,1:5] == posDirection[1])[0]
-                try: 
-                    ix = np.intersect1d(ix1, ix2)
-                except: 
-                    print ("## btm f=%d node %d, %d"%(btmface, posDirection[0], posDirection[1]))
-                    print ("center el", start)
-                    for x in ix1: 
-                        print (els[x]) 
-                    print ("**************")
-                    for x in ix2: 
-                        print (els[x]) 
-                    return 
+                ix = np.intersect1d(ix1, ix2)
+
                 if len(ix) == 2: 
                     if tmp[len(tmp)-1][0] == els[ix[0]][0]: nxt = els[ix[1]]
                     else: nxt = els[ix[0]]
                     tmp.append(nxt)
+                    # print (" %d"%(tmp[-1][0]))
                     bn1 = posDirection[0]; bn2 = posDirection[1] 
                     posDirection = []
                     if nxt[1] != bn1 and nxt[1] != bn2: 
@@ -3813,8 +3844,36 @@ class MESH2D:
                         posDirection.append(nxt[2])
                     if nxt[3] != bn1 and nxt[3] != bn2: 
                         posDirection.append(nxt[3])
-                    if nxt[4] != bn1 and nxt[4] != bn2: 
-                        posDirection.append(nxt[4])
+                    if nxt[4] != 0: 
+                        if nxt[4] != bn1 and nxt[4] != bn2: 
+                            posDirection.append(nxt[4])
+                    else: 
+                        n2 = posDirection[0]
+                        for k in range(1, 4): 
+                            if els[ix[0]][k] == n2 : 
+                                if k ==1: n1 = els[ix[0]][3]
+                                elif k ==2: n1 = els[ix[0]][1]
+                                else: n1 = els[ix[0]][2]
+                                break 
+                        ix1 = np.where(els[:,1:5] == n1)[0]
+                        ix2 = np.where(els[:,1:5] == n2)[0]
+                        ix = np.intersect1d(ix1, ix2)
+
+                        if els[ix[0]][0] == tmp[-1][0] :   nx = ix[1]
+                        else:                           nx = ix[0]
+                        nxt = els[nx]
+                        tmp.append(nxt)
+                        n3 = 0 
+                        for k in range(1, 5): 
+                            if els[nx][k] == n2 : 
+                                if k ==1: n3 = els[nx][4]
+                                elif k ==2: n3 = els[nx][1]
+                                elif k ==3: n3 = els[nx][2]
+                                else: n3 = els[nx][3]
+                                break 
+
+                        posDirection= [n3, n2]
+
                 elif len(ix) > 2: 
                     print ("## Too many element with node %d, %d"%(posDirection[0], posDirection[1]))
                     for x in ix: 
@@ -3944,7 +4003,7 @@ class MESH2D:
         # print (" circle point : start x, y, end x, y, center x, y, R=%.5f"%(self.OD/2))
         # for cv in self.R_curves: 
         #     print ("%.6f, %6f, %6f, %6f, %6f, %6f"%(cv[0][2], cv[0][3], cv[1][2], cv[1][3], cv[2][2], cv[2][3]))
-    
+
     def RemoveTieOnTread(self): 
         ## Remove tie on the removed tread 
         # print ("DELETING TIE ON TREAD")
@@ -4109,7 +4168,11 @@ class MESH2D:
             elif "*ELEMENT" in line.upper() and "CGAX4H" in line.upper(): cmd = "EL4"
             elif "*NSET" in line.upper(): cmd = "NS"
             elif "*ELSET" in line.upper(): 
-                nextline = lines[li+1].split(",")
+                try: 
+                    nextline = lines[li+1].split(",")
+                except: 
+                    continue 
+
                 try: 
                     nextnumber = int(nextline[0]) 
                     cmd = "ES"
@@ -7218,8 +7281,20 @@ class PATTERN:
             self.IsError =  1 
             return 
         self.npn = np.array(self.Node)
-        self.Node_Origin = np.array(self.npn) 
         self.nps = np.array(self.Solid)
+        # fp = open("newNds.txt", 'w')
+        # for n in self.npn:
+        #     if n[2] > 0.117: 
+        #         n[2] += 0.004
+        #     elif n[2] < -0.117: 
+        #         n[2] -= 0.004
+                
+        #     fp.write("%10d, %15.7E, %15.7E, %15.7E\n"%(n[0]-10**7, n[1]*1000, n[2]*1000, n[3]*1000))
+        # fp.close()
+
+
+        self.Node_Origin = np.array(self.npn) 
+        
         self.pitchlength = self.Pitchlength()
         self.errsolid = [] 
         self.HalfDia = round(self.HalfDia*self.profilescaling, 5)
@@ -9405,7 +9480,7 @@ class PATTERN:
                         continue 
                     radius, pCen = Circle3Nodes(posnd[i-2], posnd[i-1], posnd[i], xy=23, radius=1, center=1, error=0)
                     
-                    # print ("radius=, %.5f"%(radius*1000))
+                    # print ("radius=, %.5f"%(radius*1000), pCen)
                     
                     if radius < 0.05: 
                         lowR = 1
@@ -9414,13 +9489,16 @@ class PATTERN:
                         chamfer = 1
                         print ("## Chamfered pattern mesh")
                         print ("   Pattern TDW modified to TW (%.1f -> "%(self.TreadDesignWidth*1000), end="")
-                        if pCen[0] == -1: 
+                        if pCen[0] == -1 : 
                             # print ("\n%d, %.7f, %.7f"%(posnd[i-2][0], posnd[i-2][2], posnd[i-2][3]))
                             # print ("%d, %.7f, %.7f"%(posnd[i-1][0], posnd[i-1][2], posnd[i-1][3]))
                             # print ("%d, %.7f, %.7f"%(posnd[i][0], posnd[i][2], posnd[i][3]))
                             self.TreadDesignWidth = ( posnd[i][2] + (halfOD - posnd[3]) *(posnd[i][2]-posnd[i-1][2]) / (posnd[i][3]-posnd[i-1][3])  ) * 2.0
                         else: 
-                            self.TreadDesignWidth = (pCen[2] - sqrt(radius*radius - (halfOD - pCen[3])**2)) * 2.0 
+                            L1=[[0, 0, 0, halfOD], [0, 0, 1, halfOD]]
+                            L2 = [posnd[i-1], posnd[i]]
+                            IN = IntersectionPointOf2Lines(L1, L2, xy=23)
+                            self.TreadDesignWidth = round(IN[2]*2, 4)
                         print (" %.1f)\n"%(self.TreadDesignWidth*1000))
 
                         break 
@@ -11351,7 +11429,7 @@ class PATTERN:
         print ("\n* Profile TDW=%7.2f"%(TargetTDW*1000))
         print (  "* Pattern TDW=%7.2f"%(ModelTDW*1000))
         print (  "* Scaled  TDW=%7.2f"%((ModelTDW*Ratio_TW*1000)))
-        
+
         NodeOrigin = [] 
         for i, nd in enumerate(self.npn): 
             NodeOrigin.append([nd[0], nd[1], nd[2], nd[3]])
@@ -11477,13 +11555,13 @@ class PATTERN:
         #######################################################
         sum = 0 
         sortedpos = []
-        for bm in ptchbase: 
+        for bm in ptchbase:
             idx1 = np.where(NewNode[:, 0] == bm[1])[0][0]
             N1 = NewNode[idx1]
             idx2 = np.where(NewNode[:, 0] == bm[2])[0][0]
             N2 = NewNode[idx2]
             w = N2[2] - N1[2]
-            dh = -(N2[1] - N1[1]) + (bm[4][0] - bm[3][0])/(bm[4][1]-bm[3][1])  *w   ## the value of dh should be Subtracted. (-1 * value)
+            dh = -(N2[1] - N1[1]) + (bm[4][0] - bm[3][0])/(bm[4][1]-bm[3][1])  * w   ## the value of dh should be Subtracted. (-1 * value)
 
             bm.append([sum, w, dh])
             bm.append(N1)
@@ -11791,7 +11869,8 @@ class PATTERN:
         #######################################################
         sum = 0 
         sortedpos = []
-        for bm in ptchbase: 
+        for i, bm in enumerate(ptchbase): 
+            
             idx1 = np.where(NewNode[:, 0] == bm[1])[0][0]
             N1 = NewNode[idx1]
             idx2 = np.where(NewNode[:, 0] == bm[2])[0][0]
@@ -11861,7 +11940,9 @@ class PATTERN:
                     # rn = sortedpos[len(sortedpos)-1]
                     NewNode[i][1] = (nd[1]+rnf[5][0]) + (nd[2]-rnf[6][2]) * rnf[5][2] / rnf[5][1]
                 else: 
+                    continue 
                     # rn = sortedpos[0]
+                    print ("SHIFTING, ", NewNode[i])
                     NewNode[i][1] = (nd[1]+rn0[5][0]) + (nd[2]-rn0[6][2]) * rn0[5][2] / rn0[5][1]
         
 
@@ -15764,13 +15845,14 @@ def Jacobian_check(nodes, solids):
     ## cannot check horizental/vertical plane 
     print ("\n******************************************")
     cnt = 0; jnt = 0; negleng=0; countshow = 2
-    Jmin = 0.005
-    hmg = 0.45E-03 
+    Jmin = 0.0005
+    hmg = 0.3
     show = 0
     errel=[]
     Jacs = []
     Length8=[]
     Length6=[]
+    points=[[1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1]]
     for sd in solids: 
         if sd[8] > 0: 
             ix = np.where(nodes[:,0]==sd[1])[0][0]; n1 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
@@ -15813,93 +15895,25 @@ def Jacobian_check(nodes, solids):
                 # errel.append(sd) 
                 jnt += 1 
                 negleng += 1 
-                continue 
-
-            if l1 < hmg  or l2 < hmg  or l3 < hmg  or l4 < hmg or h1 < hmg  or h2 < hmg  or h3 < hmg  or h4 < hmg or l5 < hmg  or l6 < hmg  or l7 < hmg  or l8 < hmg: 
-                # print (" The bottom edge lengthes of the solid %4d are %7.3f, %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, l1*1000, l2*1000, l3*1000, l4*1000))
-                # print ("              The heights of the solid %4d are %7.3f, %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, h1*1000, h2*1000, h3*1000, h4*1000))
-                cnt += 1 
-                # errel.append(sd)
-                if show ==1 and cnt < countshow: ShowSolid(sd, nodes)
-
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=1, u=-1)
-            Jacs.append(J)
-            if J < Jmin : 
-                # print ("#1 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
                 
-                jnt += 1
-                # print ("%6d,%6d,%6d,%6d,%6d,%6d,%6d,%6d,%6d"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7, sd[8]-10**7))
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue 
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=-1, u=-1)
-            Jacs.append(J)
-            if J <Jmin: 
-                # print ("#2 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
-                jnt += 1
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue 
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=-1, u=-1)
-            Jacs.append(J)
-            if J < Jmin: 
-                # print ("#3 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
-                jnt += 1
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue 
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=1, u=-1)
-            Jacs.append(J)
-            if J < Jmin: 
-                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
-                jnt += 1
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue
-
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=-1, u=1)
-            Jacs.append(J)
-            if J < Jmin: 
-                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
-                jnt += 1
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=1, u=1)
-            Jacs.append(J)
-            if J < Jmin: 
-                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
-                jnt += 1
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=1, u=1)
-            Jacs.append(J)
-            if J < Jmin: 
-                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
-                jnt += 1
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue
-            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=-1, u=1)
-            Jacs.append(J)
-            if J < Jmin: 
-                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
-                jnt += 1
-                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
-                errel.append(sd)
-                continue
+            minLength = min([l1, l2, l3, l4, l5, l6, l7, l8, h1, h2, h3,h4])
+            if minLength < hmg: 
+                cnt += 1 
+            
+            for pt in points : 
+                J = Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, r=pt[0], s=pt[1], t=pt[2])
+                Jacs.append(J)
+                if J < Jmin : 
+                    jnt += 1 
+                    errel.append(sd)
+                    break 
+                
         else: 
             # print ("%6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d"%(sd[0]-10**7,sd[1]-10**7,sd[2]-10**7,sd[3]-10**7,sd[4]-10**7,sd[5]-10**7,sd[6]-10**7,sd[7],sd[8]))
             ix = np.where(nodes[:,0]==sd[1])[0][0]; n1 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[2])[0][0]; n2 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[3])[0][0]; n3 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
-            try:
-                ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
-            except:
-                print(sd[1], sd[2], sd[3],sd[4],sd[5],sd[6],sd[7],sd[8])
-                ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
-
+            ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[5])[0][0]; n5 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[6])[0][0]; n6 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
 
@@ -15925,17 +15939,21 @@ def Jacobian_check(nodes, solids):
                 # errel.append(sd) 
                 jnt += 1 
                 negleng += 1 
-                continue 
 
-            if l1 < hmg  or l2 < hmg  or l3 < hmg or h1 < hmg  or h2 < hmg  or h3 < hmg or l4 < hmg  or l5 < hmg  or l6 < hmg: 
-                print (" The edge lengthes of the tri-angule (solid %4d) are %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, l1*1000, l2*1000, l3*1000))
-                print ("       The heights of the tri-angule (solid %4d) are %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, h1*1000, h2*1000, h3*1000))
-                cnt += 1
-                errel.append(sd)
+            minLength = min([l1, l2, l3, l4, l5, l6, h1, h2, h3])
+            if minLength < hmg: 
+                cnt += 1 
 
-    text =  "** Negative Jacobian(< %.3f): %d / %d \n"%(Jmin, len(errel), len(solids))
-    text += "** Small length Element(< %.2fmm) : %d"%(hmg*1000, cnt)
-    print (text)
+            for m, pt in enumerate(points) :
+                if m ==0 or m ==1 or m ==4 or m==5: continue
+                J = Jacobian_Hexahedron(n1, n1, n2, n3, n4, n4, n5, n6, r=pt[0], s=pt[1], t=pt[2])
+                Jacs.append(J)
+                if J < Jmin : 
+                    jnt += 1 
+                    errel.append(sd)
+                    break 
+
+    
 
     Jacs = np.array(Jacs)
     min_jac = np.min(Jacs)
@@ -15945,27 +15963,53 @@ def Jacobian_check(nodes, solids):
         Len6 = np.array(Length6).reshape(-1)
         Len = np.concatenate((Len, Len6), axis=None)
 
+    text =  "** Negative Jacobian(< %.1E): %d / %d \n"%(Jmin, len(errel), len(solids))
+    text += "** Small size elements(L< %.2fmm): %d\n"%(hmg, cnt)
+    text += "** Negative length elements : %d"%(negleng)
+
+    print (text)
+
     MinLen = np.min(Len) 
-    print ("  Minimum J=%.2E, L=%.2fmm"%(min_jac, MinLen))
+    print ("** Minimum J=%.2E, Length=%.2fmm"%(min_jac, MinLen))
     print ("******************************************\n")
     return errel, text, negleng, cnt  
-def Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, s=1, t=1, u=-1) : 
+
+def Hexahedron_partialR(s, t, xs):
+    return ((1+s)*(1-t)*xs[0] - (1+s)*(1-t)*xs[1] - (1-s)*(1-t)*xs[2] + (1-s)*(1-t)*xs[3] + (1+s)*(1+t)*xs[4] - (1+s)*(1+t)*xs[5] - (1-s)*(1+t)*xs[6] + (1-s)*(1+t)*xs[7])/8.0 
+def Hexahedron_partialS(r, t, xs):
+    return ((1+r)*(1-t)*xs[0] + (1-r)*(1-t)*xs[1] - (1-r)*(1-t)*xs[2] - (1+r)*(1-t)*xs[3] + (1+r)*(1+t)*xs[4] + (1-r)*(1+t)*xs[5] - (1-r)*(1+t)*xs[6] - (1+r)*(1+t)*xs[7])/8.0
+def Hexahedron_partialT(r, s, xs):
+    return (-(1+r)*(1+s)*xs[0] - (1-r)*(1+s)*xs[1] - (1-r)*(1-s)*xs[2] - (1+r)*(1-s)*xs[3] + (1+r)*(1+s)*xs[4] + (1-r)*(1+s)*xs[5] + (1-r)*(1-s)*xs[6] + (1+r)*(1-s)*xs[7])/8.0
+
+def Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, r=1, s=1, t=-1) : 
+
+    X = [n1[1], n2[1], n3[1], n4[1], n5[1], n6[1], n7[1], n8[1]]
+    Y = [n1[2], n2[2], n3[2], n4[2], n5[2], n6[2], n7[2], n8[2]]
+    Z = [n1[3], n2[3], n3[3], n4[3], n5[3], n6[3], n7[3], n8[3]]
+
+    J = [
+        [Hexahedron_partialR(s, t, X), Hexahedron_partialR(s, t, Y), Hexahedron_partialR(s, t, Z)],
+        [Hexahedron_partialS(r, t, X), Hexahedron_partialS(r, t, Y), Hexahedron_partialS(r, t, Z)],
+        [Hexahedron_partialT(r, s, X), Hexahedron_partialT(r, s, Y), Hexahedron_partialT(r, s, Z)]
+    ]
+
+    return np.linalg.det(np.array(J))
+
 
     N1s = -(1+t)*(1-u)/8;    N2s = -(1-t)*(1-u)/8;   N3s = (1-t)*(1-u)/8;     N4s = (1+t)*(1-u)/8
     N5s = -(1+t)*(1+u)/8;    N6s = -(1-t)*(1+u)/8;   N7s = (1-t)*(1+u)/8;     N8s = (1+t)*(1+u)/8
 
     Ns = [N1s, N2s, N3s, N4s, N5s, N6s, N7s, N8s]
-    X = [n1[1], n2[1], n3[1], n4[1], n5[1], n6[1], n7[1], n8[1]]
+    
 
     N1t =  (1-s)*(1-u)/8;    N2t = -(1-s)*(1-u)/8;    N3t = -(1+s)*(1-u)/8; N4t = (1+s)*(1-u)/8 
     N5t =  (1-s)*(1+u)/8;    N6t = -(1-s)*(1+u)/8;    N7t = -(1+s)*(1+u)/8; N8t = (1+s)*(1+u)/8 
     Nt = [N1t, N2t, N3t, N4t, N5t, N6t, N7t, N8t]
-    Y = [n1[2], n2[2], n3[2], n4[2], n5[2], n6[2], n7[2], n8[2]]
 
     N1u = (1-s)*(1+t)/8;   N2u = (1-s)*(1-t)/8;    N3u = (1+s)*(1-t)/8; N4u = (1+s)*(1+t)/8
     N5u = -N1u;            N6u = -N2u;             N7u = -N3u;          N8u = -N4u 
     Nu = [N1u, N2u, N3u, N4u, N5u, N6u, N7u, N8u] 
-    Z = [n1[3], n2[3], n3[3], n4[3], n5[3], n6[3], n7[3], n8[3]]
+    
 
     Xs = 0
     for ns, x in zip(Ns, X): 
@@ -16229,10 +16273,16 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             # if solid[0]-10**7 == checkEL:print ("*********")
             for i, cz in enumerate(centers): 
                 # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:   print("CZ=%.3f vs MZ=%.3f"%(cz[2]*1000, mz*1000))
-                if cz[2] < mz and abs(angles[i]) > 0.785398 : 
-                    mz = cz[2]
-                    if my1 < cz[1] and cz[1] < my2: 
-                        cnt = i
+                if N == 9: 
+                    if cz[2] < mz and abs(angles[i]) > 0.785398 : 
+                        mz = cz[2]
+                        if my1 < cz[1] and cz[1] < my2: 
+                            cnt = i
+                else: 
+                    if cz[2] < mz  : 
+                        mz = cz[2]
+                        if my1 < cz[1] and cz[1] < my2: 
+                            cnt = i
                         # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:   print ("%d my1=%.3f, cz[1]=%.3f, my2=%.2f cz=%.2f"%(i, my1*1000, cz[1]*1000, my2*1000, cz[2]*1000))
         elif N==9 : 
             if top == 2  :  cnt = 0 
@@ -16374,7 +16424,7 @@ def Point_Plane_Distance(n, nodes):
 
 def SearchingNodesInElement(npn=None, nps=None): 
     NodesInSolid = []
-    print ("** SEARCHING NODES IN ELEMENT")
+    print ("** SEARCHING NODES INSIDE ELEMENT")
     nds = nps[:,1:9] 
     nds = np.unique(nds)
     if nds[0] ==0: 
@@ -17353,9 +17403,12 @@ def RepositionNodesAfterShoulder_old(shopoint=[], endpoint=[], ptn_tw=0.0, curre
 
 def Get_layout_treadbottom(flatten, allnodes): 
     nodes = []
-    for nd in flatten: 
-        ix = np.where(allnodes[:,0]==nd[0])[0][0]
-        nodes.append(allnodes[ix])
+    try: 
+        for nd in flatten: 
+            ix = np.where(allnodes[:,0]==nd[0])[0][0]
+            nodes.append(allnodes[ix])
+    except:
+        pass 
     return np.array(nodes)
 
 def ShiftShoulderNodesSquarePattern(npn, orn, profiles, curves, sideNodes, surf_posSide, surf_negSide, ptn_TDW, profile_TDW, ptn_sideBtmNode):
@@ -17541,10 +17594,7 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         profile = tmpprofile 
         PN = icurve + 1
 
-    # for pf in profile: 
-    #     print (" %.2f, %.2f"%(pf[0]*1000, pf[1]*1000))            
-
-
+   
 
     if icurve == PN -2 and repo ==1  : 
         profile_last_r = profile[PN-1][0]
@@ -17588,6 +17638,8 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
 
         delA_R = Angle_3nodes(curve_last[0], curve_last[2], n1, xy=23)
         Rlength_last = delA_R * profile_last_r
+
+
     else: 
         profile_last_r = profile[PN-1][0]
         curve_last = curves[PN-1]
@@ -17609,6 +17661,7 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         delA_R = Angle_3nodes(curve_last[0], curve_last[2], n1, xy=23)
         Rlength_last = delA_R * profile_last_r
 
+
     expansed_lastCurve_length =  np.max(ptn_gaged[:,2]) - (start + len_shocurve)
     last_l_ratio = Llength_last / expansed_lastCurve_length
     last_r_ratio = Rlength_last / expansed_lastCurve_length
@@ -17618,6 +17671,7 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         print ("   Left=%.2f, Scaled= %.2f >> %.2f"%(last_l_ratio, expansed_lastCurve_length*1000, Llength_last*1000 ))
         print ("  Right=%.2f, Scaled= %.2f >> %.2f"%(last_r_ratio, expansed_lastCurve_length*1000, Rlength_last*1000 ))
         print ("  Sho. Angle Start=%.1f, End=%.1f/%.1f"%(degrees(start_angle), degrees(L_end_angle), degrees(R_end_angle)))
+        print ("  Nodes adjust start from=%.1fmm"%(start*1000))
     else: 
         print ("* Shoulder Element thickness re-adjusting")
 
@@ -17653,7 +17707,7 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         temp1 = np.where(ptn_orgn[:,2] >= addsho * WidthR)[0] 
         temp2 = np.where(ptn_orgn[:,2] <= -addsho * WidthR)[0] 
 
-        # print ("start.. orgn", start * WidthR*1000)
+        # print ("start %.3f.. width ratio=%.2f "%(start*1000, WidthR), "collect nodes after", start * WidthR*1000)
 
         temp = np.concatenate((temp1, temp2), axis=None)
         tn = ptn_orgn[temp, 0]
@@ -17721,10 +17775,9 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         if len(ix) > 0 : ix = ix[0]
         else:           continue 
         n = ptn_gaged[ix]
-        # if show ==1: print ("N x=%.2f"%(n[2]*1000))
 
-        # if nid[0] -10**7 == 198: 
-        #     print ("checking node", nid)
+        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
+        #     print ("**** checking node [mm]")
         #     print ("%d, %.1f, %.1f, %.1f"%(n[0]-10**7, n[1]*1000, n[2]*1000, n[3]*1000))
 
         if n[2] < 0.0 : 
@@ -17733,63 +17786,91 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         else: 
             ny = n[2]
             end_angle = R_end_angle 
-        s = (ny - start) / width
-        angle = s * end_angle + (1-s) * start_angle 
+        
+
+        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253:  
+        #     print ("ny=%.3f, start=%.3f, len_shocurve=%f"%(ny*1000, start*1000, len_shocurve))
+
 
         if ny < start and len_shocurve == 0  : 
             L = profile[PN-2][1] - (start - ny)
             curve = curves[PN-2]
             SR =  profile[PN-2][0]
             angle = start_angle
+            # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253:  print ("************************")
 
+        ### added 2021. 04. 29 
+        elif ny < start: 
+            angle = start_angle
+            SR =  profile[PN-3][0]
+            curve = curves[PN-3]
+            L = profile[PN-3][1] - (start - ny)
+        ## 2021.04.29 
+        ################################################
         elif start <= ny and start +len_shocurve > ny : 
             L = ny - start
             curve = curves[PN-2]
             SR = profile[PN-2][0]
-            # if nid[0] -10**7 == 198: 
+            
+            s = (ny - start) / width
+            angle = s * end_angle + (1-s) * start_angle 
+            # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
             #     print("1 y=%.2f, SR=%.1f"%(ny*1000, SR*1000))
             #     print ("dist = %.2f"%((ny -  start)*1000))
             #     print ("L=%.1f, CV_y=%.1f, CV_z= %.1f, sr=%.1f"%(L*1000, curve[0][2]*1000, curve[0][3]*1000, SR*1000))
+        
         else: 
+            # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253:  print ("#################################")
             if nid[2] > 0: 
                 L = (ny -  (start  + len_shocurve)) * last_r_ratio
             else: 
                 L = (ny -  (start  + len_shocurve)) * last_l_ratio
             curve = curves[PN-1]
             SR = profile[PN-1][0]
+
+            s = (ny - start) / width
+            angle = s * end_angle + (1-s) * start_angle 
             # print("2 y=%.2f, SR=%.1f"%(ny*1000, SR*1000))
 
         toppos = positionOnCurve_byLength(L, curve[0], curve[1], curve[2], r=SR, xy=23)
         if n[2] > 0:    tops.append(toppos)
         else:           tops.append([toppos[0], toppos[1], -toppos[2], toppos[3]])
-        # if nid[0] -10**7 == 198: 
+        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
         #     print ("dist = %.2f ratio=%.1f"%((ny -  (start  + len_shocurve))*1000, last_r_ratio ))
         #     print ("%.1f, %.1f, %.1f, sr=%.1f"%(L*1000, curve[0][2]*1000, curve[0][3]*1000, SR*1000))
-        # if nid[0] -10**7 == 198: 
         #     print (" L = %.1f"%(L*1000))
         pattern_gage_ratio = Gauge_Ratio_to_Bottom_of_Pattern_node(n, ptn_section, ptn_R, ptn_orgn)
         layout_gage, other_pos = Layout_Tread_Gauge_at_pattern_node (toppos, bodybottom, angle)
         if n[2] > 0: other.append(other_pos)
         else:        other.append([-other_pos[0], other_pos[1]])
-
-        # print ("n3 x=%.1f, y=%.1f, Top x=%.1f, y=%.1f"%(n[2]*1000, n[3]*1000, toppos[2]*1000, toppos[3]*1000))
-        # if pattern_gage_ratio > 1.0: 
-        #     print (" x=%.1f y=%.1f A =%.1f, R=%.2f, Ga=%.1f > %.1f"%(n[2]*1000, n[3]*1000, degrees(angle), pattern_gage_ratio, layout_gage*1000, layout_gage * pattern_gage_ratio*1000))
+        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
+        #     print ("n3 x=%.1f, y=%.1f, Top x=%.1f, y=%.1f"%(n[2]*1000, n[3]*1000, toppos[2]*1000, toppos[3]*1000))
+        #     # if pattern_gage_ratio > 1.0: 
+            # print (" x=%.1f y=%.1f rotating Angle =%.1f, Ratio=%.2f,layout Ga=%.1f > target ga %.1f"%(n[2]*1000, n[3]*1000, degrees(angle), pattern_gage_ratio, layout_gage*1000, layout_gage * pattern_gage_ratio*1000))
+            
         if pattern_gage_ratio >=0 and layout_gage > 0: 
             ht = layout_gage * pattern_gage_ratio 
         else: 
-            # print ("No value n=%d ratio=%.1f, ga=%.2f"%(n[0]-10**7, pattern_gage_ratio, layout_gage*1000))
             ht = R - n[3]
-
+        
         initpos = [0, toppos[1], toppos[2], toppos[3] - ht]
 
+        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
+        #     print (" value n=%d ratio=%.1f, ga=%.2f, ga from top=%.2f"%(n[0]-10**7, pattern_gage_ratio, layout_gage*1000, ht*1000))
+        #     print (" rotating angle=%.3f, deg=%.2f"%(-angle, degrees(-angle)))
+        #     print (" vert Top  x=%.2f, y=%.2f"%(toppos[2]*1000, toppos[3]*1000))
+        #     print (" vert Init x=%.2f, y=%.2f"%(initpos[2]*1000, initpos[3]*1000))
+            
         if ht ==R: 
             rd = toppos
         else: 
             rd = RotateNode(initpos, -angle, toppos, xy=23)
         ix = np.where(ptn_npn[:,0]==n[0])[0][0]
-        # print (" (%.2f, %.2f) => (%.2f, %.2f)"%( ptn_npn[ix][2]*1000,  ptn_npn[ix][3]*1000, rd[2]*1000, rd[3]*1000))
-        # print (" (%.2f, %.2f) => (%.2f, %.2f)"%( initpos[2]*1000,  initpos[3]*1000, rd[2]*1000, rd[3]*1000))
+
+        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
+        #     print (" defm post x=%.2f, y=%.2f"%(ptn_npn[ix][2]*1000, ptn_npn[ix][3]*1000))
+        #     print (" Rotd post x=%.2f, y=%.2f"%(rd[2]*1000, rd[3]*1000))
+
         if n[2] < 0: ptn_npn[ix][2] = - rd[2] 
         else:        ptn_npn[ix][2] =  rd[2]  
         ptn_npn[ix][3] = rd[3]
@@ -17839,7 +17920,10 @@ def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R
 
     if n[3] == R : return 0 
 
-    # print ("N x=%8.2f, y=%8.2f Dist=%.2f"%(N[2]*1000, N[3]*1000, (R-N[3])*1000))
+    # if N[0]-10**7 == 3304: 
+    #     print ("Initial  N x=%8.2f, y=%8.2f Dist=%.2f"%(n[2]*1000, n[3]*1000, (R-n[3])*1000))
+    #     print ("deformed N x=%8.2f, y=%8.2f "%(N[2]*1000, N[3]*1000))
+    #     print ("iN R=%.2f, org ptn R=%.2f"%(R*1000, np.max(ptn_orgn[:,3])*1000))
 
 
     TG = -1  
@@ -17847,7 +17931,12 @@ def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R
     for sec in sections: 
         if sec[0][0] <= n[2] and n[2] <= sec[1][0] : 
             TG = (sec[1][1] - sec[0][1]) / (sec[1][0] - sec[0][0]) * ( n[2] - sec[0][0] ) + sec[0][1] 
-            break 
+            # if N[0]-10**7 == 3304:  
+            #     print ("* Bottom Ht around node %d=%.5f"%(N[0]-10**7, TG*1000))
+            #     print ("sec ", sec)
+            #     print (" (%.2f - %.2f)/(%.2f - %.2f)=%.3f"%(R*1000, n[3]*1000, R*1000, TG*1000, (R-n[3]) / (R-TG)))
+            break
+    
     if TG>0: 
         return (R-n[3]) / (R-TG)
     if n[2] < 0: 
@@ -17855,6 +17944,11 @@ def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R
     else: 
         N = len(sections)-1 
         TG = (sections[N][1][1] - sections[N][0][1]) / (sections[N][1][0] - sections[N][0][0]) * ( n[2] - sections[N][0][0] ) + sections[N][0][1] 
+    
+    # if N[0]-10**7 == 3304:  
+    #     print ("* Bottom Ht at End =%.5f"%(TG*1000))
+    #     print ("sec ", sections[-1])
+
     
     if TG>0: 
         return (R-n[3]) / (R-TG)
@@ -18449,10 +18543,10 @@ def AttatchSquarePatternSideNodes(layout_sidenodes, npn, orgn, surf_posSide, sur
     if layout_sidenodes[2][2] <0 : layout_sidenodes[2][2] *= -1
     sideR, sideCen = Circle3Nodes(layout_sidenodes[0], layout_sidenodes[1], layout_sidenodes[2], xy=23, radius=1, center=1)
 
-    # print (" 3 nodes on profile side")
-    # print (layout_sidenodes[0][2], ",", layout_sidenodes[0][3])
-    # print (layout_sidenodes[1][2], ",", layout_sidenodes[1][3])
-    # print (layout_sidenodes[2][2], ",", layout_sidenodes[2][3])
+    # print (" Profile side Radius =%.1f"%(sideR*1000))
+    # print ("%d, %.3f, %.3f"%(layout_sidenodes[0][0], layout_sidenodes[0][2], layout_sidenodes[0][3]))
+    # print ("%d, %.3f, %.3f"%(layout_sidenodes[1][0], layout_sidenodes[1][2], layout_sidenodes[1][3]))
+    # print ("%d, %.3f, %.3f"%(layout_sidenodes[2][0], layout_sidenodes[2][2], layout_sidenodes[2][3]))
 
     sideNodes=[]
     for sf, sf1 in zip(surf_posSide, surf_negSide): 
@@ -18509,7 +18603,7 @@ def AttatchSquarePatternSideNodes(layout_sidenodes, npn, orgn, surf_posSide, sur
     # print ("Side Center, %.2f, %.2f"%(sideCen[2]*1000, sideCen[3]*1000))
 
     # for p in layout_sidenodes: 
-    #     print ("point, %.2f, %.2f"%(p[2]*1000, p[3]*1000))
+    #     print ("layout_sidenodes, %d, %.2f, %.2f"%(p[0], p[2]*1000, p[3]*1000))
 
     return npn, nodeSideBtm
 
@@ -18806,7 +18900,6 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
     
     angles=[]
     for crv in curves:
-        
         vert = [0, 0, crv[2][2], crv[2][3]+1.0]
         angle_start = Angle_3nodes(vert, crv[2], crv[0], xy=23)
         angle_end = Angle_3nodes(vert, crv[2], crv[1], xy=23)
@@ -20286,7 +20379,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
     if btm ==1: 
         btmsolid = surf_btm[:, 0]
         if shoulder=="S": 
-            margin = tdw*0.48
+            margin = tdw*0.35
             cap=[]
             for sf in surf_btm: 
                 ix = np.where(ptn_node[:,0]==sf[7])[0][0]
@@ -21060,7 +21153,7 @@ def Creating_tread_removed_layout(fname="", nodes=[], elements=[], elsets=[], su
         nmin = 0 
         for i, ed in enumerate(interface.Edge): 
             # n = all_nodes.NodeByID(ed[0]) 
-            ix = np.where(npn[:,0] == ed[0])[0][0]; n = all_nodes[ix]
+            ix = np.where(npn[:,0] == ed[0])[0][0]; n = npn[ix]
             # print(i, ed[0], n)
             if i == 0: 
                 nmax = n[0] 
@@ -21261,7 +21354,7 @@ def SolidComponents_checking(fname="Solid_Components.mat", trd='', axi='', retur
         
     solids = sorted(solids)
     
-    print ("* Continuum Components (%d EA)"%(len(solids)))
+    print ("\n* Continuum Components (%d EA)"%(len(solids)))
     for n in solids: 
         # f.write(" %s\n"%(n))
         print (" %s"%(n), end="  ")
@@ -21818,19 +21911,26 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
         # if i == len(profile) -1 and totalwidth == 0:    ### I erased this line.. but I don't know why this is needed. 
         #     pf[1] += 10E-3 
         #########################################################
+        if pf[0]  == 0: pf[0] =10.0
         current_R = pf[0] 
+        if current_R == 10.0: 
+            current_R *= 100.0
+        
         r = abs(pf[0])
         sum_length += pf[1]
         angle = pf[1]/r ## arc angle 
+        # print ("R=%.1f, Len=%.2f"%(r*1000, pf[1]*1000))
         if i ==0: 
             drop = r - r * cos(angle)  # drop 
             dist = r*sin(angle)        # dist from center 
             # curves.append([dist, drop, sum_length, 0, r])
+
             p_drop = drop
             p_dist  =dist
             p_angle = angle 
             p_cx = 0
-            p_cy = r 
+            p_cy = r
+            # print ("drop=%.2f, dist=%.2f, angle=%.3f"%(drop*1000, dist*1000, degrees(angle))) 
 
             if hx <= dist and totalwidth==0:  
                 theta = asin(hx/r) 
@@ -21841,29 +21941,33 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
             pre_sum = sum_length
 
         else: 
-            c = (p_drop - p_cy)/(p_dist-p_cx)   
-            d = -p_dist * c + p_drop 
-            e = d - p_drop 
 
-            ## Ax^2 + Bx + C = 0  , 원의 중심에서 두 곡선의 교점을 지나는 직선 
-            A = (c*c + 1)
-            B = -2*p_dist + 2*e*c
-            C = p_dist*p_dist + e*e - r*r 
-            
-            ## 직선과 원이 만나는 두 점을 찾음 
-            cx1 = (-B + sqrt(B*B-4*A*C))/2/A 
-            cx2 = (-B - sqrt(B*B-4*A*C))/2/A 
-            
-            if cx1 > cx2:  cx = cx2
-            else: cx = cx1 
+            cx = p_dist - (p_dist-p_cx) / profile[i-1][0]*profile[i][0] 
+            cy = p_drop - (p_drop-p_cy) / profile[i-1][0]*profile[i][0] 
 
-            cy = c * cx + d 
+            # c = (p_drop - p_cy)/(p_dist-p_cx)   
+            # d = -p_dist * c + p_drop 
+            # e = d - p_drop 
+
+            # ## Ax^2 + Bx + C = 0  , 원의 중심에서 두 곡선의 교점을 지나는 직선 
+            # A = (c*c + 1)
+            # B = -2*p_dist + 2*e*c
+            # C = p_dist*p_dist + e*e - r*r 
+            
+            # ## 직선과 원이 만나는 두 점을 찾음 
+            # cx1 = (-B + sqrt(B*B-4*A*C))/2/A 
+            # cx2 = (-B - sqrt(B*B-4*A*C))/2/A 
+            
+            # if cx1 > cx2:  cx = cx2
+            # else: cx = cx1 
+
+            # cy = c * cx + d 
             
             angle_end   = p_angle + angle 
             drop = (cy - r) + (r-r*cos(angle_end))
             dist = cx + r*sin(angle_end)
-
-            # print ("## dist=%.5f, drop=%.5f"%(dist, drop))
+            # print (" Center x =%.3f, y=%.3f"%(cx*1000, cy*1000))
+            # print ("## dist=%.5f, drop=%.5f"%(dist*1000, drop*1000))
 
             if pf[0] < 0 and pm==0 and pn ==0:
                 pm = p_dist 
@@ -22988,49 +23092,49 @@ def Generate_Rotated_PTN(ptnFile, savefile):
     PACmd =""
     cmd = None 
     for line in lines: 
+        
         if "**" in line: 
             Remarks += line 
             continue 
         if "*" in line: 
-            
-            if "*PITCH_SCALING" in line :  
+            if "*PITCH_SCALING" in line.upper() :  
                 information +=  line 
                 continue 
-            elif "*PROFILE_SCALING" in line :  
+            elif "*PROFILE_SCALING" in line.upper() :  
                 information +=  line 
                 continue 
-            elif "*HALF_DIAMETER" in line :  
+            elif "*HALF_DIAMETER" in line.upper() :  
                 information +=  line 
                 continue 
-            elif "*CENTER_ANGLE" in line :  
+            elif "*CENTER_ANGLE" in line.upper() :  
                 information +=  line 
                 continue 
-            elif "*TREAD_DESIGN_WIDTH" in line :  
+            elif "*TREAD_DESIGN_WIDTH" in line.upper() :  
                 information +=  line 
                 continue 
-            elif "*GUIDELINE_TOLERANCE" in line :  
+            elif "*GUIDELINE_TOLERANCE" in line.upper() :  
                 information +=  line 
                 continue 
 
-            elif "*PROFILE_LHS" in line :  
+            elif "*PROFILE_LHS" in line.upper() :  
                 cmd = 'PL'
                 continue 
-            elif "*PROFILE_RHS" in line :  
+            elif "*PROFILE_RHS" in line.upper() :  
                 cmd = 'PR'
                 continue 
-            elif "*PITCH_DEFINITION_FIRST" in line :  
+            elif "*PITCH_DEFINITION_FIRST" in line.upper() :  
                 cmd = "PD"
                 continue 
-            elif "*PITCH_ARRAY_FIRST" in line :  
+            elif "*PITCH_ARRAY_FIRST" in line.upper() :  
                 cmd = "PA"
                 PACmd = line 
                 continue 
-            elif '*NODE' in line: 
+            elif '*NODE' in line.upper(): 
                 cmd ="ND"
-            elif '*ELEMENT' in line and 'TYPE' in line: 
+            elif '*ELEMENT' in line.upper() and 'TYPE' in line.upper(): 
                 elements+= line 
                 cmd ="EL"
-            elif '*ELSET' in line:
+            elif '*ELSET' in line.upper():
                 fd = 0  
                 for i, nm in enumerate(name_UPFWD): 
                     if nm in line: 
@@ -23066,6 +23170,7 @@ def Generate_Rotated_PTN(ptnFile, savefile):
                 data[2] = float(data[2].strip())
                 data[3] = float(data[3].strip())
                 nodes.append([data[0], data[1], data[2], data[3]])
+                # print (nodes[-1])
             if cmd == 'EL': 
                 elements+= line 
             if cmd == 'ES': 
@@ -23102,8 +23207,8 @@ def Generate_Rotated_PTN(ptnFile, savefile):
     fp.write("*NODE, SYSTEM=R\n")
     rot =radians(180.0)
     for nd in nodes: 
-        nd = RotateNode(nd, angle=rot, xy=21)
-        fp.write("%10d, %13.8E, %13.8E, %13.8E\n"%(nd[0], nd[1], nd[2], nd[3]))
+        nnd = RotateNode(nd, angle=rot, xy=21)
+        fp.write("%10d, %13.8E, %13.8E, %13.8E\n"%(nnd[0], nnd[1], nnd[2], nnd[3]))
 
     fp.write(elements)
     fp.write(esets)
