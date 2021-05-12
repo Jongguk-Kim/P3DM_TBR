@@ -1,0 +1,8 @@
+**Original Steel : 2E+11, 0.3
+**Twisted Steel Assumed : 1.761E+11, 0.3
+*MAT, NAME=ABW121A
+  8.0E03,    460.0,     43.0
+  1.0000, 8.81E+10, 0.000000     !---For Beam Formulation, Set Poisson=0.0
+       3,        1,        0
+  5.0E-06, 5.0E-05, 5.0E-04
+  0.00001  0.00001  0.00001    0.0  
