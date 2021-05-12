@@ -733,7 +733,7 @@
        <string>Rim Friction</string>
       </property>
      </widget>
-     <widget class="QGroupBox" name="groupBox_Check">
+     <widget class="QGroupBox" name="groupBox_PCI">
       <property name="geometry">
        <rect>
         <x>9</x>
@@ -1547,7 +1547,7 @@
        </property>
       </widget>
      </widget>
-     <widget class="QGroupBox" name="groupBox_4">
+     <widget class="QGroupBox" name="groupBox_Temperature">
       <property name="geometry">
        <rect>
         <x>10</x>
@@ -1823,6 +1823,19 @@
         <string> ../TEMP/C100_NB08.TEMPER</string>
        </property>
       </widget>
+     </widget>
+     <widget class="QLabel" name="label_message">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>410</y>
+        <width>541</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>.</string>
+      </property>
      </widget>
     </widget>
    </item>

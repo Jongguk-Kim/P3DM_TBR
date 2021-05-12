@@ -13,12 +13,14 @@ import subprocess
 from numpy.lib.arraysetops import intersect1d 
 import warnings 
 
+parkmiko = 1 
 try: 
     import paramiko as FTP 
     from scipy.optimize import linprog
     from scipy.spatial import ConvexHull
 except: 
     print ("No paramiko, scipy module.. ")
+    parkmiko = 0 
 
 # import PTN_LIBRARY.ptn_library as PTN 
 
@@ -2828,7 +2830,8 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
         print ("## User:", user)
         return 
 
-    
+    if parkmiko ==0:  return 0
+
     ftp = FTP.SSHClient()
     ftp.set_missing_host_key_policy(FTP.AutoAddPolicy())
     try: ftp.connect(host, username=user, password=pw)
@@ -2847,8 +2850,7 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
         if "CordDB" in name and ".txt" in name and "SLM" in name: 
             cord = wdir+"/"+name 
     f.close()
-    if cordDBFile !='': 
-        cord = cordDBFile  ## if input by user 
+    if cordDBFile !='':   cord = cordDBFile  ## if input by user 
 
     try: 
         sftp.get(cord, cordSaveFile)
@@ -2862,18 +2864,25 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
     fp.write("%s\n"%(cord))
     fp.close()
 
-    WriteCordList(cordSaveFile)
+    _ = WriteCordList(cordSaveFile)
 
     return 1 
     
-def WriteCordList(cordfile): 
-    try: 
+def ReadTextFile(cordfile): 
+
+    try:  
         with open(cordfile) as matf: 
             lines = matf.readlines()
     except:
         fp=open(cordfile, 'r', encoding='UTF8')
         lines = fp.readlines()
         fp.close()
+
+    return lines 
+
+def WriteCordList(cordfile): 
+    
+    lines = ReadTextFile(cordfile)
 
     materialNames=[]
     for i, line in enumerate(lines):
@@ -2911,7 +2920,7 @@ def WriteCordList(cordfile):
                 break
 
     cfile.close()
-
+    return cordsList
 
 
 def MeshFileInformation(filename, sectors=1): 
@@ -6706,9 +6715,11 @@ def FindOutEdges(FreeEdge, CenterNodes, Nodes, Elements):
     idx = np.where(posNodes[:,3]==zMin)[0]
     if len(idx) > 0: 
         rightToe = posNodes[idx[0]]
-        if len(idx)>1: 
-            for ix in idx: 
-                print("### Outer surface right bottom : ", posNodes[ix])
+        ## print the nodes if the number of nodes is more than 1.
+        # if len(idx)>1: 
+        #     print ("# Outer Surface right bottom ")
+        #     for ix in idx: 
+        #         print("  %d (%.1f, %.1f)"%(posNodes[ix][0], posNodes[ix][2], posNodes[ix][3]))
         
     for k, ix in enumerate(FreeEdge):
         if ix[0] == rightToe[0]: 
