@@ -2369,7 +2369,7 @@ class Ui_MainWindow(object):
 
             pitch_side = [self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side]
             self.fullnodes, self.fullsolids, self.elset3d, self.surf_XTRD1001, self.surf_YTIE1001, self.nd_deleted, self.deletednode, \
-            = PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
+            XTRD_surface, YTIE_surface= PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
                 surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
                 offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
                     rev=self.check_Direction.isChecked(), shoulderType=self.layout.shoulderType)
@@ -2430,18 +2430,18 @@ class Ui_MainWindow(object):
             self.Update_ISLM_Material()
             # self.message.setText(line)
 
-             ## writing pattern single pitch 
+             ## writing pattern single pitch   #XTRD_surface, YTIE_surface
             filename = savefile+"-P3DM.ptn"
-            try: 
-                P0_TOP, P0_SelfContact = PTN.Creating_pattern_pitch(self.ptn_bottomed, self.pattern, self.layout.LeftProfile, self.layout.RightProfile, \
-                    self.layout.L_curves, self.layout.R_curves, self.layout.OD, self.layout.GD, TDW=self.layout.TDW, \
-                    fname=filename, PN=self.pattern.NoPitch, pitch_up=self.pattern.surf_pitch_up, pitch_down=self.pattern.surf_pitch_down, \
-                    pitch_side_pos=self.pattern.surf_pattern_pos_side, pitch_side_neg=self.pattern.surf_pattern_neg_side, \
-                    bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, revPtn=self.check_Direction.isChecked())
-                print ("\n## Single Pitch Mesh is created.")
-                print ("  %s"%(filename.split("/")[-1]))
-            except:
-                print ("\n Single pitch mesh was not created.")
+            # try: 
+            P0_TOP, P0_SelfContact = PTN.Creating_pattern_pitch(self.ptn_bottomed, self.pattern, self.layout.LeftProfile, self.layout.RightProfile, \
+                self.layout.L_curves, self.layout.R_curves, self.layout.OD, self.layout.GD, TDW=self.layout.TDW, \
+                fname=filename, PN=self.pattern.NoPitch, pitch_up=self.pattern.surf_pitch_up, pitch_down=self.pattern.surf_pitch_down, \
+                pitch_side_pos=self.pattern.surf_pattern_pos_side, pitch_side_neg=self.pattern.surf_pattern_neg_side, \
+                bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, xtrd=XTRD_surface, ytie=YTIE_surface, revPtn=self.check_Direction.isChecked())
+            # print ("\n## Single Pitch Mesh is created.")
+            # print ("  %s"%(filename.split("/")[-1]))
+            # except:
+            #     print ("\n Single pitch mesh was not created.")
             filename = savefile+"-L2DM.inp"
             if len(self.layout.Tread.Element) > 0: 
                 PTN.Creating_tread_removed_layout(fname=filename, nodes=self.layout.body_nodes, elements=self.layout.Element, elsets=self.layout.Elset,\

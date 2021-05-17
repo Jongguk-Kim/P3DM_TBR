@@ -1502,6 +1502,8 @@ def Temporary_2dMeshWriting(fname, nodes, elements, elset, surfaces, outer, TieM
 def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000,\
      no_tread=10**7, abaqus=0, materialDir='', btAngles=[], overtype="SOT", PCIPress="", bdw=0, fricView=False ): 
 
+
+    
     # Tire_Outer = elements.OuterEdge(nodes)
     TieMaster, TieSlave, Tire_Outer, centerNodes, FreeEdges, allEdges, TieError = TieSurface(elements.Element, nodes.Node)
 
@@ -1671,7 +1673,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
         for i in range(sectors): 
             for t in ts: 
                 f.write("%8d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
-        f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
+        f.write("*TIE, POSITION TOLERANCE=0.0005, NAME=TIE%d\n"%(cnt))
         f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
 
     if len(Tie_Body)>0: 
@@ -1685,10 +1687,8 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
             for i in range(sectors): 
                 for t in ts: 
                     f.write("%8d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
-            f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
+            f.write("*TIE, POSITION TOLERANCE=0.0005, NAME=TIE%d\n"%(cnt))
             f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
-
-
 
     f.close()
 
@@ -1777,11 +1777,37 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
                 if ret == 0: 
                     f.write("\n")
 
+
+    Edges_tireOuter = elements.OuterEdge(nodes)
+    Edge_XTRD=[]
+    Edge_YTIE=[]
+    for ed in Edges_tireOuter.Edge: 
+        # print (' XTRD', ed, end=">")
+        if ed[2].upper() == 'CTB' or ed[2].upper() == 'CTR' or ed[2].upper() == 'SUT' or ed[2].upper() == 'UTR' or ed[2].upper() == 'TRW': 
+            Edge_XTRD.append(ed)
+            # print ("TD")
+        # else: print (" ..")
+    
+    k = 0
+    while k < len(tread_outer): 
+        fd = 0 
+        for ed in Edge_XTRD: 
+            if ed[4] == tread_outer[k][3] and ed[3] == tread_outer[k][3]: 
+                fd = 1 
+                break 
+        if fd ==0: 
+            Edge_YTIE.append(tread_outer[k])
+        k += 1 
+    
     f.write("*SURFACE,TYPE=ELEMENT,NAME=XTRD1001\n")
     for k in range(sectors): 
-        for ed in tread_outer: 
+        for ed in Edge_XTRD: 
             f.write("%8d, %s\n"%(ed[4]+offset*k + no_tread, Change3DFace(ed[3])))
-        
+    f.write("*SURFACE,TYPE=ELEMENT,NAME=YTIE1001\n")
+    for k in range(sectors): 
+        for ed in Edge_YTIE: 
+            f.write("%8d, %s\n"%(ed[4]+offset*k + no_tread, Change3DFace(ed[3])))
+
     surfFree = []
     if fricView:
         el3 = np.array(el3)
@@ -1840,7 +1866,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
             # print ("-", ed[4] + no_tread, ", ", nid1, ", ", nid2, ", ", nid3, ", ", nid4)
         
     
-    f.write("*SURFACE,TYPE=ELEMENT,NAME=YTIE1001\n")
+    
     surfContact=[]; surfTop=[]
     for ed in tread_outer: 
         fd = 0 
@@ -1857,8 +1883,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
                 fd =1 
                 break 
         if fd ==0: 
-            for i in range(sectors): 
-                f.write("%8d, %s\n"%(ed[4]+offset*i + no_tread, Change3DFace(ed[3]))) 
+            pass 
         
 
         if fricView:
@@ -20062,18 +20087,22 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
             idx = np.intersect1d(ix1, ix2) 
             if len(idx) == 1: 
                 surf_to_body.append(sf)
+                surf_free = np.delete(surf_free, idx[0],  axis=0)
         for sf in surf_side[1]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
             ix1 = np.where(surf_free[:,0] == sf[0])[0]
             ix2 = np.where(surf_free[:,1] == sf[1])[0]
             idx = np.intersect1d(ix1, ix2) 
             if len(idx) == 1: 
                 surf_to_body.append(sf)
+                surf_free = np.delete(surf_free, idx[0],  axis=0)
+    
     for sf in surf_btm: 
         ix1 = np.where(surf_free[:,0] == sf[0])[0]
         ix2 = np.where(surf_free[:,1] == sf[1])[0]
         idx = np.intersect1d(ix1, ix2) 
         if len(idx) == 1: 
             surf_to_body.append(sf)
+            surf_free = np.delete(surf_free, idx[0],  axis=0)
 
     surf_XTRD1001=[]
     surf_YTIE1001=[]
@@ -20096,7 +20125,7 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
         esed([sets[0], nos])
 
 
-    return fnodes, fsolids, elset3d, surf_XTRD1001, surf_YTIE1001, deleted_nodes, mched_nodes
+    return fnodes, fsolids, elset3d, surf_XTRD1001, surf_YTIE1001, deleted_nodes, mched_nodes, surf_free, surf_to_body
 def GenerateFullBodyMesh(nodes, elements, elsets, surfaces=[], sectors=240, offset=10000, body_outer=[]): 
     PI = 3.14159265358979323846
     nodes3d = []
@@ -20892,7 +20921,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
         
         return ptn_elset, ptn_solid, ptn_node, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, matchEL
 def Creating_pattern_pitch(expanded_pattern, pattern, LProfile, RProfile, Lcurves, Rcurves, OD, GD, ptn_id=10**7, TDW=0.0, fname="",\
- PN=0, pitch_up=[], pitch_down=[], pitch_side_pos=[], pitch_side_neg=[], bottom_surf=[], top_free=[], revPtn=False): 
+ PN=0, pitch_up=[], pitch_down=[], pitch_side_pos=[], pitch_side_neg=[], bottom_surf=[], top_free=[],xtrd=[], ytie=[], revPtn=False): 
     revPtn=False
     npn = expanded_pattern.npn 
     nps = expanded_pattern.nps 
@@ -21117,6 +21146,31 @@ def Creating_pattern_pitch(expanded_pattern, pattern, LProfile, RProfile, Lcurve
                 if sf[1] ==3: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 5))
                 elif sf[1] == 5: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 3))
                 else: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
+
+    if len(xtrd) > 0: 
+        f.writelines("*SURFACE, TYPE=ELEMENT, NAME=XTRD1001\n")
+        for sf in xtrd: 
+            tns.append(sf[7]-ptn_id); tns.append(sf[8]-ptn_id); tns.append(sf[9]-ptn_id) 
+            if sf[10]>=10**7: tns.append(sf[10]-ptn_id) 
+            tes.append(sf[0]-ptn_id)
+            if revPtn == False:  f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
+            else: 
+                if sf[1] ==3: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 5))
+                elif sf[1] == 5: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 3))
+                else: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
+    if len(ytie) > 0: 
+        f.writelines("*SURFACE, TYPE=ELEMENT, NAME=YTIE1001\n")
+        for sf in ytie: 
+            tns.append(sf[7]-ptn_id); tns.append(sf[8]-ptn_id); tns.append(sf[9]-ptn_id) 
+            if sf[10]>=10**7: tns.append(sf[10]-ptn_id) 
+            tes.append(sf[0]-ptn_id)
+            if revPtn == False:  f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
+            else: 
+                if sf[1] ==3: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 5))
+                elif sf[1] == 5: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 3))
+                else: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
+    
+
 
     tns = np.array(tns)
     tns = np.unique(tns)

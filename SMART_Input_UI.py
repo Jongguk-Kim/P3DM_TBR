@@ -1685,6 +1685,7 @@ class Ui_Dialog(object):
             self.tableWidget.setItem(0, 7, QtWidgets.QTableWidgetItem(""))
         else: 
             print ("## cannot access to server")
+            self.label_message.setText("cannot access to server")
             self.tableWidget.setItem(0, 4, QtWidgets.QTableWidgetItem("Cannot"))
             self.tableWidget.setItem(0, 5, QtWidgets.QTableWidgetItem("access"))
             self.tableWidget.setItem(0, 6, QtWidgets.QTableWidgetItem("to"))
@@ -1785,6 +1786,7 @@ class Ui_Dialog(object):
                     if pd[0] == eName: 
                         pd[1] = cName
                         print (" > The code of Elset %s was changed to %s"%(pd[0], sdInfo[k][1]))
+                        self.label_message.setText(" > The code of Elset %s was changed to %s"%(pd[0], sdInfo[k][1]))
                         break 
                 self.tableWidget.setItem(m, 8, QtWidgets.QTableWidgetItem( str(0.00)) )
 
@@ -1826,7 +1828,9 @@ class Ui_Dialog(object):
 
             if "- Not available" in sd[2]: 
                 sd[2] = sd[2].split("-")[0]
-            if sd[2]=='': print("sd", sd)
+            if sd[2]=='': 
+                print("sd", sd)
+                self.label_message.setText("sd:%s"%(sd))
 
             no_mat = 0 
             for mat in self.NoMaterial: 
@@ -1848,6 +1852,7 @@ class Ui_Dialog(object):
                 sd[6] = self.tableWidget.item(i+nSD,5).text().strip()
             except: 
                 print (i+ nSD, "-", sd[0], sd[2])
+                self.label_message.setText("%s - %s, %s%"%(str(i+nSD), str(sd[0]), str(sd[2])))
             self.tableWidget.setItem(i+ nSD, 4,  QtWidgets.QTableWidgetItem( str(sd[1])) )
             
             self.tableWidget.setItem(i+ nSD, 5,  QtWidgets.QTableWidgetItem( str(sd[6])) )
@@ -1904,6 +1909,7 @@ class Ui_Dialog(object):
                         if info[0] == str(sd[0]) : 
                             if info[1] != str(sd[2]):
                                 print (" > %s(%s) was changed to %s"%(info[1],info[0], sd[2]))
+                                self.label_message.setText(" > %s(%s) was changed to %s"%(info[1],info[0], sd[2]))
                                 info[1] = sd[2]
                                 break 
                     self.tableWidget.setItem(i+ nSD, 8,  QtWidgets.QTableWidgetItem( str(0.000e+00)) )
@@ -2225,20 +2231,7 @@ class Ui_Dialog(object):
         f.write("*SURFACES_FOR_CONTACT_AND_LOAD=%s, %s, %s, %s, %s        (TREAD, TBODY, PRESS, RICL, RICR FOR TIRE  )\n"%(\
             self.Edit_Surf_XTRD.text(),self.Edit_Surf_TireBody.text(), self.Edit_Surf_Press.text(), self.Edit_Surf_RicL.text(), self.Edit_Surf_RicR.text()))
         f.write("*****************************************************************************************************************************\n")
-        # self.tableWidget.item(i, 1).text().strip()
 
-        # with open(self.materialFile) as MAT: 
-        #     lines = MAT.readlines()
-        # cords = 0 
-        # cordInfo =[]
-        # for line in lines:
-        #     if "**" in line: continue 
-        #     if "*" in line: 
-        #         if "*REBAR_SECTION" in line: cords =1 
-        #         else: cords = 0 
-        #     else:
-        #         words = line.split(",")
-        #         cordInfo.append([words[0].strip(), words[2].strip(), float(words[8].strip()), float(words[9].strip()), float(words[10].strip()), float(words[11].strip())])
         lstCode =[]
         with open("ISLM_CordList.dat") as DAT: 
             lines = DAT.readlines()
@@ -2246,8 +2239,6 @@ class Ui_Dialog(object):
         for line in lines :
             words = line.split(",")
             lstCode.append([words[0].strip(), words[1].strip(), words[2].strip(), float(words[3][:-4].strip())])
-            ## lstCode : code, physical name, topping compd, epi 
-            # print(lstCode[-1])
 
         # lstRawCode =[]
         # with open("ISLM_CordDB.txt") as DAT: 
@@ -2359,9 +2350,44 @@ class Ui_Dialog(object):
         else: pci = 0
         if self.check_LowCure.isChecked():       lcure = 1
         else: lcure = 0
+
+        try: 
+            fbsd = float(self.Edit_BSD.text().strip())
+            fbdw = float(self.Edit_coreWidth.text().strip())
+        except: 
+            f.close()
+            deleteFile(smartSaving)
+            self.PopupWindow("ERROR", "BSD / Bead Core ")
+            return 
+        if fbsd ==0 or fbdw ==0: 
+            f.close()
+            deleteFile(smartSaving)
+            self.PopupWindow("ERROR", "BSD / Bead Core ")
+            return 
+
+
         if pci ==1: 
             f.write("*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=%s\n"%(pci, lcure, \
                 self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text(), self.Edit_PCI_press_kgf.text()))
+            try: 
+                fPCIP = float(self.Edit_PCI_press_kgf.text().strip())
+                if fPCIP <= 0: 
+                    f.close()
+                    deleteFile(smartSaving)
+                    self.PopupWindow("ERROR", "PCI Pressure %.1f > 0.0"%(fPCIP))
+                    return 
+                fPCIRW = float(self.Edit_PCI_RW_mm.text().strip())
+                if fPCIRW <= 0: 
+                    f.close()
+                    deleteFile(smartSaving)
+                    self.PopupWindow("ERROR", "PCI Rim Width %.1f > 0.0"%(fPCIRW))
+                    return
+            except:
+                f.close()
+                deleteFile(smartSaving)
+                self.PopupWindow("ERROR", "PCI Pressure/Rim Width")
+                return
+
         else: 
             f.write("*IN_MOLDING_PCI_INFO, TYPE=%d ,LOWCURE=%d, BSD=%s, PCIRIMW=%s, BDWIDTH=%s, PCIPRS=0\n"%(pci, lcure, \
                 self.Edit_BSD.text(), self.Edit_PCI_RW_mm.text(), self.Edit_coreWidth.text() ))
@@ -2432,6 +2458,7 @@ class Ui_Dialog(object):
         f.close()
 
         print ("\n## SMART Input File was saved.")
+        self.label_message.setText("## SMART Input File was saved.")
         Warnings += "BSD=%s, "%(self.Edit_BSD.text())
         Warnings += "Core Width=%s\n"%(self.Edit_coreWidth.text())
         Warnings += "Pressure=%s kgf/cm2, Load=%s kgf\n"%(self.Edit_pressKgf.text(), self.Edit_loadKgf.text())
@@ -2440,7 +2467,7 @@ class Ui_Dialog(object):
         Warnings += 'RIM Width=%s", Dia=%s"\n'%(self.Edit_RWInch.text(), self.Edit_RDinch.text())
         Warnings += "Camber=%s deg\n"%(self.Edit_camber.text())
         if SA_Start or SA_Duration: 
-            Warnings += "*Transient Slip angle : %s deg ~ %s deg\n"%(self.Edit_SA_Start.text(), self.Edit_lateral.text())
+            Warnings += "\n*Transient Slip angle change : %s deg ~ %s deg\n"%(self.Edit_SA_Start.text(), self.Edit_lateral.text())
         else: 
             if self.check_lateralForce.isChecked(): 
                 F = float(self.Edit_lateral.text().strip())
@@ -2450,7 +2477,7 @@ class Ui_Dialog(object):
                 Warnings += "Slip angle=%s deg\n"%(self.Edit_lateral.text())
 
         if SR_Start or SR_Duration: 
-            Warnings += "*Transient Longitudinal slip : 0 %% ~ %s %%\n"%(self.Edit_Rotation.text())
+            Warnings += "\n*Transient Longitudinal slip change: 0 %% ~ %s %%\n"%(self.Edit_Rotation.text())
         else: 
             if self.check_rotationForce.isChecked(): 
                 F = float(self.Edit_Rotation.text().strip())
@@ -2818,6 +2845,7 @@ class Ui_Dialog(object):
             print(' File "D:\\01_ISLM_Scripts\\03_P3DM_TB\SMART_Input_UI.py"')
             print (" subf = open(%s, 'w')"%(fname) )
             print (" ValueError: Cannot open console input buffer for writing")
+            self.label_message.setText(" ValueError: Cannot open console input buffer for writing")
             return 
         
         if self.check_GroupTBR.isChecked(): group="TBR"
@@ -3047,7 +3075,7 @@ class Ui_Dialog(object):
         self.label_72.setText(_translate("Dialog", "BSD(mm)"))
         self.label_72.setStyleSheet("color:red;")
         self.Edit_coreWidth.setText(_translate("Dialog",  str(self.BDWidth)))
-        self.label_73.setText(_translate("Dialog", "BD Cord Width(mm)"))
+        self.label_73.setText(_translate("Dialog", "BD Core Width(mm)"))
         self.label_73.setStyleSheet("color:red;")
         self.groupBox_2.setTitle(_translate("Dialog", "Define Simulation"))
         self.Edit_Inflation_Time1.setText(_translate("Dialog", str(self.PCITime1)))
@@ -3204,6 +3232,11 @@ class Ui_Dialog(object):
         self.Edit_rimCavityWidth.setToolTip(_translate("Dialog", "<html><head/><body><p>Rim Added Width</p></body></html>"))
         self.Edit_RimMass.setToolTip(_translate("Dialog", "<html><head/><body><p>RIM=1.0</p><p>LAT100=0.05</p><p>NPT=1.0</p></body></html>"))
         self.Edit_beltThickSubtraction.setToolTip(_translate("Dialog", "<html><head/><body><p>Unit :[m]</p></body></html>"))
+        self.Edit_stepTime.setToolTip(_translate("Dialog", "<html><head/><body><p>Default : 0.01</p></body></html>"))
+        self.Edit_averageTime.setToolTip(_translate("Dialog", "<html><head/><body><p>Resulting averaging - Default : 0.05</p></body></html>"))
+        self.Edit_Inflation_Time1.setToolTip(_translate("Dialog", "<html><head/><body><p>Time step for calculating the initial Belt/Carcass Angle/EPI(Default: 0.01 - BT on drum/CC shift/BT lifting) </p></body></html>"))
+        self.Edit_Inflation_Time2.setToolTip(_translate("Dialog", "<html><head/><body><p>Time step for PCI/Inflation(Default: 0.015)</p></body></html>"))
+        self.label_72.setToolTip(_translate("Dialog", "<html><head/><body><p>Bead Set Distance</p></body></html>"))
         ###########################################################
 
     def openMaterialFile(self):
