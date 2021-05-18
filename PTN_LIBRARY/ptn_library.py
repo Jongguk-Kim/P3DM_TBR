@@ -1791,12 +1791,13 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     k = 0
     while k < len(tread_outer): 
         fd = 0 
-        for ed in Edge_XTRD: 
-            if ed[4] == tread_outer[k][3] and ed[3] == tread_outer[k][3]: 
+        for ed in Edges_tireOuter.Edge: 
+            if ed[4] == tread_outer[k][4] and ed[3] == tread_outer[k][3]: 
                 fd = 1 
                 break 
         if fd ==0: 
             Edge_YTIE.append(tread_outer[k])
+            # print("YTIE:",tread_outer[k], Edges_tireOuter.Edge[0])
         k += 1 
     
     f.write("*SURFACE,TYPE=ELEMENT,NAME=XTRD1001\n")
