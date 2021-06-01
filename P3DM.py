@@ -2137,10 +2137,6 @@ class Ui_MainWindow(object):
                 self.pattern.npn =PTN.BendingPattern(OD=self.layout.OD, Rprofiles=self.layout.RightProfile, \
                     Rcurves=self.layout.R_curves, Lprofiles=self.layout.LeftProfile , Lcurves=self.layout.L_curves , nodes=self.pattern.npn,  xy=23)
             else:
-                # print (" Profile information before bending ")
-                # for pf in self.layout.RightProfile:
-                #     print(pf)
-                
                 self.pattern.npn = PTN.BendingSquarePattern(OD=self.layout.OD, profiles=self.layout.RightProfile, curves=self.layout.R_curves,\
                         nodes=self.pattern.npn, xy=23)
 
