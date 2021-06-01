@@ -461,9 +461,11 @@ class Ui_Dialog(object):
                         
                     # if "" in line: 
 
-    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw, solidList, localCordDBFileName, kerfContact, PCI): 
+    def __init__(self, materialDir, cordDB, fullmeshSave, layoutGD, pciPress, bsd, bdw, drw, solidList, localCordDBFileName, kerfContact, PCI, meshfile=''): 
         self.called=""
         self.editRimDia_mm = 0 
+        self.mesh2dfile = meshfile
+        self.RowCounting = 30                                   
 
         self.saveFile = fullmeshSave + "-SMART.inp"
         self.saveDefaultFile="SMART_Default.dat"
@@ -1148,21 +1150,26 @@ class Ui_Dialog(object):
         self.groupBox_9.setGeometry(QtCore.QRect(10, 180, 1131, 471))
         self.groupBox_9.setObjectName("groupBox_9")
         self.Edit_materialPosition = QtWidgets.QLineEdit(self.groupBox_9)
-        self.Edit_materialPosition.setGeometry(QtCore.QRect(63, 22, 261, 20))
+        self.Edit_materialPosition.setGeometry(QtCore.QRect(63, 20, 181, 20))
         self.Edit_materialPosition.setObjectName("Edit_materialPosition")
         # self.Edit_materialPosition.setDisabled(True)
 
         self.label_74 = QtWidgets.QLabel(self.groupBox_9)
-        self.label_74.setGeometry(QtCore.QRect(13, 22, 51, 16))
+        self.label_74.setGeometry(QtCore.QRect(13, 20, 51, 16))
         self.label_74.setObjectName("label_74")
         self.Edit_cordFile = QtWidgets.QLineEdit(self.groupBox_9)
-        self.Edit_cordFile.setGeometry(QtCore.QRect(370, 23, 341, 20))
+        self.Edit_cordFile.setGeometry(QtCore.QRect(300, 20, 341, 20))
         self.Edit_cordFile.setObjectName("Edit_cordFile")
         self.label_75 = QtWidgets.QLabel(self.groupBox_9)
-        self.label_75.setGeometry(QtCore.QRect(330, 23, 61, 16))
+        self.label_75.setGeometry(QtCore.QRect(260, 20, 61, 16))
         self.label_75.setObjectName("label_75")
         # self.Edit_cordFile.setDisabled(True)
 
+
+        self.check_BeltRad_Regulation = QtWidgets.QCheckBox(self.groupBox_9)
+        self.check_BeltRad_Regulation.setGeometry(QtCore.QRect(645, 22, 81, 16))
+        self.check_BeltRad_Regulation.setObjectName("check_BeltRad_Regulation")
+        self.check_BeltRad_Regulation.setText( "PC Reg.")
 
         self.Edit_beltLift = QtWidgets.QLineEdit(self.groupBox_9)
         self.Edit_beltLift.setGeometry(QtCore.QRect(765, 23, 51, 20))
@@ -1198,10 +1205,10 @@ class Ui_Dialog(object):
         self.tableWidget = QtWidgets.QTableWidget(self.groupBox_9)
         self.tableWidget.setGeometry(QtCore.QRect(10, 50, 1111, 301))
         self.tableWidget.setObjectName("tableWidget_2")
-        self.tableWidget.setColumnCount(12)
-        self.tableWidget.setRowCount(30)
+        self.tableWidget.setColumnCount(13)
+        self.tableWidget.setRowCount(self.RowCounting)
         self.tableWidget.setHorizontalHeaderLabels(["Elset", "CODE", "Init. Temp", "Scale", \
-            "Type", "Angle", "Radius", "Steel", "Density(ρ)", "Scale/Topping ρ", "volume", "Weight"])
+            "Type", "Angle", "Radius", "Steel", "Density(ρ)", "Scale/Topping ρ", "volume", "Weight", "Ga"])
         k = 0 
         self.tableWidget.setColumnWidth(k, 60);   k += 1
         self.tableWidget.setColumnWidth(k, 150);   k += 1
@@ -1270,20 +1277,49 @@ class Ui_Dialog(object):
 
             self.tableWidget.setItem(i+ nSD, 4,  QtWidgets.QTableWidgetItem( str(sd[1])) )
             self.tableWidget.setItem(i+ nSD, 5,  QtWidgets.QTableWidgetItem( str(sd[6])) )
-            if not self.radio_TBR.isChecked() and ("BT" in sd[0] or  "SPC" in sd[0] or "JEC" in sd[0]  or "JFC" in sd[0]):
-                found = 0
-                for br in self.RolledLayerGauge: 
-                    if br[0] == sd[0]: 
-                        rad = round(float(sd[7]) - br[1] / 2.0 , 4) 
-                        found =1 
-                        # print (sd[0], "belt radius = modifined by", br[1] / 2.0)
-                        break 
-                if found ==1: self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(rad)) )
-                else: self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
-            else:
-                self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
-                
+            self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
             self.tableWidget.setItem(i+ nSD, 7,  QtWidgets.QTableWidgetItem( str(sd[5])) )
+
+            fd = 0
+            for br in self.RolledLayerGauge:
+                if br[0] == sd[0]: 
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( br[1] )) )
+                    fd =1
+                    break 
+            if fd ==0: 
+                if not self.radio_TBR.isChecked() and ("BT" in sd[0]):
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 1.2 )) )
+                elif not self.radio_TBR.isChecked() and ( "JEC" in sd[0]  or "JFC" in sd[0]):
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 0.8 )) )
+                elif not self.radio_TBR.isChecked() and ("C0" in sd[0]):
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 1.0 )) )
+
+                elif self.radio_TBR.isChecked() and ("BT" in sd[0] or  "SPC" in sd[0] ):
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 2.2 )) )
+                elif self.radio_TBR.isChecked() and ("C0" in sd[0]):
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 2.4 )) )
+                elif self.radio_TBR.isChecked() and 'CH1' in sd[0]:
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 1.6 )) )
+                elif self.radio_TBR.isChecked() and ('CH2' in sd[0] or 'BDC' in sd[0]):
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 1.2 )) )
+                else: 
+                    self.tableWidget.setItem(i+ nSD, 12,  QtWidgets.QTableWidgetItem( str( 1.0 )) )
+            
+
+            # if not self.radio_TBR.isChecked() and ("BT" in sd[0] or  "SPC" in sd[0] or "JEC" in sd[0]  or "JFC" in sd[0]):
+            #     found = 0
+            #     for br in self.RolledLayerGauge: 
+            #         if br[0] == sd[0]: 
+            #             rad = round(float(sd[7]) - br[1] / 2.0 , 4) 
+            #             found =1 
+            #             # print (sd[0], "belt radius = modifined by", br[1] / 2.0)
+            #             break 
+            #     if found ==1: self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(rad)) )
+            #     else: self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
+            # else:
+            #     self.tableWidget.setItem(i+ nSD, 6,  QtWidgets.QTableWidgetItem( str(sd[7])) )
+                
+            # self.tableWidget.setItem(i+ nSD, 7,  QtWidgets.QTableWidgetItem( str(sd[5])) )
             
             if len(sd)> 8:
                 self.tableWidget.setItem(i+ nSD, 8,  QtWidgets.QTableWidgetItem( str(sd[8])) )
@@ -1455,6 +1491,7 @@ class Ui_Dialog(object):
         # self.Edit_RWInch.returnPressed.connect(self.testRWInch)
         self.check_GroupTBR.toggled.connect(self.RimInfoChanged)
         self.check_Tube.toggled.connect(self.RimInfoChanged)
+        self.check_BeltRad_Regulation.toggled.connect(self.BeltRadCalChange)
 
         self.Edit_RWInch.editingFinished.connect(self.testRWInch)
         self.Edit_RWmm.editingFinished.connect(self.testRWmm)
@@ -1517,7 +1554,13 @@ class Ui_Dialog(object):
             self.Edit_totalTime.setText("0.0")
             self.check_pressVariance.setChecked(False)
             self.groupBox_Temperature.setChecked(False)
-    
+
+    def BeltRadCalChange(self): 
+        if self.check_BeltRad_Regulation.isChecked(): 
+            self.BeltRadius_by_PC_regulation = 1
+        else: self.BeltRadius_by_PC_regulation =0 
+        # self.reCalculationDrumRadius()
+
     def staticCondition(self, group="PCR", conditions=None): 
         if conditions==None: return 
         self.Edit_massScale.setText("1.2")
@@ -1650,7 +1693,10 @@ class Ui_Dialog(object):
             self.check_LowCure.setChecked(False)
             self.groupBox_PCI.setChecked(True)
             self.check_GroupTBR.setChecked(False)
-        if self.radio_LTR.isChecked(): 
+            self.check_BeltRad_Regulation.setChecked(True)
+            self.check_BeltRad_Regulation.setEnabled(True)
+            
+        elif self.radio_LTR.isChecked(): 
             self.Edit_stiffness_KV.setText("24.6")
             self.Edit_stiffness_KL.setText("20.03")
             self.Edit_stiffness_KT.setText("30.0")
@@ -1658,7 +1704,11 @@ class Ui_Dialog(object):
             self.check_LowCure.setChecked(False)
             self.groupBox_PCI.setChecked(True)
             self.check_GroupTBR.setChecked(False)
-        if self.radio_TBR.isChecked(): 
+            self.check_BeltRad_Regulation.setChecked(True)
+            self.check_BeltRad_Regulation.setEnabled(True)
+            
+
+        elif self.radio_TBR.isChecked(): 
             self.Edit_stiffness_KV.setText("114.0")
             self.Edit_stiffness_KL.setText("38.0")
             self.Edit_stiffness_KT.setText("72.0")
@@ -1669,8 +1719,10 @@ class Ui_Dialog(object):
             self.check_LowCure.setChecked(True)
             self.groupBox_PCI.setChecked(False)
             self.check_GroupTBR.setChecked(True)
+            self.check_BeltRad_Regulation.setChecked(False)
+            self.check_BeltRad_Regulation.setDisabled(True)
 
-        self.reCalculationDrumRadius()
+        # self.reCalculationDrumRadius()
 
 
     def UpdateMaterialFromDB(self): 
@@ -1785,7 +1837,7 @@ class Ui_Dialog(object):
                 for k, pd in enumerate(sdInfo):
                     if pd[0] == eName: 
                         pd[1] = cName
-                        print (" > The code of Elset %s was changed to %s"%(pd[0], sdInfo[k][1]))
+                        # print (" > The code of Elset %s was changed to %s"%(pd[0], sdInfo[k][1]))
                         self.label_message.setText(" > The code of Elset %s was changed to %s"%(pd[0], sdInfo[k][1]))
                         break 
                 self.tableWidget.setItem(m, 8, QtWidgets.QTableWidgetItem( str(0.00)) )
@@ -1821,6 +1873,42 @@ class Ui_Dialog(object):
                             self.tableWidget.setItem(m, 10, QtWidgets.QTableWidgetItem( str(sd[6])) )
                             self.tableWidget.setItem(m, 11, QtWidgets.QTableWidgetItem( str(sd[7])) )
                             break 
+            isTBR = 0 
+        for i, sd in enumerate(self.rebar):
+            if 'BT3' in sd[0] : 
+                isTBR =1 
+                break 
+        if not isTBR and self.radio_TBR.isChecked(): 
+            self.radio_TBR.setChecked(True)
+            self.PopupWindow("ERROR", "This is a PC/LT Model(No BT3 in mesh)")
+            self.tireGroupChange()
+            return 
+        elif isTBR and not self.radio_TBR.isChecked(): 
+            self.radio_TBR.setChecked(True)
+            self.PopupWindow("ERROR", "This is a TB Model(BT3 in mesh)")
+            self.tireGroupChange()
+            return
+
+
+        self.RolledLayerGauge=[]
+        rolled =[] 
+        for m in range(self.RowCounting): 
+            
+            try : 
+                es_name = self.tableWidget.item(m,0).text().strip()
+                ga = self.tableWidget.item(m,12).text().strip()
+                ga=float(ga)/1000.0
+                self.RolledLayerGauge.append([es_name, ga])
+                rolled.append([es_name, 1, 2, 3, 4, 5, 6, 7, ga])
+            except: 
+                continue 
+
+        if self.radio_TBR.isChecked(): 
+            self.check_BeltRad_Regulation.setChecked(False)
+        if self.check_BeltRad_Regulation.isChecked()  : 
+            bt_radii = PTN.GetBeltDrumDia_PCR(self.mesh2dfile, rolled, self.beltLift)
+            # for bt, val in bt_radii.items(): 
+            #     print (bt, val)
 
         for i, sd in enumerate(self.rebar):
             self.tableWidget.setItem(i + nSD , 0,  QtWidgets.QTableWidgetItem( str(sd[0])) )
@@ -1829,7 +1917,7 @@ class Ui_Dialog(object):
             if "- Not available" in sd[2]: 
                 sd[2] = sd[2].split("-")[0]
             if sd[2]=='': 
-                print("sd", sd)
+                # print("sd", sd)
                 self.label_message.setText("sd:%s"%(sd))
 
             no_mat = 0 
@@ -1859,19 +1947,23 @@ class Ui_Dialog(object):
 
             if "BT" in sd[0] or  "SPC" in sd[0] or "JEC" in sd[0]  or "JFC" in sd[0]  : 
 
-                for br in self.beltRadius: 
-                    if br[0] == sd[0]: 
-                        rad = br[1]/self.beltLift 
-                        break 
-                if not self.radio_TBR.isChecked(): 
-                    for br in self.RolledLayerGauge: 
+                if self.check_BeltRad_Regulation.isChecked() : 
+                    rad = bt_radii[sd[0]]*1000
+                else: 
+                    for br in self.beltRadius: 
                         if br[0] == sd[0]: 
-                            rad -= br[1] / 2.0 
-                            # print (sd[0], "belt radius = modifined by", br[1] / 2.0)
+                            rad = br[1]/self.beltLift 
                             break 
+                # if not self.radio_TBR.isChecked(): 
+                #     for br in self.RolledLayerGauge: 
+                #         if br[0] == sd[0]: 
+                #             rad -= br[1] / 2.0 
+                #             # print (sd[0], "belt radius = modifined by", br[1] / 2.0)
+                #             break 
                 # else: 
                 #     print (sd[0], "belt radius ", rad)
                 sd[7] = round(rad, 4)
+
             if "C0" in sd[0] or "CC" in sd[0]: 
                 layer = float(sd[0][-1])
                 ccr = self.carcassDrumDia/2.0
@@ -1908,7 +2000,7 @@ class Ui_Dialog(object):
                     for info in cordInfo: 
                         if info[0] == str(sd[0]) : 
                             if info[1] != str(sd[2]):
-                                print (" > %s(%s) was changed to %s"%(info[1],info[0], sd[2]))
+                                # print (" > %s(%s) was changed to %s"%(info[1],info[0], sd[2]))
                                 self.label_message.setText(" > %s(%s) was changed to %s"%(info[1],info[0], sd[2]))
                                 info[1] = sd[2]
                                 break 
@@ -2525,19 +2617,21 @@ class Ui_Dialog(object):
             self.check_LowCure.setChecked(True)
             self.radio_TBR.setChecked(True)
             self.groupBox_PCI.setChecked(False)
+            self.check_BeltRad_Regulation.setChecked(False)
+            self.check_BeltRad_Regulation.setDisabled(True)
         elif self.check_GroupTBR.isChecked() and not self.check_Tube.isChecked(): 
             self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_TB_TUBELESS.GEOM")
             self.check_LowCure.setChecked(True)
             self.radio_TBR.setChecked(True)
             self.groupBox_PCI.setChecked(False)
+            self.check_BeltRad_Regulation.setChecked(False)
+            self.check_BeltRad_Regulation.setDisabled(True)
         else:
             self.Edit_RimGeo.setText("/home/fiper/ISLM_RIM/RIM_PCLT.GEOM")
             self.check_LowCure.setChecked(False)
-            if self.tireGroup == 2: 
-                self.radio_LTR.setChecked(True)
-            else:
-                self.radio_PCR.setChecked(True)
             self.groupBox_PCI.setChecked(True)
+            self.check_BeltRad_Regulation.setChecked(True)
+            self.check_BeltRad_Regulation.setEnabled(True)
 
     def testRDInch(self, called="EditFinish"): 
         # try:
@@ -3151,9 +3245,21 @@ class Ui_Dialog(object):
         self.radio_PCR.setText(_translate("Dialog", "PCR"))
         self.radio_LTR.setText(_translate("Dialog", "LTR"))
         self.radio_TBR.setText(_translate("Dialog", "TBR"))
-        if self.tireGroup==1:    self.radio_PCR.setChecked(True)
-        elif self.tireGroup==2:    self.radio_LTR.setChecked(True)
-        else: self.radio_TBR.setChecked(True)
+        if self.tireGroup==1:    
+            self.radio_PCR.setChecked(True)
+            self.check_BeltRad_Regulation.setChecked(False)
+            self.check_BeltRad_Regulation.setEnabled(True)
+            self.BeltRadius_by_PC_regulation = 1 
+        elif self.tireGroup==2:    
+            self.radio_LTR.setChecked(True)
+            self.check_BeltRad_Regulation.setChecked(False)
+            self.check_BeltRad_Regulation.setEnabled(True)
+            self.BeltRadius_by_PC_regulation = 1 
+        else: 
+            self.radio_TBR.setChecked(True)
+            self.check_BeltRad_Regulation.setChecked(False)
+            self.check_BeltRad_Regulation.setEnabled(False)
+            self.BeltRadius_by_PC_regulation = 0 
 
         self.label_61.setText(_translate("Dialog", "<html><head/><body><p><span style=\" color:#747474;\">Rim Real Mass </span></p></body></html>"))
         

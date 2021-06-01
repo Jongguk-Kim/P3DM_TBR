@@ -695,9 +695,12 @@ if __name__ == "__main__":
     # nodes2 = PatternMesh_from_trd(trd, output=output, limit=limit)
 
     trd = "D:\\01_ISLM_Scripts\\03_P3DM_TB\\test_mesh\\expanded_pattern\\1022896VT00004-0.trd"
+    trd = "D:\\01_ISLM_Scripts\\10_StandardMesh\\temp_inp\\Groove.trd"
+    trd = "D:\\01_ISLM_Scripts\\10_StandardMesh\\Footshape\\3003473VT00036-0.trd"
     output = trd[:-4]+"-P3DM_TD.inp"
     nodes2 = PatternMesh_from_trd(trd, output=output, limit=limit)
     axi = "D:\\01_ISLM_Scripts\\03_P3DM_TB\\test_mesh\\expanded_pattern\\1022896VT00004-0.axi"
+    axi = "D:\\01_ISLM_Scripts\\10_StandardMesh\\Footshape\\3003473VT00036-0.axi"
     output = axi[:-4]+"-P3DM_BD.inp"
     nodes2 = LayoutMesh_From_axi(axi, output=output, limit=limit)
 
@@ -771,13 +774,6 @@ if __name__ == "__main__":
         print (" total nodes=%d"%(len(nd1)))
 
         print (" No match=%d, 1 match=%d, over2=%d"%(c0, c1, c2))
-
-    
-
-
-
-
-
 
 
     trd = "D:\\01_ISLM_Scripts\\10_StandardMesh\\temp_inp\\1030335VT00001-manual.trd"

@@ -14,13 +14,13 @@ from numpy.lib.arraysetops import intersect1d
 import warnings 
 
 parkmiko = 1 
-try: 
-    import paramiko as FTP 
-    from scipy.optimize import linprog
-    from scipy.spatial import ConvexHull
+try:  import paramiko as FTP 
 except: 
-    print ("No paramiko, scipy module.. ")
+    print ("No paramiko")
     parkmiko = 0 
+from scipy.optimize import linprog
+from scipy.spatial import ConvexHull
+   
 
 # import PTN_LIBRARY.ptn_library as PTN 
 
@@ -86,6 +86,98 @@ TireCordComponents = [
     #'SWS'    # temporary component for Endurance simulation 
 ]
 
+def GetBeltDrumDia_PCR(layoutfile, mat_cords, beltLift): 
+    Layout = LAYOUT(layoutfile)
+
+    UTG = Layout.UTG
+    moldOD = Layout.moldOD
+    GD = Layout.GD 
+    
+    totalBTGauge = 0.0
+    totalReinBTGauge = 0.0
+    BTG1 = 0; BTG2 = 0; JFG1=0; JFG2=0; JEG1=0; JEG2=0
+    for info in mat_cords: 
+        if 'BT' in info[0].strip()  : totalBTGauge += info[8] 
+        if 'JFC' in info[0].strip() : totalReinBTGauge += info[8]
+        if 'BT1' in info[0]: BTG1=info[8] 
+        if 'BT2' in info[0]: BTG2=info[8]
+        if 'JFC1' in info[0]: JFG1=info[8]
+        if 'JFC2' in info[0]: JFG2=info[8]
+        if 'JEC1' in info[0]: JEG1=info[8]
+        if 'JEC2' in info[0]: JEG2=info[8]
+
+    # totalReinBTGauge = (JFC1 + JFC2 + JCC1)
+    # totalBTGauge = Sum(BTs)
+    if not UTG : 
+        
+        btt=[]
+        for e in Layout.Element.Element: 
+            if e[5] =='BTT' or e[5] == 'JBT': 
+                btt.append(e[1]); btt.append(e[2]); btt.append(e[3]) 
+                if e[4] > 0: btt.append(e[4])
+
+        btt = np.array(btt)
+        btt = np.unique(btt)
+
+        npn = np.array(Layout.Node.Node)
+        btz =[]
+        for n in btt: 
+            ix = np.where(npn[:,0]==n)[0][0]
+            btz.append(npn[ix][3])
+        btz = np.unique(np.array(btz))
+        btmx = np.max(btz)
+        UTG = moldOD/2.0 - GD - btmx 
+
+        if UTG < 0.001: 
+            btt=[]
+            for e in Layout.Element.Element: 
+                if 'BT' in e[5] or 'JFC' in e[5] or 'OJEC' in e[5] : 
+                    btt.append(e[1]); btt.append(e[2]); btt.append(e[3]) 
+                    if e[4] > 0: btt.append(e[4])
+
+            btt = np.array(btt)
+            btt = np.unique(btt)
+
+            npn = np.array(Layout.Node.Node)
+            btz =[]
+            for n in btt: 
+                ix = np.where(npn[:,0]==n)[0][0]
+                btz.append(npn[ix][3])
+            btz = np.unique(np.array(btz))
+            btmx = np.max(btz)
+            UTG = moldOD/2.0 - GD - btmx 
+                    
+
+    beltDrumDia = (moldOD - 2 * (GD + UTG + 0.9 * totalReinBTGauge) - 1.25 * totalBTGauge) / beltLift - totalBTGauge 
+    beltDrumRad =beltDrumDia / 2.0
+    # print ('\n Belt Drum Radius = %.4f'%(beltDrumRad*1000))
+    # print (' UTG = %.4f'%(UTG*1000))
+    # print (' GD = %.4f'%(GD*1000))
+    # print (' OD = %.4f'%(moldOD*1000))
+    # print (' Total Reinforcement Belt Ga. = %.4f'%(totalReinBTGauge*1000))
+    # print (' Total Belt Ga. = %.4f'%(totalBTGauge*1000))
+    # print (' Belt Lift Ratio = %.4f'%(beltLift))
+
+    B1R = beltDrumRad 
+    B2R = B1R + BTG1 
+    JFC1R = B2R + BTG2 
+    JFC2R = JFC1R + JFG1 
+    if JFG1 ==0 : 
+        JEC1R = B2R + BTG2 
+        JEC2R = JEC1R + JEG1 
+    elif JFG2 ==0 : 
+        JEC1R = JFC1R + JFG1  
+        JEC2R = JEC1R + JEG1
+    else: 
+        JEC1R = JFC2R + JFG2  
+        JEC2R = JEC1R + JEG1 
+
+
+    radii ={"BT1": B1R, 'BT2': B2R, 'JFC1' : JFC1R, 'JFC2': JFC2R, 'JEC1': JEC1R, 'JEC2': JEC2R}
+    
+
+    return radii
+
 
 def GetCarcassDrumDia(group="PCR", inch=16.0, overtype=''): 
     if group != 'TBR':
@@ -117,7 +209,12 @@ def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='', ga=1.0, innerGa
     # print (cdd, "inner Ga=", innerGa, layer, "cc ga", ga, "lift", centerMinR/cdd)
     return CcDia
 
-
+def isNumber(s):
+  try:
+    float(s)
+    return True
+  except ValueError:
+    return False
 # def Printlist(List, **kwargs): 
 #     Print_list(List, **kwargs)
 def PrintNode(n): 
@@ -728,6 +825,111 @@ class ELEMENT:
                     ed.append(e)
 
         return ed 
+class LAYOUT: 
+    def __init__(self, meshfile): 
+        self.Node = NODE()
+        self.Element = ELEMENT()
+        self.Elset = ELSET()
+        self.Surface = SURFACE()
+        self.carcassGa = 0.0
+        self.moldOD=0.0
+        self.GD=0.0
+        self.UTG=0.0
+        self.Mesh2DInformation(meshfile)
+
+    def Mesh2DInformation(self, InpFileName):
+        with open(InpFileName) as INP:
+            lines = INP.readlines()
+        skipComment = 0 
+        for line in lines:
+            if line[0] == '\n': continue 
+            if '**' in line:
+                if 'The List of Rebar Element sets' in line: 
+                    skipComment =1 
+                if skipComment ==0: 
+                    if "C01" in line : 
+                        w = line.split(",")
+                        self.carcassGa = float(w[6].strip())
+                    if 'CAVITY_OD' in line and not 'CODE' in line and not 'NODE' in line: 
+                        txt = line.split(":")[1].strip()
+                        self.moldOD = float(txt)/1000.0
+                    if 'GROOVE DEPTH' in line : 
+                        txt = line.split(":")[1].strip()
+                        self.GD = float(txt)/1000.0
+            
+            elif '*' in line:
+                word = list(line.split(','))
+                if 'HEADING' in word[0].upper(): 
+                    spt = 'HD'
+                elif 'NODE' in word[0].upper(): 
+                    spt = 'ND'
+                elif 'ELEMENT' in word[0].upper():
+                    # EL = list(word[1].split('='))
+                    # EL = EL[1].strip()
+                    if 'MGAX' in line:
+                        spt = 'M1'
+                    elif 'CGAX3' in line :
+                        spt = 'C3'
+                    elif 'CGAX4' in line :
+                        spt = 'C4'
+                    else:
+                        spt = 'NN'
+                elif 'SURFACE' in word[0].upper(): 
+                    spt = 'SF'
+                    name = word[2].split('=')[1].strip()
+                    self.Surface.AddName(name)
+                #                    print ('Name=', name, 'was stored', Surface.Surface)
+                elif 'TIE' in word[0].upper(): 
+                    spt = 'TI'
+                    name = word[1].split('=')[1].strip()
+                elif 'ELSET' in word[0].upper(): 
+                    spt = 'ES'
+                    name = word[1].split('=')[1].strip()
+                    if name != "BETWEEN_BELTS" and name != "BD1" and name != "BetweenBelts":
+                        self.Elset.AddName(name)
+
+                elif 'NSET' in word[0].upper(): 
+                    spt = 'NS'
+                    name = word[1].split('=')[1].strip()
+
+                else:
+                    spt = ''
+            else:
+                word = list(line.split(','))
+                if spt == 'HD':
+                    pass
+                if spt == 'ND':
+                    self.Node.Add([int(word[0]), float(word[3]), float(word[2]), float(word[1])])
+                if spt == 'M1':
+                    # Element   [EL No,                  N1,          N2,  N3, N4,'elset Name', N,  Area/length, CenterX, CenterY]
+                    self.Element.Add([int(word[0]), int(word[1]), int(word[2]), 0, 0, '', 2])#, math.sqrt(math.pow(C1[1] - C2[1], 2) + math.pow(C1[2] - C2[2], 2)), (C1[1] + C2[1]) / 2.0, (C1[2] + C2[2]) / 2.0])
+                if spt == 'C3':
+                    self.Element.Add([int(word[0]), int(word[1]), int(word[2]), int(word[3]), 0, '', 3])#, A[0], A[1], A[2]])
+                if spt == 'C4':
+                    self.Element.Add([int(word[0]), int(word[1]), int(word[2]), int(word[3]), int(word[4]), '', 4])#, A[0], A[1], A[2]])
+                if spt == 'NS':
+                    pass
+                if spt == 'ES':
+                    if name.upper() != "BETWEEN_BELTS" and name.upper() != "BD1":
+                        if isNumber(word[0]) == True:
+                            # if 'BTT' in name: print (line.strip())
+                            for i in range(len(word)):
+                                self.Elset.AddNumber(int(word[i]), name)
+                if spt == 'SF':
+                    pass
+
+                else:
+                    pass
+
+        for i in range(len(self.Elset.Elset)):
+            for j in range(1, len(self.Elset.Elset[i])):
+                for k in range(len(self.Element.Element)):
+                    if self.Elset.Elset[i][j] == self.Element.Element[k][0]:
+                        self.Element.Element[k][5] = self.Elset.Elset[i][0]
+                        break
+
+        
+  
 def ReadMoldProfileFromPatternMeshFile(ptnfile): 
 
     with open(ptnfile) as PTN: 
@@ -2175,11 +2377,11 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
             #         name, code, toping_density, cord_density, line_density, topping_real_density, rf, cf, wt * cf/(cf+rf), wt * rf/(cf+rf), Area))
             
             if cf + rf == 0.0: 
-                mat_cords.append([name, code, toping_density, cord_density, line_density, 0.0, Area, topping, ga])
+                mat_cords.append([name, code, topping_real_density, cord_density, line_density, 0.0, Area, topping, ga])
                 rubber_weight = 0.0
                 cord_weight =0.0
             else: 
-                mat_cords.append([name, code, toping_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
+                mat_cords.append([name, code, topping_real_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
                 rubber_weight = wt * rf/(cf+rf)
                 cord_weight = wt * cf/(cf+rf)
 
@@ -2188,20 +2390,20 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
 
             m -= 1
 
-            if "C01" in name or "CC1" in name:   CCT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "C01" in name or "CC1" in name:   CCT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
             if "BT2" in name:   
-                BTT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+                BTT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
                 bt_gauge = dia / 2.0 * 1.772454
-            if "JEC" in name:   JEC = [name, topping, toping_density, float(sd[m])/10**9,  rubber_weight]
-            if "JFC" in name:   JFC = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            if "OJFC" in name:   OJFC = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            # if "BDC" in name:   BDC = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            if "CH1" in name:   SCT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            if "CH2" in name:   NCT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            if "PK1" in name:   PK1 = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            if "PK2" in name:   PK2 = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            if "RFM" in name:   RFM = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
-            if "FLI" in name:   FLI = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "JEC" in name:   JEC = [name, topping, topping_real_density, float(sd[m])/10**9,  rubber_weight]
+            if "JFC" in name:   JFC = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "OJFC" in name:   OJFC = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            # if "BDC" in name:   BDC = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "CH1" in name:   SCT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "CH2" in name:   NCT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "PK1" in name:   PK1 = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "PK2" in name:   PK2 = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "RFM" in name:   RFM = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "FLI" in name:   FLI = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
             
                 
             # except:
@@ -2383,15 +2585,6 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     tireGroup="PCR"
     mat_solids, mat_cords, tireGroup, BT_cord_Ga, BSD, RW, RD, SIZE, beltLift = Equivalent_density_calculation(layout)
 
-    carcassGa = 1.0
-    with open(layout) as L: 
-        lines = L.readlines()
-    
-    for line in lines: 
-        if "** C01" in line: 
-            w = line.split(",")
-            carcassGa = float(w[6].strip())
-            break 
     # print ("Carcass cord Ga. ", carcassGa)
 
     if "LT" in tireGroup: tireGroup="LTR"
@@ -2399,6 +2592,10 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
 
     rimDia = GetRimDia_Size(SIZE)
     Ccd_Dia = GetCarcassDrumDia(group=tireGroup, inch=rimDia, overtype=overtype) 
+
+    if tireGroup != 'TBR':
+        BtRadii = GetBeltDrumDia_PCR(layout, mat_cords, beltLift)    
+
 
     npel = []
     for el in element: 
@@ -2412,12 +2609,14 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
 
     f=open(axi[:-4]+"-material.dat", 'w')
 
-
+    btR =[]
     for eset in elset: 
         for info in mat_cords : 
             if info[0].strip() == eset[0]: 
                 cordGa = info[8]
                 f.write("*** Rolled Layer gauge, %5s=%.4f\n"%(eset[0], cordGa*1000))
+                if 'C01' in eset[0]: 
+                    carcassGa = cordGa                      
 
         if ("BT" in eset[0] or "SPC" in eset[0]) and not "BTT" in eset[0]: 
             N = len(eset)
@@ -2429,19 +2628,20 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                     zMax = npn[nix][3]
             
             beltHalfDia.append([eset[0], zMax/beltLift*1000])  
+            btR.append(zMax/beltLift*1000)                                
             # mat_cords.append([name, code, toping_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
-        if "JEC" in eset[0] or "JFC" in eset[0] or "OJF" in eset[0]: 
-            N = len(eset)
-            zMax = 0
-            for k in range(1, N): 
-                ix =np.where(npel[:,0]==eset[k])[0][0]
-                nix = np.where(npn[:,0] == npel[ix][1])[0][0]
-                if zMax < npn[nix][3]: 
-                    zMax = npn[nix][3]
-            try: 
-                reBtHalfDia.append([eset[0], zMax/beltLift*1000-cordGa*500, cordGa])
-            except:
-                reBtHalfDia.append([eset[0], zMax/beltLift*1000])
+        # if "JEC" in eset[0] or "JFC" in eset[0] or "OJF" in eset[0]: 
+        #     N = len(eset)
+        #     zMax = 0
+        #     for k in range(1, N): 
+        #         ix =np.where(npel[:,0]==eset[k])[0][0]
+        #         nix = np.where(npn[:,0] == npel[ix][1])[0][0]
+        #         if zMax < npn[nix][3]: 
+        #             zMax = npn[nix][3]
+        #     try: 
+        #         reBtHalfDia.append([eset[0], zMax/beltLift*1000-cordGa*500, cordGa])
+        #     except:
+        #         reBtHalfDia.append([eset[0], zMax/beltLift*1000])
         if "C01" in eset[0] or "CC1" in eset[0]: 
             N = len(eset)
             for k in range(1, N): 
@@ -2449,22 +2649,64 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 nix = np.where(npn[:,0] == npel[ix][1])[0][0]
                 if cc1MaxR < npn[nix][3]: 
                     cc1MaxR = npn[nix][3]
+    
+    btRmax = max(btR)
+    dicElset={'JFC1': 0, 'JFC2': 0, 'JEC1': 0, 'JEC2': 0}
+    
+    if tireGroup != 'TBR':
+        for br in beltHalfDia: 
+            if br[0].upper() == 'BT2': 
+                belt2Rad = br[1]
 
-    ## check OJFC is or not 
-    f1 = 0; f2 = 0; f3 = 0
-    for re in reBtHalfDia: 
-        if "OJFC1" in re[0]: f1 = re[1]
-        if "OJFC2" in re[0]: f2 = re[1]
-        if "OJFC3" in re[0]: f3 = re[1]
-    if f1 > 0: 
-        for i, re in enumerate(reBtHalfDia): 
-            if "JFC1" == re[0] : reBtHalfDia[i][1] = f1 
-    if f2 > 0: 
-        for i, re in enumerate(reBtHalfDia): 
-            if "JFC2" == re[0] : reBtHalfDia[i][1] = f2 
-    if f3 > 0: 
-        for i, re in enumerate(reBtHalfDia): 
-            if "JFC3" == re[0] : reBtHalfDia[i][1] = f3 
+        BTG1 = 0; BTG2 = 0; JFG1=0; JFG2=0; JEG1=0; JEG2=0
+        for info in mat_cords: 
+            if 'BT1' in info[0]: BTG1=info[8] *1000
+            if 'BT2' in info[0]: BTG2=info[8] *1000
+            if 'JFC1' in info[0]: JFG1=info[8]  *1000
+            if 'JFC2' in info[0]: JFG2=info[8] *1000
+            if 'JEC1' in info[0]: JEG1=info[8] *1000
+            if 'JEC2' in info[0]: JEG2=info[8] *1000
+
+        JFC1R = belt2Rad + BTG2 
+        JFC2R = JFC1R + JFG1 
+        if JFG1 ==0 : 
+            JEC1R = belt2Rad + BTG2 
+            JEC2R = JEC1R + JEG1 
+        elif JFG2 ==0 : 
+            JEC1R = JFC1R + JFG1  
+            JEC2R = JEC1R + JEG1
+            # print ("JFC1=", JFC1R, 'JFC1 G', JFG1)
+        else: 
+            JEC1R = JFC2R + JFG2  
+            JEC2R = JEC1R + JEG1 
+
+
+        radii ={'JFC1' : JFC1R, 'JFC2': JFC2R, 'JEC1': JEC1R, 'JEC2': JEC2R}
+        # print ('************************************')
+        # print (radii)
+
+        for eset in elset: 
+            if 'JFC1' in eset[0]: reBtHalfDia.append([eset[0], radii['JFC1']])
+            if 'JEC1' in eset[0]: reBtHalfDia.append([eset[0], radii['JEC1']])
+            if 'JFC2' in eset[0]: reBtHalfDia.append([eset[0], radii['JFC2']])
+            if 'JEC2' in eset[0]: reBtHalfDia.append([eset[0], radii['JEC2']])
+
+
+    # ## check OJFC is or not 
+    # f1 = 0; f2 = 0; f3 = 0
+    # for re in reBtHalfDia: 
+    #     if "OJFC1" in re[0]: f1 = re[1]
+    #     if "OJFC2" in re[0]: f2 = re[1]
+    #     if "OJFC3" in re[0]: f3 = re[1]
+    # if f1 > 0: 
+    #     for i, re in enumerate(reBtHalfDia): 
+    #         if "JFC1" == re[0] : reBtHalfDia[i][1] = f1 
+    # if f2 > 0: 
+    #     for i, re in enumerate(reBtHalfDia): 
+    #         if "JFC2" == re[0] : reBtHalfDia[i][1] = f2 
+    # if f3 > 0: 
+    #     for i, re in enumerate(reBtHalfDia): 
+    #         if "JFC3" == re[0] : reBtHalfDia[i][1] = f3 
 
 
             
@@ -3478,12 +3720,14 @@ class MESH2D:
         ## 'Model Tire TDW and Deco. Width' need to define the removal width of the tread.  import the profile and dimension of the self pattern 
         if layoutProfile ==[]: 
             self.LeftProfile, self.RightProfile, self.TDW, self.TW, self.GD  = self.Temp_readprofile(filename)  ## read target layout tread profile
-        
+        self.TW = 0
+        for pfl, pfr in zip(self.LeftProfile, self.RightProfile) : 
+            self.TW += pfl[1] +  pfr[1]
+
         if len(self.LeftProfile) ==0 or len(self.RightProfile) == 0 or t3dm == 1 : 
             self.LeftProfile = LeftProfile    ## leftprofile : profile from pattern mesh file 
             self.RightProfile = RightProfile  ## rightprofile : profile from pattern mesh file 
             self.T3DMMODE = 1 
-
             # print(">>>>>>>>>>>>>>>>>", LeftProfile)
         else: 
             if len(self.LeftProfile) == len(LeftProfile) and len(self.RightProfile) == len(RightProfile): 
@@ -3496,22 +3740,41 @@ class MESH2D:
         if self.TDW ==0: self.TDW = ptnTDW 
         if self.TW == 0: self.TW = ptnTW 
 
+        #################################################################################
+        ## in case that the deco-lenth is too short compared to model pattern
+        ## increase the length of deco in profile to minimize the shrinkage ratio of the deco. 
+        ## 2021.05.28 
+        #################################################################################
+        Dptn = (ptnTW - ptnTDW)/2.0
+        twR = self.TDW / ptnTDW 
+        Dpf = (self.TW - self.TDW)/2.0 
+        if Dptn*twR > Dpf*0.7 : 
+            DL = (Dptn*twR-Dpf*0.7)/0.7
+            self.LeftProfile[-1][1] += DL
+            self.RightProfile[-1][1]+= DL
+
         ###############################################################################
         ## make the deco-curves to 1 curve.. (sum the lengths)
-
         ## check sum_length == TDW (in case of no sho. curve)
-        
-    
         self.LeftProfile, shocurve,  htdw, r_shocurve,  l_shocurve = LayoutProfileDefineForExpansion(self.LeftProfile, self.TDW/2.0, ShoR=0.05, t3dm=t3dm)
         self.RightProfile, shocurve, htdw, r_shocurve,  l_shocurve = LayoutProfileDefineForExpansion(self.RightProfile, self.TDW/2.0, ShoR=0.05, t3dm=t3dm)
         if t3dm == 0: 
             self.TDW = htdw * 2.0
+
+        
         
 
-        print ("* Crown Profile Info(Neg/Pos side)")
+        print ("* Crown Profile Info(Neg/Pos side) to expand")
         for pf1, pf2 in zip(self.LeftProfile, self.RightProfile): 
-            print (" R=%.1f, L=%.1f / R=%.1f, L=%.1f"%(pf1[0]*1000, pf1[1]*1000, pf2[0]*1000, pf2[1]*1000))
+            print (" R=%6.1f, L=%5.1f / R=%6.1f, L=%5.1f"%(pf1[0]*1000, pf1[1]*1000, pf2[0]*1000, pf2[1]*1000))
         print ("**********************************\n")
+
+        print (" Model  OD=%7.2f, Target  OD=%7.2f"%(ptnOD*1000, self.OD*1000))
+        print (" Model  GD=%7.2f, Target  GD=%7.2f"%(ptnGD*1000, self.GD*1000))
+        print (" Model TDW=%7.2f, Target TDW=%7.2f"%(ptnTDW*1000, self.TDW*1000))
+        print (" Model  TW=%7.2f, Target  TW=%7.2f"%(ptnTW*1000, self.TW*1000))
+        print (" Model DHW=%7.2f, Target DHW=%7.2f"%((ptnTW-ptnTDW)*500, (self.TW-self.TDW)*500))
+
         ##############################################################################
 
         LeftLastEL = 0
@@ -3642,11 +3905,7 @@ class MESH2D:
             # print ("  Curve radius=%.2f"%(self.r_shocurve*1000))
             # print ("############################################")
 
-        print (" Model  OD=%7.2f, Target  OD=%7.2f"%(ptnOD*1000, self.OD*1000))
-        print (" Model  GD=%7.2f, Target  GD=%7.2f"%(ptnGD*1000, self.GD*1000))
-        print (" Model TDW=%7.2f, Target TDW=%7.2f"%(ptnTDW*1000, self.TDW*1000))
-        print (" Model  TW=%7.2f, Target  TW=%7.2f"%(ptnTW*1000, self.TW*1000))
-        print (" Model DHW=%7.2f, Target DHW=%7.2f"%((ptnTW-ptnTDW)*500, (self.TW-self.TDW)*500))
+        
 
         if self.T3DMMODE == 0: 
             # t0 = time.time()
@@ -3830,9 +4089,12 @@ class MESH2D:
                         ix1 = np.where(els[:,1:5] == n1)[0]
                         ix2 = np.where(els[:,1:5] == n2)[0]
                         ix = np.intersect1d(ix1, ix2)
-
-                        if els[ix[0]][0] == bottoms[-1][0] :   nx = ix[1]
-                        else:                               nx = ix[0]
+                        try: 
+                            if els[ix[0]][0] == bottoms[-1][0] :   nx = ix[1]
+                            else:                               nx = ix[0]
+                        except Exception: 
+                            print ("Error! Bottom surface at ElimateSquareTread")
+                            return 
                         nxt = els[nx]
                         bottoms.append(nxt)
                         # print ("* %d"%(bottoms[-1][0]))
@@ -4916,7 +5178,7 @@ class MESH2D:
         # target_halfwidth = self.Define_PatternWidth(LeftProfile, RightProfile, TDW, ModelPatternTotalWidth, ModelPatternDesignWidth)
         t0 = time.time()
 
-        marginHt2Remove = 2.5E-3
+        marginHt2Remove = 2.1E-3
 
         LayoutOuter = self.Edge_TireProfile
 
@@ -6916,10 +7178,11 @@ def DivideInnerFreeEdgesToMasterSlave(edges, node_class):
     isError = 0 
     TIE_ERROR = []
     for e in masters: 
-        # print ("*****************")
-        # print (e[0])
-        # print ("-----------------")
-        # print (e[1])
+        # if e[0][2] == 'SUT': 
+        #     print ("*****************")
+        #     print (e[0])
+        #     print ("-----------------")
+        #     print (e[1])
         excluding.append(e[0])
         excluding.append(e[1][0])
         if len(e[1]) <2: 
@@ -6955,8 +7218,11 @@ def DivideInnerFreeEdgesToMasterSlave(edges, node_class):
         if nexts[0][0] != ed[1][1][1] and nexts[0][1] != ed[1][1][0] : 
             excluding.append(nexts[0]) 
             nexts = ConnectedEdge(nexts[0], edges, exclude=excluding)
-            s_temp.append(nexts[0])
-            # print (ed[0], ":::", nexts)
+            while len(nexts): 
+                s_temp.append(nexts[0])
+                excluding.append(nexts[0]) 
+                nexts = ConnectedEdge(nexts[0], edges, exclude=excluding)
+        
         slave_edge.append(s_temp)
         # print ("**Slave Edges %2d, No=%d"%(i, len(s_temp)))
 
@@ -17654,6 +17920,7 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         delA_R = Angle_3nodes(curve_last[0], curve_last[2], n1, xy=23)
         Rlength_last = delA_R * profile_last_r
         # print ("right n1 x=%.2f, y=%.2f"%(n1[2]*1000, n1[3]*1000))
+        # print ("1")
 
     elif icurve == PN-1 and repo ==0: 
         profile_last_r = profile[PN-1][0]
@@ -17744,7 +18011,8 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         temp1 = np.where(ptn_orgn[:,2] >= addsho * WidthR)[0] 
         temp2 = np.where(ptn_orgn[:,2] <= -addsho * WidthR)[0] 
 
-        # print ("start %.3f.. width ratio=%.2f "%(start*1000, WidthR), "collect nodes after", start * WidthR*1000)
+        # print ("start %.3f.. width ratio=%.2f "%(start*1000, WidthR),
+        #  "collect nodes after", start * WidthR*1000)
 
         temp = np.concatenate((temp1, temp2), axis=None)
         tn = ptn_orgn[temp, 0]
@@ -17872,7 +18140,7 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         toppos = positionOnCurve_byLength(L, curve[0], curve[1], curve[2], r=SR, xy=23)
         if n[2] > 0:    tops.append(toppos)
         else:           tops.append([toppos[0], toppos[1], -toppos[2], toppos[3]])
-        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
+        # if n[0]-10**7 == 4603 or n[0]-10**7 == 3951: 
         #     print ("dist = %.2f ratio=%.1f"%((ny -  (start  + len_shocurve))*1000, last_r_ratio ))
         #     print ("%.1f, %.1f, %.1f, sr=%.1f"%(L*1000, curve[0][2]*1000, curve[0][3]*1000, SR*1000))
         #     print (" L = %.1f"%(L*1000))
@@ -17880,10 +18148,10 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         layout_gage, other_pos = Layout_Tread_Gauge_at_pattern_node (toppos, bodybottom, angle)
         if n[2] > 0: other.append(other_pos)
         else:        other.append([-other_pos[0], other_pos[1]])
-        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
+        # if n[0]-10**7 == 4603 or n[0]-10**7 == 3951: 
         #     print ("n3 x=%.1f, y=%.1f, Top x=%.1f, y=%.1f"%(n[2]*1000, n[3]*1000, toppos[2]*1000, toppos[3]*1000))
         #     # if pattern_gage_ratio > 1.0: 
-            # print (" x=%.1f y=%.1f rotating Angle =%.1f, Ratio=%.2f,layout Ga=%.1f > target ga %.1f"%(n[2]*1000, n[3]*1000, degrees(angle), pattern_gage_ratio, layout_gage*1000, layout_gage * pattern_gage_ratio*1000))
+        #     print (" x=%.1f y=%.1f rotating Angle =%.1f, Ratio=%.2f,layout Ga=%.1f > target ga %.1f"%(n[2]*1000, n[3]*1000, degrees(angle), pattern_gage_ratio, layout_gage*1000, layout_gage * pattern_gage_ratio*1000))
             
         if pattern_gage_ratio >=0 and layout_gage > 0: 
             ht = layout_gage * pattern_gage_ratio 

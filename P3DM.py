@@ -705,7 +705,7 @@ class Ui_MainWindow(object):
 
                 Dialog = QtWidgets.QDialog()
                 dlg = SMART.Ui_Dialog(self.materialDir, self.localCordDB, self.fullmeshSave, self.layout.GD,\
-                    PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile, kerfContact, PCI)
+                    PCIPress, bsd, bdw, dRW, self.fileListFile, self.ISLM_cordDBFile, kerfContact, PCI, meshfile=self.layoutmesh)
                 dlg.setupUi(Dialog, PCIPress)
                 Dialog.exec_()
             # except:
@@ -1381,7 +1381,8 @@ class Ui_MainWindow(object):
 
             if self.pattern.TreadDesignWidth==0:     return 
 
-            self.removal_tread()
+            S = self.removal_tread()
+            if S == 0: return
             self.expansion_ptn()
 
             self.generation_mesh()
@@ -1674,6 +1675,8 @@ class Ui_MainWindow(object):
                     self.pattern.diameter, self.pattern.TreadDesignWidth, self.pattern.PatternWidth, self.pattern.ModelGD, t3dm=self.layout.T3DMMODE, result=0, layoutProfile=self.layout.RightProfile)
             else: 
                 self.layout.ElimateSquareTread(self.pattern.leftprofile, self.pattern.rightprofile)
+                try: M=len(self.layout.tdnodes.Node)
+                except: return 0 
 
             if self.layout.shoulderType == 'R':
                 self.flattened_Tread_bottom_sorted, self.layout.GD = PTN.Unbending_layoutTread(self.layout.tdnodes, self.layout.Tread, \
@@ -1687,7 +1690,7 @@ class Ui_MainWindow(object):
                     self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop)
                 self.shoulderGa = 1.0
 
-                if len(self.flattened_Tread_bottom_sorted) ==0: return 
+                if len(self.flattened_Tread_bottom_sorted) ==0: return 0
             
             self.check_T3DM.setEnabled(False)
 
@@ -1697,7 +1700,7 @@ class Ui_MainWindow(object):
             self.figure.plot(layout=self.layout, show='layout')
             self.ShowingImage = 'layout'
                 # print ("* Profile Shoulder T/D Ga=%.1f, Sho. R=%.2f"%(self.shoulderGa*1000,self.layout.r_shocurve*1000))
-            return 
+            return 1
 
 
         else: 
@@ -1711,7 +1714,9 @@ class Ui_MainWindow(object):
     def expansion_ptn(self): 
         self.radioDefault.setChecked(True)
         if self.readlayout ==1: 
-            if self.treadremoved == 0:     self.removal_tread()
+            if self.treadremoved == 0:     
+                S = self.removal_tread()
+                if S == 0: return 
 
             self.input_pitch_no.setDisabled(True)
             self.user_number_pitch = int(self.input_pitch_no.text())
@@ -1734,9 +1739,6 @@ class Ui_MainWindow(object):
             line = "Pattern mesh is expanded."
             # self.message.setText(line)
             self.ptn_expanded = PTN.COPYPTN(self.pattern)
-
-            
-
 
         else: 
             line = " no need to expand"
@@ -1773,6 +1775,10 @@ class Ui_MainWindow(object):
             if savefile !='': 
                 hwnd = win32gui.FindWindow(None, self.mainWindowName)
                 win32gui.SetForegroundWindow(hwnd)
+                # try: 
+                #     win32gui.SetForegroundWindow(hwnd)
+                # except Exception: 
+                #     print("Error! win32gui")
         
                 print ("******************************************")
                 print ("** Generate 3d tire mesh without pattern")
@@ -2086,7 +2092,10 @@ class Ui_MainWindow(object):
             return 
 
         if self.readlayout == 1 and self.readpattern == 1: 
-            if self.treadremoved == 0:     self.removal_tread()
+            if self.treadremoved == 0:     
+                S = self.removal_tread()
+                if S == 0: return
+
             if self.patternexpanded ==0 :  self.expansion_ptn()
         # if self.readlayout == 0: 
         self.check_Direction.setEnabled(False)
@@ -2373,6 +2382,8 @@ class Ui_MainWindow(object):
                 surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
                 offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
                     rev=self.check_Direction.isChecked(), shoulderType=self.layout.shoulderType)
+            self.XTRD_surface = XTRD_surface
+            self.YTIE_surface =  YTIE_surface
             
 
         if self.filesaved == 0 and len(solid_err) == 0: 
@@ -2437,7 +2448,7 @@ class Ui_MainWindow(object):
                 self.layout.L_curves, self.layout.R_curves, self.layout.OD, self.layout.GD, TDW=self.layout.TDW, \
                 fname=filename, PN=self.pattern.NoPitch, pitch_up=self.pattern.surf_pitch_up, pitch_down=self.pattern.surf_pitch_down, \
                 pitch_side_pos=self.pattern.surf_pattern_pos_side, pitch_side_neg=self.pattern.surf_pattern_neg_side, \
-                bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, xtrd=XTRD_surface, ytie=YTIE_surface, revPtn=self.check_Direction.isChecked())
+                bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, xtrd=self.XTRD_surface, ytie=self.YTIE_surface, revPtn=self.check_Direction.isChecked())
             # print ("\n## Single Pitch Mesh is created.")
             # print ("  %s"%(filename.split("/")[-1]))
             # except:
