@@ -4773,6 +4773,10 @@ class MESH2D:
                     tn = n 
                     LeftY = n[2]
                     LeftZ = n[3] 
+        
+        if not len(tn): 
+            return 
+
         LeftEL = 0 
         for ed in OuterEdge.Edge: 
             if ed[0] == int(tn[0]): 
@@ -4930,56 +4934,124 @@ class MESH2D:
                 ran = np.array([abs(EN1[2]), abs(EN2[2])])
                 rmin = np.min(ran); rmax = np.max(ran)
 
-                if inext[4] > 0 and parallel == 0: 
-                    diffn = np.setdiff1d(inext[1:5], el[1:5]) 
-                    if len(diffn) > 1: 
-                        if abs(EN1[2]) > abs(EN2[2]): 
-                            fN1 = EN1; fN2 = EN2 
-                        else:
-                            fN1 = EN2; fN2 = EN1
+                if inext[4] > 0 and parallel == 0:  ## 4 node element 
+                    dfn1 = np.setdiff1d(el[1:5], inext[1:5])
+                    dfn2 = np.setdiff1d(inext[1:5], el[1:5])
+                    if (el[1] == dfn1[0] or el[1] == dfn1[1]) and (el[2] == dfn1[0] or el[2] == dfn1[1]):  
+                        e1f1 = 3; e1f2 = 2; e1f3 = 4; e1f4=1 
+                    elif (el[2] == dfn1[0] or el[2] == dfn1[1]) and (el[3] == dfn1[0] or el[3] == dfn1[1]):  
+                        e1f1 = 4; e1f2 = 3; e1f3=1; e1f4=2
+                    elif (el[3] == dfn1[0] or el[3] == dfn1[1]) and (el[4] == dfn1[0] or el[4] == dfn1[1]):  
+                        e1f1 = 1; e1f2 = 4; e1f3=2; e1f4=3 
+                    else: e1f1 = 2; e1f2 = 1; e1f3=3; e1f4 = 4
 
-                        ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn1=nodes[ix]
-                        ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn2=nodes[ix]
+                    if (inext[1] == dfn2[0] or inext[1] == dfn2[1]) and (inext[2] == dfn2[0] or inext[2] == dfn2[1]):  
+                        e2f1 = 3; e2f2=2; e2f3=4; e2f4=1 
+                    elif (inext[2] == dfn2[0] or inext[2] == dfn2[1]) and (inext[3] == dfn2[0] or inext[3] == dfn2[1]):  
+                        e2f1 = 4; e2f2 = 3; e2f3=1; e2f4=2
+                    elif (inext[3] == dfn2[0] or inext[3] == dfn2[1]) and (inext[4] == dfn2[0] or inext[4] == dfn2[1]):  
+                        e2f1 = 1; e2f2 = 4; e2f3=2; e2f4=3 
+                    else: e2f1 = 2; e2f2 = 1; e2f3=3; e2f4 = 4
 
-                        if abs(difn1[2]) > abs(difn2[2]): 
-                            sN4 = difn1; sN3=difn2 
-                        elif abs(difn1[2]) == abs(difn2[2]): 
-                            if difn1[3] > difn2[3]:
-                                sN3 = difn1; sN4=difn2 
-                            else:
-                                sN3 = difn2; sN4=difn1 
-                        else: 
-                            sN3 = difn1; sN4=difn2 
 
-                        diffn = np.setdiff1d(inext[1:5], diffn)
-                        ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn3=nodes[ix]
-                        ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn4=nodes[ix]
 
-                        if abs(difn3[2]) > abs(difn4[2]): 
-                            sN1 = difn3; sN2=difn4 
-                        elif abs(difn3[2]) > abs(difn4[2]): 
-                            if difn3[3] > difn4[3]:
-                                sN1 = difn4; sN2=difn3 
-                            else:
-                                sN1 = difn3; sN2=difn4 
-                        else: 
-                            sN1 = difn4; sN2=difn3 
 
-                        V1 =[0, 0, abs(sN2[2])-abs(fN2[2]), sN2[3]-fN2[3]]
-                        V2 =[0, 0, abs(sN3[2])-abs(sN2[2]), sN3[3]-sN2[3]]
-                        btwAngle=Angle_Between_Vectors(V1,V2) 
+                    ix = np.where(nodes[:,0] == el[e1f1])[0][0]; fN1 = nodes[ix]
+                    ix = np.where(nodes[:,0] == el[e1f2])[0][0]; fN2 = nodes[ix]
+                    ix = np.where(nodes[:,0] == el[e1f3])[0][0]; fN3 = nodes[ix]
+                    ix = np.where(nodes[:,0] == el[e1f4])[0][0]; fN4 = nodes[ix]
 
-                        if btwAngle > 1.221: ## about above 70.0 degrees 
-                            estrain = 1
-                            if show == 1: 
-                                print ("sn2", sN2);     print ("fn2", fN2);   print ("sn3", sN3);     print ("sn4", sN4)
+                    ix = np.where(nodes[:,0] == inext[e2f1])[0][0]; sN1 = nodes[ix]
+                    ix = np.where(nodes[:,0] == inext[e2f2])[0][0]; sN2 = nodes[ix]
+                    ix = np.where(nodes[:,0] == inext[e2f3])[0][0]; sN3 = nodes[ix]
+                    ix = np.where(nodes[:,0] == inext[e2f4])[0][0]; sN4 = nodes[ix]
 
-                                print (" >> Direction is turned , Angle=%.1f"%(degrees(btwAngle)))
+
+                    V1 =[0, 0, abs(fN1[2])-abs(fN2[2]), fN1[3]-fN2[3]]
+                    V2 =[0, 0, abs(sN1[2])-abs(sN2[2]), sN1[3]-sN2[3]]
+                    btwA1=Angle_Between_Vectors(V1,V2) 
+
+                    V1 =[0, 0, abs(fN3[2])-abs(fN4[2]), fN3[3]-fN4[3]]
+                    V2 =[0, 0, abs(sN3[2])-abs(sN4[2]), sN3[3]-sN4[3]]
+                    btwA2=Angle_Between_Vectors(V1,V2) 
+
+                    if btwA1 > 2.5 or btwA1 < 0.5: para1 = 1
+                    else: para1 = 0 
+                    if btwA2 > 2.5 or btwA2 < 0.5: para2 = 1
+                    else: para2 = 0 
+
+                    if para1 == 0 and para2 == 0: 
+                        restrain = 1
+                        if show == 1: 
+                            # print ("sn2", sN2);     print ("fn2", fN2);   print ("sn3", sN3);     print ("sn4", sN4)
+
+                            print (" >> Direction is turned , Angle=%.1f, %.1f"%(degrees(btwA1), degrees(btwA2)))
+
+                            print (" EL1 Nodes %d, %d, %d, %d"%(fN1[0], fN2[0], fN3[0], fN4[0]))
+                            print (" EL2 Nodes %d, %d, %d, %d"%(sN1[0], sN2[0], sN3[0], sN4[0]))
+                            
+                            # print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
+                            # print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x, n2x, out of the bottom line"%\
+                            #                 (el[0], rmin*1000, rmax*1000, inext[0]))
+                        return el2remove, restrain 
+
+
+
+
+                        
+
+
+
+
+                    # diffn = np.setdiff1d(inext[1:5], el[1:5]) 
+                    # if len(diffn) > 1: 
+                    #     if abs(EN1[2]) > abs(EN2[2]): 
+                    #         fN1 = EN1; fN2 = EN2 
+                    #     else:
+                    #         fN1 = EN2; fN2 = EN1
+
+                    #     ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn1=nodes[ix]
+                    #     ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn2=nodes[ix]
+
+                    #     if abs(difn1[2]) > abs(difn2[2]): 
+                    #         sN4 = difn1; sN3=difn2 
+                    #     elif abs(difn1[2]) == abs(difn2[2]): 
+                    #         if difn1[3] > difn2[3]:
+                    #             sN3 = difn1; sN4=difn2 
+                    #         else:
+                    #             sN3 = difn2; sN4=difn1 
+                    #     else: 
+                    #         sN3 = difn1; sN4=difn2 
+
+                    #     diffn = np.setdiff1d(inext[1:5], diffn)
+                    #     ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn3=nodes[ix]
+                    #     ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn4=nodes[ix]
+
+                    #     if abs(difn3[2]) > abs(difn4[2]): 
+                    #         sN1 = difn3; sN2=difn4 
+                    #     elif abs(difn3[2]) > abs(difn4[2]): 
+                    #         if difn3[3] > difn4[3]:
+                    #             sN1 = difn4; sN2=difn3 
+                    #         else:
+                    #             sN1 = difn3; sN2=difn4 
+                    #     else: 
+                    #         sN1 = difn4; sN2=difn3 
+
+                    #     V1 =[0, 0, abs(sN2[2])-abs(fN2[2]), sN2[3]-fN2[3]]
+                    #     V2 =[0, 0, abs(sN3[2])-abs(sN2[2]), sN3[3]-sN2[3]]
+                    #     btwAngle=Angle_Between_Vectors(V1,V2) 
+
+                    #     if btwAngle > 1.221: ## about above 70.0 degrees 
+                    #         restrain = 1
+                    #         if show == 1: 
+                    #             print ("sn2", sN2);     print ("fn2", fN2);   print ("sn3", sN3);     print ("sn4", sN4)
+
+                    #             print (" >> Direction is turned , Angle=%.1f"%(degrees(btwAngle)))
                                 
-                                print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
-                                print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x, n2x, out of the bottom line"%\
-                                                (el[0], rmin*1000, rmax*1000, inext[0]))
-                            return el2remove, restrain 
+                    #             print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
+                    #             print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x, n2x, out of the bottom line"%\
+                    #                             (el[0], rmin*1000, rmax*1000, inext[0]))
+                    #         return el2remove, restrain 
 
                 ran = np.array([EN1[2], EN2[2]])
                 rmin = np.min(ran); rmax = np.max(ran)
@@ -5107,7 +5179,7 @@ class MESH2D:
                 elif out == n3[x] : f = 2 
                 else: 
                     print ("!!! ERROR No FOUND BOTTOM FACE. ")
-                    sys.exit()
+                    return 
                 nf = 1
                 
 
@@ -5118,7 +5190,7 @@ class MESH2D:
                 elif out == n3[x] : f = 3
                 else: 
                     print ("!!! ERROR No FOUND BOTTOM FACE. ")
-                    sys.exit()
+                    return 
                 nf = 2
             
             inext = Element2D_NextElement(el, solids, nodes, start=f, next=nf)
@@ -5131,6 +5203,8 @@ class MESH2D:
                 nextelement, _ =  self.Searching_Upper_elements(inext, solids, nodes, el2remove) 
                 if show==1:print ("***&&&^^&* ")
                 return el2remove, restrain
+
+
     def RemoveCTRUTR(self, el, elset): 
         EL = ELEMENT()
         ETL = ELEMENT()
@@ -5145,6 +5219,15 @@ class MESH2D:
                 ESET.Elset.append(eset)
         return EL, ESET, ETL 
     def RemovedTreadHeight(self, els, npn, elements):
+        
+        # print ("Measure ga. ", els)
+        ix = np.where(elements[:,0]==els[0])[0][0]
+
+        el0=[elements[ix][1],elements[ix][2], elements[ix][3]]
+        if elements[ix][4] > 0: 
+            el0.append(elements[ix][4])
+
+
         tNodes=[]
         for el in els: 
             ix = np.where(elements[:,0]==el)[0][0]
@@ -5166,6 +5249,12 @@ class MESH2D:
         for i, n in enumerate(cvxNodes):
             if imin ==i : continue 
             if abs(n[2]) >= lstY : 
+                fd = 0 
+                for e in el0: 
+                    if n[0] == e: 
+                        fd = 1
+                        break 
+                if fd==1: continue 
                 lstY = abs(n[2])
                 heights = sqrt((cvxNodes[imin][1]-n[1])**2 + (cvxNodes[imin][2]-n[2])**2 + (cvxNodes[imin][3]-n[3])**2)
                 # print (cvxNodes[imin][0], ",", n[0], " D=", heights*1000)
@@ -5502,6 +5591,7 @@ class MESH2D:
             preface = next_face 
             nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
             if debug==1: print ("*ps", ps, "preface",  preface, "next face", next_face)
+            # print ("*ps", ps, "preface",  preface, "next face", next_face)
 
             if len(nextsolid) ==0: ## element has tie surface on the right (positive).. 
                 # print (" MEET TIE>>", ps, preface)
@@ -5614,13 +5704,52 @@ class MESH2D:
                 continue 
             
             ups =[]
+            while nextsolid[5] ==3: 
+                ups.append(nextsolid[0])
+                in1 = next_face
+                in2 = in1 +1
+                if in2 ==4: in2 = 1
+
+                in1 = nextsolid[in1] 
+                in2 = nextsolid[in2] 
+                ixs1 = np.where(solids[:,1:5] ==  in1)[0]
+                ixs2 = np.where(solids[:,1:5] ==  in2)[0]
+                ixs = np.intersect1d(ixs1, ixs2)
+                # print ("$$$", ixs, nextsolid, in1, in2)
+                # print ("%%%", solids[ixs[0]])
+                if solids[ixs[0]][0] == nextsolid[0]: 
+                    nextsolid = solids[ixs[1]]
+                else : 
+                    nextsolid = solids[ixs[0]]
+
+                if (nextsolid[1] == in1 or nextsolid[1] == in2) and (nextsolid[2] == in1 or nextsolid[2] == in2): next_face = 3 
+                elif (nextsolid[2] == in1 or nextsolid[2] == in2) and (nextsolid[3] == in1 or nextsolid[3] == in2): next_face = 4 
+                elif (nextsolid[3] == in1 or nextsolid[3] == in2) and (nextsolid[4] == in1 or nextsolid[4] == in2): next_face = 1 
+                else: next_face = 2
+
+            if not len(ups) : 
+                bf = next_face + 1
+                if bf > nextsolid[5]: bf = 1
+                # sh=0 
+            else: 
+                bf = next_face + 2 
+                if bf >  nextsolid[5] : bf -= nextsolid[5] 
+                # print ("%%%% ", ups, nextsolid, next_face, bf)
+                # sh=1
+                ix = np.where(solids[:,0]==ups[-1])[0][0]; ps = solids[ix]
+                _, face = Contact_relation_2Elements(nextsolid, ps)
+                next_face = face-1 
+                if next_face ==0: next_face = 4
+
+                
+
+
             ups.append(nextsolid[0])
-            bf = next_face + 1
-            if bf > nextsolid[5]: bf = 1 
-            # if nextsolid[0] == 2558: sh = 1 
-            # else: sh = 0 
+            # bf = next_face + 1
+            # if bf > nextsolid[5]: bf = 1 
             
             ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=0)
+            # if sh==1: print(ups)
             marginht = 0 
             marginwidth = 0 
             for m in range(1, 4): 
@@ -5635,7 +5764,7 @@ class MESH2D:
                     ending  = 1 
                     meetlast = 1 
                     marginht = 1 
-            
+            # print ("  EL to del>> ", ups)
             if debug==1: print ("  EL to del>> ", ups)
             # sys.exit()
             if marginht == 0: 
@@ -5688,7 +5817,7 @@ class MESH2D:
             ups = [nextsolid[0]]
             counting=0
             nxsolid = nextsolid
-            while nxsolid[5] ==3:
+            while nxsolid[5] ==3 :
                 
                 counting += 1
                 if counting > 10: 
@@ -5711,6 +5840,7 @@ class MESH2D:
                 # print (ps, " >> C ns:", nxsolid, "face=", nxface, " < Up element on 3-node Element")
                 if len(nxsolid) > 0: 
                     ups.append(nxsolid[0])
+
                 # else: 
                 #     return NEL, NELSET, Deleted
                 # print (ups)
@@ -5883,11 +6013,43 @@ class MESH2D:
                 
                 continue 
 
-
             ups =[]
+            while nextsolid[5] ==3: 
+                ups.append(nextsolid[0])
+
+                in1 = next_face -1 
+                if in1 ==0: in1 = 3
+                in2 = in1 +1
+                in1 = nextsolid[in1] 
+                in2 = nextsolid[in2] 
+                ixs1 = np.where(solids[:,1:5] ==  in1)[0]
+                ixs2 = np.where(solids[:,1:5] ==  in2)[0]
+                ixs = np.intersect1d(ixs1, ixs2)
+                # print (ixs, nextsolid, in1, in2)
+                # print (solids[ixs[0]])
+                if solids[ixs[0]][0] == nextsolid[0]: 
+                    nextsolid = solids[ixs[1]]
+                else : 
+                    nextsolid = solids[ixs[0]]
+
+                if (nextsolid[1] == in1 or nextsolid[1] == in2) and (nextsolid[2] == in1 or nextsolid[2] == in2): next_face = 3 
+                elif (nextsolid[2] == in1 or nextsolid[2] == in2) and (nextsolid[3] == in1 or nextsolid[3] == in2): next_face = 4 
+                elif (nextsolid[3] == in1 or nextsolid[3] == in2) and (nextsolid[4] == in1 or nextsolid[4] == in2): next_face = 1 
+                else: next_face = 2
+
+            if not len(ups) : 
+                bf = next_face -1 
+                if bf ==0: bf = nextsolid[5]
+            else: 
+                bf = next_face - 2 
+                if bf <=0 : bf = next_face + 4 
+
+                ix = np.where(solids[:,0]==ups[-1])[0][0]; ps = solids[ix]
+                _, face = Contact_relation_2Elements(nextsolid, ps)
+                next_face = face+1 
+                if next_face ==5: next_face = 1
+
             ups.append(nextsolid[0])
-            bf = next_face -1 
-            if bf ==0: bf = nextsolid[5]
             # print (nextsolid, bf )
             ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=0)
             # print (nextsolid, bf, " UPS : ", ups)
@@ -5907,6 +6069,7 @@ class MESH2D:
                     meetlast = 1 
                     marginht = 1 
             
+            # print ("  EL to del>> ", ups)
             if debug==1: print ("  EL to del>> ", ups)
             # sys.exit()
             if marginht == 0: 
@@ -20616,7 +20779,7 @@ def SubTreadCenterGa(up, down, position=0.0):
         if cn[2] > un[0][2] and cn[2] < un[1][2]: 
             # print ("Sub TD Ga at %.3f=%.3fmm"%(position*1000, L*1000))
             return L 
-    print ("NO found sub tread ga at=%.3f"%(position*1000))
+    # print ("NO found sub tread ga at=%.3f"%(position*1000))
     return -1 
 
 def ReplaceNodesOnSurface(surface, psolid, nsolid, pitch=0): 
