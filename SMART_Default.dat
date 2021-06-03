@@ -1,69 +1,49 @@
 *Tire Group=PCR
-*Rim Type=Tube
-*PCI Total Time=0.01, 0.015, 0.25
+*Rim Type=Tubeless
+*PCI Total Time=0.01, 0.015, 0.0
 *Output del Time=0.01
 *Result Averaging time=0.05
 *Mass Scale, DT Ratio=1.02, 1.0
 *self contact kerf/cavity=0, 0
-*groove depth=8.3
+*groove depth=7.7
 *Temperature Analysis=1
 *Temperature Start=0.04
 *Temperature air, road = 25.0, 25.0
-*Pressure Variance=1, 0.04
-*Hub =0.1, 0.05
-*Temperature Result=0, ../TEMP/C100_NB08.TEMPER
+*Pressure Variance=0, 0.04
+*Hub =0.1, 0.5
+*Temperature Result=0,  ../TEMP/C100_NB08.TEMPER
 *******************************************************
-*body mesh=1014603VT00006-0.axi
-*tread mesh=1014603VT00006-0.trd
-*Belt Ga subtraction=4.430E-04,  BETWEEN_BELTS
+*body mesh=
+*tread mesh=
+*Belt Ga subtraction=4.610E-04,  BETWEEN_BELTS
 *Rim mass = 1.0
 *subcyclilng=BD1
 *FPC Depth=0.001
 *******************************************************
-*Test Pressure=5.0
-*Test Load=500.0
-*Velocity=10.0
-*Camber=0.0
+*Test Pressure=0.0
+*Test Load=0.0
+*Velocity=0.0
+*Camber=0
 *Free spin=0
 *Lateral control=0, 0.0
-*Rotation control=1, 0.0, 0.0
-*Test Rim width=228.5
+*Rotation control=0, 0.0, 0.0
+*Test Rim width=0.0
 *Test Rim Dia=0.0
-*Road Dia=1.707
+*Road Dia=0.0
 *PIC_ON/OFF=1
 *Low Cure=0
-*BSD=407.6
-*BD width=6.85
-*PCI Pressure=2.0
-*PCI Rim Width=191.0
+*BSD=0.0
+*BD width=7.52
+*PCI Pressure=0.0
+*PCI Rim Width=0.0
 *Rim Friction=1.0
-*Road Friction=0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+*Road Friction=0, 0, 0, 0, 0, 0, 0, 0
 *Tread surface=XTRD1001
 *Body surface=TIREBODY
 *Press surface=PRESS
 *Ric L surface=RIC_L
 *Ric R surface=RIC_R
 *Tire group=1
-*Stiffness KV, KL, KT=24.6, 20.03, 30.0
+*Stiffness KV, KL, KT=24.6, 20.03, 30.3
 *compound=/home/fiper/ISLM_MAT
 *cord=/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt
-*Belt Lift=1.036
-*Carcass Drum Diameter=385.0
-*Carcass Ga=0.001
-*Material properties
-BD1, ABW121A, 120, 1.0, , ,, , 3932.00, 1.0, 1.180e-04, 0.464
-BSW, S08, 120, 1.0, -, -,-, -, 1098.90, 1.0, 1.097e-03, 1.205
-BTT, C54, 120, 1.0, -, -,-, -, 1116.52, 1.0, 3.981e-04, 0.444
-CCT, C49, 120, 1.0, -, -,-, -, 1132.68, 1.0, 9.871e-04, 1.118
-CTB, P53, 120, 1.0, -, -,-, -, 1198.89, 0.95, 2.795e-03, 3.183
-FIL, B66, 120, 1.0, -, -,-, -, 1205.06, 1.0, 2.932e-04, 0.353
-JBT, C51, 120, 1.0, -, -,-, -, 1135.31, 1.0, 3.039e-04, 0.345
-L11, H61, 120, 1.0, -, -,-, -, 1148.00, 1.0, 3.455e-04, 0.397
-RIC, B89, 120, 1.0, -, -,-, -, 1127.33, 1.0, 3.754e-04, 0.423
-SUT, U33, 120, 1.0, -, -,-, -, 1108.71, 1.0, 3.623e-04, 0.402
-TRW, S25, 120, 1.0, -, -,-, -, 1105.83, 1.0, 1.182e-04, 0.131
-BT1, ES10259, 120.0, 1.0, BT, 60.0,307.3359, 1, 1.67640e-03, 1116.52, 2.121e-07, 0.352
-BT2, ES10259, 120.0, 1.0, BT, 20.0,308.4942, 1, 1.67640e-03, 1116.52, 2.121e-07, 0.328
-C01, , 120.0, 1.0, CC, 90.0,194.634, 0, 2.11667e-04, 1132.68, 1.963e-07, 0.246
-JEC1, ET10121, 120.0, 1.0, RB, 0.0,310.4942, 0, 2.17715e-04, 1135.31, 2.463e-07, 0.033
-JFC1, ET10121, 120.0, 1.0, RB, 0.0,309.6942, 0, 2.17715e-04, 1135.31, 2.463e-07, 0.091

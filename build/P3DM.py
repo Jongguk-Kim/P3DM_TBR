@@ -33,39 +33,6 @@ try:
 except: 
     print ("No paramiko module.. ")
 
-def ChaferDivide(Elements, ChaferName, Elset, Node):
-    els = []
-    for el in Elements: 
-        els.append(el[:5])
-
-    el = np.array(els)
-    nd = np.array(Node)
-
-    for eset in Elset: 
-        for cn in ChaferName: 
-            if cn == eset[0].upper(): 
-                left=[]
-                right=[]
-                left.append(cn + '_L')
-                right.append(cn + '_R')
-                # print (eset)
-                for en in range(1, len(eset)): 
-                    ix = np.where(el[:,0] == eset[en])[0][0]
-                    ixd = np.where(nd[:,0] == el[ix][1])[0][0]
-                    
-                    if nd[ixd][2] > 0: 
-                        # print ("right", nd[ixd],  el[ix])
-                        right.append(el[ix][0])
-                    else:
-                        # print ("left", nd[ixd],  el[ix])
-                        left.append(el[ix][0])
-                if len(right) > 0: 
-                    Elset.append(right)
-                    Elset.append(left)
-
-    return Elements, Elset
-
-
 class StdoutRedirect(QtCore.QObject):
     printOccur = QtCore.pyqtSignal(str, str, name="print")
  
@@ -488,13 +455,10 @@ class Ui_MainWindow(object):
         self.actionMaterial_DB.setObjectName("actionMaterial_DB")
         self.actionRotatePattern = QtWidgets.QAction(MainWindow)
         self.actionRotatePattern.setObjectName("actionRotatePattern")
-        self.actionHistory = QtWidgets.QAction(MainWindow)
-        self.actionHistory.setObjectName("actionViewHistory")
         
         self.menuFILE.addAction(self.actionSMART)
         self.menuFILE.addAction(self.actionRotatePattern)
         self.menuFILE.addAction(self.actionMaterial_DB)
-        self.menuFILE.addAction(self.actionHistory)
         
         self.menubar.addAction(self.menuFILE.menuAction())
 
@@ -502,11 +466,9 @@ class Ui_MainWindow(object):
         self.actionSMART.setText("SMART")
         self.actionRotatePattern.setText("Generate Rotated ptn")
         self.actionMaterial_DB.setText("Register DB")
-        self.actionHistory.setText("Version History")
         self.actionSMART.triggered.connect(self.openInputWindow)
         self.actionRotatePattern.triggered.connect(self.Generate_Rotated_PTN)
         self.actionMaterial_DB.triggered.connect(self.registerMaterialDB)
-        self.actionHistory.triggered.connect(self.ViewHistory)
         ############################################################
 
 
@@ -668,9 +630,9 @@ class Ui_MainWindow(object):
         self.btn_generation.setDisabled(True)
         self.searchsolid = []
 
-        self._stdout = StdoutRedirect()
-        self._stdout.start()
-        self._stdout.printOccur.connect(lambda x : self._append_text(x))
+        # self._stdout = StdoutRedirect()
+        # self._stdout.start()
+        # self._stdout.printOccur.connect(lambda x : self._append_text(x))
 
         self.P3DMLayout = 0 
         self.P3DMPattern = 0  
@@ -696,14 +658,7 @@ class Ui_MainWindow(object):
             pw = 'h20200155'
             f.write(pw+"\n")
             f.close()
-    def ViewHistory(self): 
-        try: 
-            fname = 'P3DM_Version_History.txt'
-            self.p=QtCore.QProcess()
-            self.p.start("notepad", [fname]) 
-        except: 
-            print ("## no version history file!!")
-
+        
     def registerMaterialDB(self): 
         DialogReg = QtWidgets.QDialog()
         dlgReg = regDB.Ui_Dialog()
@@ -1426,8 +1381,7 @@ class Ui_MainWindow(object):
 
             if self.pattern.TreadDesignWidth==0:     return 
 
-            S = self.removal_tread()
-            if S == 0: return
+            self.removal_tread()
             self.expansion_ptn()
 
             self.generation_mesh()
@@ -1481,12 +1435,6 @@ class Ui_MainWindow(object):
                 break 
         
         self.layout = PTN.MESH2D(self.layoutmesh)
-
-        ## chafer divide 
-        ChaferName = ['CH1', 'CH2', 'CH3']
-        self.layout.Element.Element, self.layout.Elset.Elset = ChaferDivide(self.layout.Element.Element, ChaferName, self.layout.Elset.Elset, self.layout.Node.Node)
-
-
         self.lineEdit_BDWidth.setText(str(round(self.layout.beadWidth*1000,2)))
         try: 
             if len(self.layout.Tread.Element) == 0 and self.layout.T3DMMODE : 
@@ -1560,7 +1508,6 @@ class Ui_MainWindow(object):
 
         self.layoutmesh, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select layout mesh File", self.cwd, "File(*.inp)") 
         if self.layoutmesh: 
-            
             self.radioDefault.setChecked(True)
             opened = self.read_layout()
             if opened == 0: 
@@ -1727,8 +1674,6 @@ class Ui_MainWindow(object):
                     self.pattern.diameter, self.pattern.TreadDesignWidth, self.pattern.PatternWidth, self.pattern.ModelGD, t3dm=self.layout.T3DMMODE, result=0, layoutProfile=self.layout.RightProfile)
             else: 
                 self.layout.ElimateSquareTread(self.pattern.leftprofile, self.pattern.rightprofile)
-                try: M=len(self.layout.tdnodes.Node)
-                except: return 0 
 
             if self.layout.shoulderType == 'R':
                 self.flattened_Tread_bottom_sorted, self.layout.GD = PTN.Unbending_layoutTread(self.layout.tdnodes, self.layout.Tread, \
@@ -1737,15 +1682,12 @@ class Ui_MainWindow(object):
                 self.shoulderGa = PTN.ShoulderTreadGa(self.layout.OD, self.layout.RightProfile, self.layout.R_curves, \
                     self.flattened_Tread_bottom_sorted, self.layout.TDW, shoR=self.layout.r_shocurve)
 
-                # print ("Target TW : %.2f -> %.2f"%(self.layout.TargetPatternWidth *1000, (np.max(self.flattened_Tread_bottom_sorted[:,2]) -  np.min(self.flattened_Tread_bottom_sorted[:,2]) )*1000))
-                self.layout.TargetPatternWidth = np.max(self.flattened_Tread_bottom_sorted[:,2]) -  np.min(self.flattened_Tread_bottom_sorted[:,2]) 
-
             elif self.layout.shoulderType == 'S'  and len(self.layout.tdnodes.Node) > 0 and self.layout.T3DMMODE ==0: 
                 self.flattened_Tread_bottom_sorted,   self.layout.sideNodes=PTN.Unbending_squareLayoutTread(self.layout.tdnodes, self.layout.Tread, \
                     self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop)
                 self.shoulderGa = 1.0
 
-                if len(self.flattened_Tread_bottom_sorted) ==0: return 0
+                if len(self.flattened_Tread_bottom_sorted) ==0: return 
             
             self.check_T3DM.setEnabled(False)
 
@@ -1755,7 +1697,7 @@ class Ui_MainWindow(object):
             self.figure.plot(layout=self.layout, show='layout')
             self.ShowingImage = 'layout'
                 # print ("* Profile Shoulder T/D Ga=%.1f, Sho. R=%.2f"%(self.shoulderGa*1000,self.layout.r_shocurve*1000))
-            return 1
+            return 
 
 
         else: 
@@ -1769,9 +1711,7 @@ class Ui_MainWindow(object):
     def expansion_ptn(self): 
         self.radioDefault.setChecked(True)
         if self.readlayout ==1: 
-            if self.treadremoved == 0:     
-                S = self.removal_tread()
-                if S == 0: return 
+            if self.treadremoved == 0:     self.removal_tread()
 
             self.input_pitch_no.setDisabled(True)
             self.user_number_pitch = int(self.input_pitch_no.text())
@@ -1794,6 +1734,9 @@ class Ui_MainWindow(object):
             line = "Pattern mesh is expanded."
             # self.message.setText(line)
             self.ptn_expanded = PTN.COPYPTN(self.pattern)
+
+            
+
 
         else: 
             line = " no need to expand"
@@ -1830,10 +1773,6 @@ class Ui_MainWindow(object):
             if savefile !='': 
                 hwnd = win32gui.FindWindow(None, self.mainWindowName)
                 win32gui.SetForegroundWindow(hwnd)
-                # try: 
-                #     win32gui.SetForegroundWindow(hwnd)
-                # except Exception: 
-                #     print("Error! win32gui")
         
                 print ("******************************************")
                 print ("** Generate 3d tire mesh without pattern")
@@ -2147,10 +2086,7 @@ class Ui_MainWindow(object):
             return 
 
         if self.readlayout == 1 and self.readpattern == 1: 
-            if self.treadremoved == 0:     
-                S = self.removal_tread()
-                if S == 0: return
-
+            if self.treadremoved == 0:     self.removal_tread()
             if self.patternexpanded ==0 :  self.expansion_ptn()
         # if self.readlayout == 0: 
         self.check_Direction.setEnabled(False)
@@ -2192,6 +2128,10 @@ class Ui_MainWindow(object):
                 self.pattern.npn =PTN.BendingPattern(OD=self.layout.OD, Rprofiles=self.layout.RightProfile, \
                     Rcurves=self.layout.R_curves, Lprofiles=self.layout.LeftProfile , Lcurves=self.layout.L_curves , nodes=self.pattern.npn,  xy=23)
             else:
+                # print (" Profile information before bending ")
+                # for pf in self.layout.RightProfile:
+                #     print(pf)
+                
                 self.pattern.npn = PTN.BendingSquarePattern(OD=self.layout.OD, profiles=self.layout.RightProfile, curves=self.layout.R_curves,\
                         nodes=self.pattern.npn, xy=23)
 
@@ -2433,8 +2373,6 @@ class Ui_MainWindow(object):
                 surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
                 offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
                     rev=self.check_Direction.isChecked(), shoulderType=self.layout.shoulderType)
-            self.XTRD_surface = XTRD_surface
-            self.YTIE_surface =  YTIE_surface
             
 
         if self.filesaved == 0 and len(solid_err) == 0: 
@@ -2499,7 +2437,7 @@ class Ui_MainWindow(object):
                 self.layout.L_curves, self.layout.R_curves, self.layout.OD, self.layout.GD, TDW=self.layout.TDW, \
                 fname=filename, PN=self.pattern.NoPitch, pitch_up=self.pattern.surf_pitch_up, pitch_down=self.pattern.surf_pitch_down, \
                 pitch_side_pos=self.pattern.surf_pattern_pos_side, pitch_side_neg=self.pattern.surf_pattern_neg_side, \
-                bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, xtrd=self.XTRD_surface, ytie=self.YTIE_surface, revPtn=self.check_Direction.isChecked())
+                bottom_surf=self.pattern.freebottom, top_free=self.pattern.freetop, xtrd=XTRD_surface, ytie=YTIE_surface, revPtn=self.check_Direction.isChecked())
             # print ("\n## Single Pitch Mesh is created.")
             # print ("  %s"%(filename.split("/")[-1]))
             # except:

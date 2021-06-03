@@ -9,18 +9,12 @@ import os, sys, time, json
 import matplotlib.pyplot as plt
 import subprocess
 
-
 from numpy.lib.arraysetops import intersect1d 
-import warnings 
 
-parkmiko = 1 
-try:  import paramiko as FTP 
+try: 
+    import paramiko as FTP 
 except: 
-    print ("No paramiko")
-    parkmiko = 0 
-from scipy.optimize import linprog
-from scipy.spatial import ConvexHull
-   
+    print ("No paramiko module.. ")
 
 # import PTN_LIBRARY.ptn_library as PTN 
 
@@ -51,7 +45,7 @@ TireRubberComponents = [
     'SRTT', # Associated with PK1, PK2, RFM and FLI components
     'SUT' , 'UTR', 'SUT1' , 'UTR1',# SubTread
     'TRW' , # Tread Wing
-    'ES2' , # Belt Edge Strip in TBR
+    
     'WSW'  # While Sidewall
 ]
 TireTreadComponents = [
@@ -77,108 +71,14 @@ TireCordComponents = [
     'PK2'  , # Full Bead Packing
     'RFM'  , # Bead S(RFM)
     'FLI'  , # Bead Flipper
-    # 'CH1'  , 
-    'CH1_R', 'CH1_L',  # Steel Chafer 
-    # 'CH2'  , 
-    'CH2_R', 'CH2_L',  # 1st Nylon Chafer
+    'CH1'  , 'CH1_R', 'CH1_L',  # Steel Chafer 
+    'CH2'  , 'CH2_R', 'CH2_L',  # 1st Nylon Chafer
     'CH3'  , 'CH3_R', 'CH3_L',  # 2nd Nylon Chafer
     'NCF'  , 'SCF'  , 'NF1'  , 'NF2',
     'BDC'  , # bead cover 
     'SPC'    ## spiral coil
     #'SWS'    # temporary component for Endurance simulation 
 ]
-
-def GetBeltDrumDia_PCR(layoutfile, mat_cords, beltLift): 
-    Layout = LAYOUT(layoutfile)
-
-    UTG = Layout.UTG
-    moldOD = Layout.moldOD
-    GD = Layout.GD 
-    
-    totalBTGauge = 0.0
-    totalReinBTGauge = 0.0
-    BTG1 = 0; BTG2 = 0; JFG1=0; JFG2=0; JEG1=0; JEG2=0
-    for info in mat_cords: 
-        if 'BT' in info[0].strip()  : totalBTGauge += info[8] 
-        if 'JFC' in info[0].strip() : totalReinBTGauge += info[8]
-        if 'BT1' in info[0]: BTG1=info[8] 
-        if 'BT2' in info[0]: BTG2=info[8]
-        if 'JFC1' in info[0]: JFG1=info[8]
-        if 'JFC2' in info[0]: JFG2=info[8]
-        if 'JEC1' in info[0]: JEG1=info[8]
-        if 'JEC2' in info[0]: JEG2=info[8]
-
-    # totalReinBTGauge = (JFC1 + JFC2 + JCC1)
-    # totalBTGauge = Sum(BTs)
-    if not UTG : 
-        
-        btt=[]
-        for e in Layout.Element.Element: 
-            if e[5] =='BTT' or e[5] == 'JBT': 
-                btt.append(e[1]); btt.append(e[2]); btt.append(e[3]) 
-                if e[4] > 0: btt.append(e[4])
-
-        btt = np.array(btt)
-        btt = np.unique(btt)
-
-        npn = np.array(Layout.Node.Node)
-        btz =[]
-        for n in btt: 
-            ix = np.where(npn[:,0]==n)[0][0]
-            btz.append(npn[ix][3])
-        btz = np.unique(np.array(btz))
-        btmx = np.max(btz)
-        UTG = moldOD/2.0 - GD - btmx 
-
-        if UTG < 0.001: 
-            btt=[]
-            for e in Layout.Element.Element: 
-                if 'BT' in e[5] or 'JFC' in e[5] or 'OJEC' in e[5] : 
-                    btt.append(e[1]); btt.append(e[2]); btt.append(e[3]) 
-                    if e[4] > 0: btt.append(e[4])
-
-            btt = np.array(btt)
-            btt = np.unique(btt)
-
-            npn = np.array(Layout.Node.Node)
-            btz =[]
-            for n in btt: 
-                ix = np.where(npn[:,0]==n)[0][0]
-                btz.append(npn[ix][3])
-            btz = np.unique(np.array(btz))
-            btmx = np.max(btz)
-            UTG = moldOD/2.0 - GD - btmx 
-                    
-
-    beltDrumDia = (moldOD - 2 * (GD + UTG + 0.9 * totalReinBTGauge) - 1.25 * totalBTGauge) / beltLift - totalBTGauge 
-    beltDrumRad =beltDrumDia / 2.0
-    # print ('\n Belt Drum Radius = %.4f'%(beltDrumRad*1000))
-    # print (' UTG = %.4f'%(UTG*1000))
-    # print (' GD = %.4f'%(GD*1000))
-    # print (' OD = %.4f'%(moldOD*1000))
-    # print (' Total Reinforcement Belt Ga. = %.4f'%(totalReinBTGauge*1000))
-    # print (' Total Belt Ga. = %.4f'%(totalBTGauge*1000))
-    # print (' Belt Lift Ratio = %.4f'%(beltLift))
-
-    B1R = beltDrumRad 
-    B2R = B1R + BTG1 
-    JFC1R = B2R + BTG2 
-    JFC2R = JFC1R + JFG1 
-    if JFG1 ==0 : 
-        JEC1R = B2R + BTG2 
-        JEC2R = JEC1R + JEG1 
-    elif JFG2 ==0 : 
-        JEC1R = JFC1R + JFG1  
-        JEC2R = JEC1R + JEG1
-    else: 
-        JEC1R = JFC2R + JFG2  
-        JEC2R = JEC1R + JEG1 
-
-
-    radii ={"BT1": B1R, 'BT2': B2R, 'JFC1' : JFC1R, 'JFC2': JFC2R, 'JEC1': JEC1R, 'JEC2': JEC2R}
-    
-
-    return radii
 
 
 def GetCarcassDrumDia(group="PCR", inch=16.0, overtype=''): 
@@ -207,16 +107,11 @@ def GetCarcassDrumDia(group="PCR", inch=16.0, overtype=''):
 def GetCarcassDia (group="PCR", inch=16.0, layer=1, overtype='', ga=1.0, innerGa=0.0, centerMinR=0):
     cdd = GetCarcassDrumDia(group=group, inch=inch, overtype=overtype)
     ccr = cdd/2 
-    CcDia = (ccr + ga*(layer-1.0) + innerGa * (centerMinR/ccr))*2.0
+    CcDia = (ccr + ga*(layer-0.5) + innerGa * (centerMinR/ccr))*2.0
     # print (cdd, "inner Ga=", innerGa, layer, "cc ga", ga, "lift", centerMinR/cdd)
     return CcDia
 
-def isNumber(s):
-  try:
-    float(s)
-    return True
-  except ValueError:
-    return False
+
 # def Printlist(List, **kwargs): 
 #     Print_list(List, **kwargs)
 def PrintNode(n): 
@@ -508,7 +403,7 @@ class NODE:
         
         if closest != 0:
             min = 1000000000.0
-            ClosestNode = 0 
+            
             if PO == 'x' or PO == 'X':
                 for i in range(N):
                     if abs(self.Node[i][1]-v) < min:
@@ -827,111 +722,6 @@ class ELEMENT:
                     ed.append(e)
 
         return ed 
-class LAYOUT: 
-    def __init__(self, meshfile): 
-        self.Node = NODE()
-        self.Element = ELEMENT()
-        self.Elset = ELSET()
-        self.Surface = SURFACE()
-        self.carcassGa = 0.0
-        self.moldOD=0.0
-        self.GD=0.0
-        self.UTG=0.0
-        self.Mesh2DInformation(meshfile)
-
-    def Mesh2DInformation(self, InpFileName):
-        with open(InpFileName) as INP:
-            lines = INP.readlines()
-        skipComment = 0 
-        for line in lines:
-            if line[0] == '\n': continue 
-            if '**' in line:
-                if 'The List of Rebar Element sets' in line: 
-                    skipComment =1 
-                if skipComment ==0: 
-                    if "C01" in line : 
-                        w = line.split(",")
-                        self.carcassGa = float(w[6].strip())
-                    if 'CAVITY_OD' in line and not 'CODE' in line and not 'NODE' in line: 
-                        txt = line.split(":")[1].strip()
-                        self.moldOD = float(txt)/1000.0
-                    if 'GROOVE DEPTH' in line : 
-                        txt = line.split(":")[1].strip()
-                        self.GD = float(txt)/1000.0
-            
-            elif '*' in line:
-                word = list(line.split(','))
-                if 'HEADING' in word[0].upper(): 
-                    spt = 'HD'
-                elif 'NODE' in word[0].upper(): 
-                    spt = 'ND'
-                elif 'ELEMENT' in word[0].upper():
-                    # EL = list(word[1].split('='))
-                    # EL = EL[1].strip()
-                    if 'MGAX' in line:
-                        spt = 'M1'
-                    elif 'CGAX3' in line :
-                        spt = 'C3'
-                    elif 'CGAX4' in line :
-                        spt = 'C4'
-                    else:
-                        spt = 'NN'
-                elif 'SURFACE' in word[0].upper(): 
-                    spt = 'SF'
-                    name = word[2].split('=')[1].strip()
-                    self.Surface.AddName(name)
-                #                    print ('Name=', name, 'was stored', Surface.Surface)
-                elif 'TIE' in word[0].upper(): 
-                    spt = 'TI'
-                    name = word[1].split('=')[1].strip()
-                elif 'ELSET' in word[0].upper(): 
-                    spt = 'ES'
-                    name = word[1].split('=')[1].strip()
-                    if name != "BETWEEN_BELTS" and name != "BD1" and name != "BetweenBelts":
-                        self.Elset.AddName(name)
-
-                elif 'NSET' in word[0].upper(): 
-                    spt = 'NS'
-                    name = word[1].split('=')[1].strip()
-
-                else:
-                    spt = ''
-            else:
-                word = list(line.split(','))
-                if spt == 'HD':
-                    pass
-                if spt == 'ND':
-                    self.Node.Add([int(word[0]), float(word[3]), float(word[2]), float(word[1])])
-                if spt == 'M1':
-                    # Element   [EL No,                  N1,          N2,  N3, N4,'elset Name', N,  Area/length, CenterX, CenterY]
-                    self.Element.Add([int(word[0]), int(word[1]), int(word[2]), 0, 0, '', 2])#, math.sqrt(math.pow(C1[1] - C2[1], 2) + math.pow(C1[2] - C2[2], 2)), (C1[1] + C2[1]) / 2.0, (C1[2] + C2[2]) / 2.0])
-                if spt == 'C3':
-                    self.Element.Add([int(word[0]), int(word[1]), int(word[2]), int(word[3]), 0, '', 3])#, A[0], A[1], A[2]])
-                if spt == 'C4':
-                    self.Element.Add([int(word[0]), int(word[1]), int(word[2]), int(word[3]), int(word[4]), '', 4])#, A[0], A[1], A[2]])
-                if spt == 'NS':
-                    pass
-                if spt == 'ES':
-                    if name.upper() != "BETWEEN_BELTS" and name.upper() != "BD1":
-                        if isNumber(word[0]) == True:
-                            # if 'BTT' in name: print (line.strip())
-                            for i in range(len(word)):
-                                self.Elset.AddNumber(int(word[i]), name)
-                if spt == 'SF':
-                    pass
-
-                else:
-                    pass
-
-        for i in range(len(self.Elset.Elset)):
-            for j in range(1, len(self.Elset.Elset[i])):
-                for k in range(len(self.Element.Element)):
-                    if self.Elset.Elset[i][j] == self.Element.Element[k][0]:
-                        self.Element.Element[k][5] = self.Elset.Elset[i][0]
-                        break
-
-        
-  
 def ReadMoldProfileFromPatternMeshFile(ptnfile): 
 
     with open(ptnfile) as PTN: 
@@ -982,16 +772,12 @@ def ReadMoldProfileFromPatternMeshFile(ptnfile):
                 word = list(line.split(","))
                 RightProfile.append([round(float(word[0].strip())*scaling_factor, 5), round(float(word[1].strip())*scaling_factor, 9)])
             if command == "node": 
-                if not line =="": 
-                    word = list(line.split(","))
-                    try: 
-                        nid = int(word[0].strip())
-                        nx = float(word[1].strip())
-                        ny = float(word[2].strip())
-                        nz = float(word[3].strip())
-                        nodes.append([nid, round(nx*scaling_factor, 10),  round(ny*scaling_factor, 10),  round(nz*scaling_factor, 10)])
-                    except: 
-                        continue 
+                word = list(line.split(","))
+                nid = int(word[0].strip())
+                nx = float(word[1].strip())
+                ny = float(word[2].strip())
+                nz = float(word[3].strip())
+                nodes.append([nid, round(nx*scaling_factor, 10),  round(ny*scaling_factor, 10),  round(nz*scaling_factor, 10)])
 
     nodes = np.array(nodes)
     cz = nodes[:,3]
@@ -1364,34 +1150,6 @@ def ElementDuplicationCheck(AllElements):
                 print ('## Error! CGAX4H ' + str(el[0]) + ' is overlapped.')
                 dup =  1
     return dup 
-def PointsInOutPolyhedron(points, pnt): 
-    """
-    points : points of the polyhedron 
-            the points should make convexhull.
-            [[x, y, z], [x, y, z]]
-    point : the point to check if it is in the polyhedron or not 
-            =[x,y,z]
-    """
-
-    try: 
-    
-        hull = ConvexHull(points, incremental=True)
-        hull_points = hull.points[hull.vertices, :]
-
-        N = hull_points.shape[0]
-        c = np.ones(N)
-        A_eq = np.concatenate((hull_points, np.ones((N,1))), 1).T   # rows are x, y, z, 1
-        b_eq = np.concatenate((pnt, (1,)))
-        warnings.filterwarnings('ignore')
-        result = linprog(c, A_eq=A_eq, b_eq=b_eq)
-        warnings.filterwarnings('default')
-
-        if result.status == 0: return True 
-        else: return False
-    except:
-        pass 
-
-    
 def LayoutProfileDefineForExpansion(profiles, halfTDW, ShoR=0.05, t3dm=0):
 
     sl = 0 
@@ -1454,10 +1212,14 @@ def LayoutProfileDefineForExpansion(profiles, halfTDW, ShoR=0.05, t3dm=0):
     
     if shocurve == 1: 
         suml = 0.0
-        for i, dc in enumerate(decos): 
-            if i ==0: avgr = dc[0]
+        for dc in decos: 
             suml += dc[1]
-        Profiles.append([avgr, suml])
+        avgr = 0 
+        for dc in decos: 
+            avgr += dc[0] * dc[1] / suml 
+        if suml > 0.0001: 
+            Profiles.append([avgr, suml])
+            # print ("> Add Profile ", [avgr, suml])
 
         return Profiles, shocurve, halfTDW, shoRad,  shoLen  
 
@@ -1700,10 +1462,8 @@ def Temporary_2dMeshWriting(fname, nodes, elements, elset, surfaces, outer, TieM
     f.close()
 
 def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="", sectors=240, offset=10000,\
-     no_tread=10**7, abaqus=0, materialDir='', btAngles=[], overtype="SOT", PCIPress="", bdw=0, fricView=False ): 
+     no_tread=10**7, abaqus=0, materialDir='', btAngles=[], overtype="SOT", PCIPress="", bdw=0 ): 
 
-
-    
     # Tire_Outer = elements.OuterEdge(nodes)
     TieMaster, TieSlave, Tire_Outer, centerNodes, FreeEdges, allEdges, TieError = TieSurface(elements.Element, nodes.Node)
 
@@ -1770,20 +1530,11 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     f=open(fname+".axi", 'w')
     if abaqus ==0:  f.write("*TIREBODY_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET= 1, %5d, 1, %5d  (FOR TIRE & LAT100 ONLY)\n"%(offset, offset))
     # f.write("****************************************************************************************************************\n")
-    ## for FricView input 
-    bodyNodes3d=[]; treadNodes3d=[]
-    ## Fric View 
-    ######################## 
     f.write("*NODE\n")
     for i in range(sectors): 
         sec = float(i)
         for n in Node_body.Node:
-            nodeid=n[0]+offset*sec
-            nodex =  n[3]*sin(delta * sec)
-            nodey =  n[2]
-            nodez =  n[3]*cos(delta*sec)
-            f.write("%9d, %16.6E, %16.6E, %16.6E\n"%(nodeid, nodex,nodey, nodez))
-            if fricView: bodyNodes3d.append([nodeid, nodex, nodey, nodez])
+            f.write("%9d, %16.6E, %16.6E, %16.6E\n"%(n[0]+offset*sec, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
             ## [nd[0]+offset*i, nd[3]*sin(delta * f), nd[2], nd[3]*cos(delta*f)]
 
     el2=[]; el3=[]; el4=[]
@@ -1873,7 +1624,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
         for i in range(sectors): 
             for t in ts: 
                 f.write("%8d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
-        f.write("*TIE, POSITION TOLERANCE=0.0005, NAME=TIE%d\n"%(cnt))
+        f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
         f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
 
     if len(Tie_Body)>0: 
@@ -1887,8 +1638,10 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
             for i in range(sectors): 
                 for t in ts: 
                     f.write("%8d, %s\n"%(t[4]+offset*i,  Change3DFace(t[3])))
-            f.write("*TIE, POSITION TOLERANCE=0.0005, NAME=TIE%d\n"%(cnt))
+            f.write("*TIE, POSITION TOLERANCE=0.001, NAME=TIE%d\n"%(cnt))
             f.write(" TIE_S%d, TIE_M%d\n"%(cnt, cnt))
+
+
 
     f.close()
 
@@ -1904,14 +1657,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     for i in range(sectors): 
         sec = float(i)
         for n in Node_tread.Node:
-            nodeid=  n[0]+offset*sec + no_tread
-            nodex =  n[3]*sin(delta * sec)
-            nodey =  n[2]
-            nodez =  n[3]*cos(delta*sec)
-
-            f.write("%9d, %16.6E, %16.6E, %16.6E\n"%(nodeid, nodex, nodey, nodez))
-            if fricView: treadNodes3d.append([nodeid, nodex, nodey, nodez])
-
+            f.write("%9d, %16.6E, %16.6E, %16.6E\n"%(n[0]+offset*sec + no_tread, n[3]*sin(delta * sec), n[2], n[3]*cos(delta*sec)))
     # f.write("****************************************************************************************************************\n")
     el2=[]; el3=[]; el4=[]
     for i in range(sectors): 
@@ -1977,98 +1723,12 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
                 if ret == 0: 
                     f.write("\n")
 
-
-    Edges_tireOuter = elements.OuterEdge(nodes)
-    Edge_XTRD=[]
-    Edge_YTIE=[]
-    for ed in Edges_tireOuter.Edge: 
-        # print (' XTRD', ed, end=">")
-        if ed[2].upper() == 'CTB' or ed[2].upper() == 'CTR' or ed[2].upper() == 'SUT' or ed[2].upper() == 'UTR' or ed[2].upper() == 'TRW': 
-            Edge_XTRD.append(ed)
-            # print ("TD")
-        # else: print (" ..")
-    
-    k = 0
-    while k < len(tread_outer): 
-        fd = 0 
-        for ed in Edges_tireOuter.Edge: 
-            if ed[4] == tread_outer[k][4] and ed[3] == tread_outer[k][3]: 
-                fd = 1 
-                break 
-        if fd ==0: 
-            Edge_YTIE.append(tread_outer[k])
-            # print("YTIE:",tread_outer[k], Edges_tireOuter.Edge[0])
-        k += 1 
-    
     f.write("*SURFACE,TYPE=ELEMENT,NAME=XTRD1001\n")
     for k in range(sectors): 
-        for ed in Edge_XTRD: 
-            f.write("%8d, %s\n"%(ed[4]+offset*k + no_tread, Change3DFace(ed[3])))
-    f.write("*SURFACE,TYPE=ELEMENT,NAME=YTIE1001\n")
-    for k in range(sectors): 
-        for ed in Edge_YTIE: 
-            f.write("%8d, %s\n"%(ed[4]+offset*k + no_tread, Change3DFace(ed[3])))
-
-    surfFree = []
-    if fricView:
-        el3 = np.array(el3)
-        el4 = np.array(el4)
         for ed in tread_outer: 
-            face = Change3DFace(ed[3])
-            if len(el3)>0: 
-                idx = np.where(el3[:,0]==ed[4]+ no_tread)[0]
-            else:
-                idx =[]
-            if len(idx) > 0 : 
-                ix = idx[0]
-                if face == 'S1': 
-                    noNodes = 3
-                    dFace = 1
-                    nid1 = el3[ix][1]; nid2= el3[ix][2]; nid3=el3[ix][3]; nid4=0
-                elif face =='S2': 
-                    noNodes = 3
-                    dFace = 2
-                    nid1 = el3[ix][4]; nid2= el3[ix][5]; nid3=el3[ix][6]; nid4=0
-                elif face =='S3': 
-                    noNodes = 4
-                    dFace = 3
-                    nid1 = el3[ix][1]; nid2= el3[ix][2]; nid3=el3[ix][5]; nid4=el3[ix][4]
-                elif face =='S4': 
-                    noNodes = 4
-                    dFace = 4
-                    nid1 = el3[ix][2]; nid2= el3[ix][3]; nid3=el3[ix][6]; nid4=el3[ix][5]
-                elif face =='S5': 
-                    noNodes = 4
-                    dFace = 5
-                    nid1 = el3[ix][3]; nid2= el3[ix][1]; nid3=el3[ix][4]; nid4=el3[ix][6]
-            else: 
-                ix = np.where(el4[:,0]==ed[4]+ no_tread)[0][0]
-                noNodes = 4
-                if face =='S1': 
-                    dFace = 1
-                    nid1 =el4[ix][1] ; nid2= el4[ix][2]; nid3=el4[ix][3]; nid4=el4[ix][4]
-                elif face =='S2': 
-                    dFace = 2
-                    nid1 =el4[ix][5] ; nid2= el4[ix][6]; nid3=el4[ix][7]; nid4=el4[ix][8]
-                elif face =='S3': 
-                    dFace = 3
-                    nid1 =el4[ix][1] ; nid2= el4[ix][2]; nid3=el4[ix][6]; nid4=el4[ix][5]
-                elif face =='S4': 
-                    dFace = 4
-                    nid1 =el4[ix][2] ; nid2= el4[ix][3]; nid3=el4[ix][7]; nid4=el4[ix][6]
-                elif face =='S5': 
-                    dFace = 5
-                    nid1 =el4[ix][3] ; nid2= el4[ix][4]; nid3=el4[ix][8]; nid4=el4[ix][7]
-                elif face =='S6': 
-                    dFace = 6
-                    nid1 =el4[ix][4] ; nid2= el4[ix][1]; nid3=el4[ix][5]; nid4=el4[ix][8]
-                
-            surfFree.append([ed[4] + no_tread,  dFace, noNodes, -1, 0.0, 0.0, 0.0, nid1, nid2, nid3, nid4])
-            # print ("-", ed[4] + no_tread, ", ", nid1, ", ", nid2, ", ", nid3, ", ", nid4)
-        
+            f.write("%8d, %s\n"%(ed[4]+offset*k + no_tread, Change3DFace(ed[3])))
     
-    
-    surfContact=[]; surfTop=[]
+    f.write("*SURFACE,TYPE=ELEMENT,NAME=YTIE1001\n")
     for ed in tread_outer: 
         fd = 0 
         for te in Tire_Outer:#.Edge:
@@ -2084,64 +1744,8 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
                 fd =1 
                 break 
         if fd ==0: 
-            pass 
-        
-
-        if fricView:
-            face = Change3DFace(ed[3])
-            if len(el3)>0: 
-                idx = np.where(el3[:,0]==ed[4]+ no_tread)[0]
-            else:
-                idx =[]
-            
-            if len(idx) > 0 : 
-                ix = idx[0]
-                if face == 'S1': 
-                    noNodes = 3
-                    dFace = 1
-                    nid1 = el3[ix][1]; nid2= el3[ix][2]; nid3=el3[ix][3]; nid4=0
-                elif face =='S2': 
-                    noNodes = 3
-                    dFace = 2
-                    nid1 = el3[ix][4]; nid2= el3[ix][5]; nid3=el3[ix][6]; nid4=0
-                elif face =='S3': 
-                    noNodes = 4
-                    dFace = 3
-                    nid1 = el3[ix][1]; nid2= el3[ix][2]; nid3=el3[ix][5]; nid4=el3[ix][4]
-                elif face =='S4': 
-                    noNodes = 4
-                    dFace = 4
-                    nid1 = el3[ix][2]; nid2= el3[ix][3]; nid3=el3[ix][6]; nid4=el3[ix][5]
-                elif face =='S5': 
-                    noNodes = 4
-                    dFace = 5
-                    nid1 = el3[ix][3]; nid2= el3[ix][1]; nid3=el3[ix][4]; nid4=el3[ix][6]
-            else: 
-                ix = np.where(el4[:,0]==ed[4]+ no_tread)[0][0]
-                noNodes = 4
-                if face =='S1': 
-                    dFace = 1
-                    nid1 =el4[ix][1] ; nid2= el4[ix][2]; nid3=el4[ix][3]; nid4=el4[ix][4]
-                elif face =='S2': 
-                    dFace = 2
-                    nid1 =el4[ix][5] ; nid2= el4[ix][6]; nid3=el4[ix][7]; nid4=el4[ix][8]
-                elif face =='S3': 
-                    dFace = 3
-                    nid1 =el4[ix][1] ; nid2= el4[ix][2]; nid3=el4[ix][6]; nid4=el4[ix][5]
-                elif face =='S4': 
-                    dFace = 4
-                    nid1 =el4[ix][2] ; nid2= el4[ix][3]; nid3=el4[ix][7]; nid4=el4[ix][6]
-                elif face =='S5': 
-                    dFace = 5
-                    nid1 =el4[ix][3] ; nid2= el4[ix][4]; nid3=el4[ix][8]; nid4=el4[ix][7]
-                elif face =='S6': 
-                    dFace = 6
-                    nid1 =el4[ix][4] ; nid2= el4[ix][1]; nid3=el4[ix][5]; nid4=el4[ix][8]
-                
-            if fd ==0: surfContact.append([ed[4]+ no_tread,  dFace, noNodes, -1, 0.0, 0.0, 0.0, nid1, nid2, nid3, nid4])
-            else: surfTop.append([ed[4]+ no_tread,  dFace, noNodes, -1, 0.0, 0.0, 0.0, nid1, nid2, nid3, nid4])
-
-
+            for i in range(sectors): 
+                f.write("%8d, %s\n"%(ed[4]+offset*i + no_tread, Change3DFace(ed[3]))) 
 
     cnt = 0 
     for ts, tm in zip(tread_TieSlave, tread_TieMaster): 
@@ -2186,9 +1790,6 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
     # MeshFileInformation(fname+".axi", sectors=sectors)
     # MeshFileInformation("Temp_tread.inp")
     # MeshFileInformation(fname+".trd", sectors=sectors)
-
-
-    return np.array(bodyNodes3d), np.array(treadNodes3d), np.array(surfTop), np.array(surfContact), body
 
 def Equivalent_density_calculation(cute_mesh, filename="", sns=""): 
     # print ("\n************************************************** ")
@@ -2321,18 +1922,6 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
             code =sd[1]
             structure = sd[2]
 
-            ###################################################
-            ## 2021.03.03, codes in case materia code =='-' of calendared material 
-            ## sample case : 3003877VT00005-0 
-            ###################################################
-            if '-' == code: 
-                fd = 0 
-                for st in roll: 
-                    if st[2] == sd[2] and st[3] == sd[3] and '-' != st[1]: 
-                        code = st[1]
-                        fd =1
-                        break 
-
             m = 3
             try:
                 EPI = float(sd[m]);        m+=1
@@ -2375,11 +1964,11 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
             #         name, code, toping_density, cord_density, line_density, topping_real_density, rf, cf, wt * cf/(cf+rf), wt * rf/(cf+rf), Area))
             
             if cf + rf == 0.0: 
-                mat_cords.append([name, code, topping_real_density, cord_density, line_density, 0.0, Area, topping, ga])
+                mat_cords.append([name, code, toping_density, cord_density, line_density, 0.0, Area, topping, ga])
                 rubber_weight = 0.0
                 cord_weight =0.0
             else: 
-                mat_cords.append([name, code, topping_real_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
+                mat_cords.append([name, code, toping_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
                 rubber_weight = wt * rf/(cf+rf)
                 cord_weight = wt * cf/(cf+rf)
 
@@ -2388,20 +1977,20 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
 
             m -= 1
 
-            if "C01" in name or "CC1" in name:   CCT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "C01" in name:   CCT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
             if "BT2" in name:   
-                BTT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+                BTT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
                 bt_gauge = dia / 2.0 * 1.772454
-            if "JEC" in name:   JEC = [name, topping, topping_real_density, float(sd[m])/10**9,  rubber_weight]
-            if "JFC" in name:   JFC = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            if "OJFC" in name:   OJFC = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            # if "BDC" in name:   BDC = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            if "CH1" in name:   SCT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            if "CH2" in name:   NCT = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            if "PK1" in name:   PK1 = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            if "PK2" in name:   PK2 = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            if "RFM" in name:   RFM = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
-            if "FLI" in name:   FLI = [name, topping, topping_real_density, float(sd[m])/10**9, rubber_weight]
+            if "JEC" in name:   JEC = [name, topping, toping_density, float(sd[m])/10**9,  rubber_weight]
+            if "JFC" in name:   JFC = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "OJFC" in name:   OJFC = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            # if "BDC" in name:   BDC = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "CH1" in name:   SCT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "CH2" in name:   NCT = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "PK1" in name:   PK1 = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "PK2" in name:   PK2 = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "RFM" in name:   RFM = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
+            if "FLI" in name:   FLI = [name, topping, toping_density, float(sd[m])/10**9, rubber_weight]
             
                 
             # except:
@@ -2437,9 +2026,9 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
         mat_solids.append(['SRTT', PK1[1], PK1[2], PK1[3], PK1[4]])
     if len(PK2) > 0: 
         mat_solids.append(['SRTT', PK2[1], PK2[2], PK2[3], PK2[4]])
-    if len(RFM) > 0: 
+    if len(NCT) > 0: 
         mat_solids.append(['SRTT', RFM[1], RFM[2], RFM[3], RFM[4]])
-    if len(FLI) > 0: 
+    if len(NCT) > 0: 
         mat_solids.append(['SRTT', FLI[1], FLI[2], FLI[3], FLI[4]])
 
     # f.close()
@@ -2537,44 +2126,27 @@ def GetRimDia_Size(size=""):
 
 def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[], \
     materialDir='', ISLM_cordDBFile='ISLM_CordDBName.dat', btAngles=[], overtype='',\
-         PCIPress="", bdw=0, pattern=0): 
+         PCIPress="", bdw=0): 
 
     equ_Density = 1 
-    
-
     name_solids, name_cords = SolidComponents_checking(axi=axi, trd=trd, return_value=1)
 
     localCordDB = 'ISLM_CordDB.txt'
     fileListFile = 'ISLM_materialList.txt'
     ISLM_cordDBFile="ISLM_CordDBName.dat"
-
-    host='None'; user='None'
-    try: 
-        with open("materialdb.dat") as DB : 
-            lines = DB.readlines()
-        host = lines[0].strip()
-        user = lines[1].strip()
-        pw = lines[2].strip()
-    except:
-        print ("\n## No Information for log-in to DB.")
-        print ("   Please register. (INP/Register DB)")
-        print ("## Current IP:", host)
-        print ("## User:", user)
-
-        return 
-
+    host = '10.82.66.65'
+    user = 'h20200155'
+    pw = 'h20200155'
     if not os.path.isfile(fileListFile) or not os.path.isfile(ISLM_cordDBFile) : 
         try: 
-            success = Update_ISLM_Material(wdir=materialDir, cordSaveFile=localCordDB, fileListFile=fileListFile, \
+            Update_ISLM_Material(wdir=materialDir, cordSaveFile=localCordDB, fileListFile=fileListFile, \
                  host=host, user=user, pw=pw, cordname=1, cordfile=ISLM_cordDBFile)
-            if success ==1:     print ("* Mateiral DB was updated.")
-            else: print ("## cannot access to server")
+            print ("* ISLM Mateiral DB was updated.")
             
         except:
             ISLM_cordDB="/home/fiper/ISLM_MAT/CordDB_SLM_PCI_v2.txt"
-            print ("* Cannot access Mateiral DB.")
-            print ("current Ip:", host)
-            return 
+            print ("* Cannot access ISLM Mateiral DB.")
+            pass 
     if os.path.isfile(ISLM_cordDBFile): 
         with open(ISLM_cordDBFile) as DB:
             lines=DB.readlines()
@@ -2582,18 +2154,11 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
 
     tireGroup="PCR"
     mat_solids, mat_cords, tireGroup, BT_cord_Ga, BSD, RW, RD, SIZE, beltLift = Equivalent_density_calculation(layout)
-
-    # print ("Carcass cord Ga. ", carcassGa)
-
     if "LT" in tireGroup: tireGroup="LTR"
     if "TB" in tireGroup: tireGroup="TBR"
 
     rimDia = GetRimDia_Size(SIZE)
     Ccd_Dia = GetCarcassDrumDia(group=tireGroup, inch=rimDia, overtype=overtype) 
-
-    if tireGroup != 'TBR':
-        BtRadii = GetBeltDrumDia_PCR(layout, mat_cords, beltLift)    
-
 
     npel = []
     for el in element: 
@@ -2601,21 +2166,10 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     npel = np.array(npel)
     npn = np.array(node)
 
-    beltHalfDia=[]   
+    beltHalfDia=[]
     reBtHalfDia=[]
     cc1MaxR = 0.0
-
-    f=open(axi[:-4]+"-material.dat", 'w')
-
-    btR =[]
     for eset in elset: 
-        for info in mat_cords : 
-            if info[0].strip() == eset[0]: 
-                cordGa = info[8]
-                f.write("*** Rolled Layer gauge, %5s=%.4f\n"%(eset[0], cordGa*1000))
-                if 'C01' in eset[0]: 
-                    carcassGa = cordGa                      
-
         if ("BT" in eset[0] or "SPC" in eset[0]) and not "BTT" in eset[0]: 
             N = len(eset)
             zMax = 0
@@ -2624,22 +2178,16 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 nix = np.where(npn[:,0] == npel[ix][1])[0][0]
                 if zMax < npn[nix][3]: 
                     zMax = npn[nix][3]
-            
-            beltHalfDia.append([eset[0], zMax/beltLift*1000])  
-            btR.append(zMax/beltLift*1000)                                
-            # mat_cords.append([name, code, toping_density, cord_density, line_density, wt * cf/(cf+rf), Area, topping, ga])
-        # if "JEC" in eset[0] or "JFC" in eset[0] or "OJF" in eset[0]: 
-        #     N = len(eset)
-        #     zMax = 0
-        #     for k in range(1, N): 
-        #         ix =np.where(npel[:,0]==eset[k])[0][0]
-        #         nix = np.where(npn[:,0] == npel[ix][1])[0][0]
-        #         if zMax < npn[nix][3]: 
-        #             zMax = npn[nix][3]
-        #     try: 
-        #         reBtHalfDia.append([eset[0], zMax/beltLift*1000-cordGa*500, cordGa])
-        #     except:
-        #         reBtHalfDia.append([eset[0], zMax/beltLift*1000])
+            beltHalfDia.append([eset[0], zMax/beltLift*1000])
+        if "JEC" in eset[0] or "JFC" in eset[0] or "OJF" in eset[0]: 
+            N = len(eset)
+            zMax = 0
+            for k in range(1, N): 
+                ix =np.where(npel[:,0]==eset[k])[0][0]
+                nix = np.where(npn[:,0] == npel[ix][1])[0][0]
+                if zMax < npn[nix][3]: 
+                    zMax = npn[nix][3]
+            reBtHalfDia.append([eset[0], zMax/beltLift*1000])
         if "C01" in eset[0] or "CC1" in eset[0]: 
             N = len(eset)
             for k in range(1, N): 
@@ -2647,64 +2195,22 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                 nix = np.where(npn[:,0] == npel[ix][1])[0][0]
                 if cc1MaxR < npn[nix][3]: 
                     cc1MaxR = npn[nix][3]
-    
-    btRmax = max(btR)
-    dicElset={'JFC1': 0, 'JFC2': 0, 'JEC1': 0, 'JEC2': 0}
-    
-    if tireGroup != 'TBR':
-        for br in beltHalfDia: 
-            if br[0].upper() == 'BT2': 
-                belt2Rad = br[1]
 
-        BTG1 = 0; BTG2 = 0; JFG1=0; JFG2=0; JEG1=0; JEG2=0
-        for info in mat_cords: 
-            if 'BT1' in info[0]: BTG1=info[8] *1000
-            if 'BT2' in info[0]: BTG2=info[8] *1000
-            if 'JFC1' in info[0]: JFG1=info[8]  *1000
-            if 'JFC2' in info[0]: JFG2=info[8] *1000
-            if 'JEC1' in info[0]: JEG1=info[8] *1000
-            if 'JEC2' in info[0]: JEG2=info[8] *1000
-
-        JFC1R = belt2Rad + BTG2 
-        JFC2R = JFC1R + JFG1 
-        if JFG1 ==0 : 
-            JEC1R = belt2Rad + BTG2 
-            JEC2R = JEC1R + JEG1 
-        elif JFG2 ==0 : 
-            JEC1R = JFC1R + JFG1  
-            JEC2R = JEC1R + JEG1
-            # print ("JFC1=", JFC1R, 'JFC1 G', JFG1)
-        else: 
-            JEC1R = JFC2R + JFG2  
-            JEC2R = JEC1R + JEG1 
-
-
-        radii ={'JFC1' : JFC1R, 'JFC2': JFC2R, 'JEC1': JEC1R, 'JEC2': JEC2R}
-        # print ('************************************')
-        # print (radii)
-
-        for eset in elset: 
-            if 'JFC1' in eset[0]: reBtHalfDia.append([eset[0], radii['JFC1']])
-            if 'JEC1' in eset[0]: reBtHalfDia.append([eset[0], radii['JEC1']])
-            if 'JFC2' in eset[0]: reBtHalfDia.append([eset[0], radii['JFC2']])
-            if 'JEC2' in eset[0]: reBtHalfDia.append([eset[0], radii['JEC2']])
-
-
-    # ## check OJFC is or not 
-    # f1 = 0; f2 = 0; f3 = 0
-    # for re in reBtHalfDia: 
-    #     if "OJFC1" in re[0]: f1 = re[1]
-    #     if "OJFC2" in re[0]: f2 = re[1]
-    #     if "OJFC3" in re[0]: f3 = re[1]
-    # if f1 > 0: 
-    #     for i, re in enumerate(reBtHalfDia): 
-    #         if "JFC1" == re[0] : reBtHalfDia[i][1] = f1 
-    # if f2 > 0: 
-    #     for i, re in enumerate(reBtHalfDia): 
-    #         if "JFC2" == re[0] : reBtHalfDia[i][1] = f2 
-    # if f3 > 0: 
-    #     for i, re in enumerate(reBtHalfDia): 
-    #         if "JFC3" == re[0] : reBtHalfDia[i][1] = f3 
+    ## check OJFC is or not 
+    f1 = 0; f2 = 0; f3 = 0
+    for re in reBtHalfDia: 
+        if "OJFC1" in re[0]: f1 = re[1]
+        if "OJFC2" in re[0]: f2 = re[1]
+        if "OJFC3" in re[0]: f3 = re[1]
+    if f1 > 0: 
+        for i, re in enumerate(reBtHalfDia): 
+            if "JFC1" == re[0] : reBtHalfDia[i][1] = f1 
+    if f2 > 0: 
+        for i, re in enumerate(reBtHalfDia): 
+            if "JFC2" == re[0] : reBtHalfDia[i][1] = f2 
+    if f3 > 0: 
+        for i, re in enumerate(reBtHalfDia): 
+            if "JFC3" == re[0] : reBtHalfDia[i][1] = f3 
 
 
             
@@ -2717,7 +2223,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
     IL_Ga = (cc1MaxR-center_minR)
 
 
-    
+    f=open(axi[:-4]+"-material.dat", 'w')
     
     if len(mat_solids) == 0: 
 
@@ -2762,7 +2268,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
             elif ("C0" in mat or "CC" in mat ) and tireGroup == 'TBR':  f.write("%4s,    CC, ES...., 120.0, 1.0, 1, 90.0, Dia.OnDrum\n"%(mat))
             elif "BD" in mat  :                       f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 45.0, 0.0\n"%(mat))
             elif "CH1" in mat  or "SCF" in mat:                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 30.0, 0.0\n"%(mat))
-            elif "CH2" in mat  or "NCF" in mat:                      f.write("%4s,    NA, ET...., 120.0, 1.0, 0, -30.0, 0.0\n"%(mat))
+            elif "CH2" in mat  or "NCF" in mat:                      f.write("%4s,    NA, ET...., 120.0, 1.0, 0, 30.0, 0.0\n"%(mat))
             elif "SPC" in mat  :                      f.write("%4s,    NA, ES...., 120.0, 1.0, 1, 0.0,  0.0\n"%(mat))
         
         # f.write("*** Belt cord max radius lifted\n")
@@ -2772,12 +2278,8 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
             # f.write("*** Reinforcement cord max radius lifted\n")
             for bt in reBtHalfDia: 
                 f.write("*** Reinforcement cord max radius lifted, %5s=%.4f\n"%(bt[0], bt[1]*beltLift))
-                
         f.write("*** Under carcass gauge =%.3f\n"%(IL_Ga))
-        try: 
-            f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
-        except:
-            pass 
+        f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
         f.write("*** Tire Center Min.Radius=%.3f\n"%(center_minR))
         f.write("*********************************************************\n")
         f.write("*INCLUDE, INP=%s\n"%(axi.split("/")[-1]))
@@ -2792,22 +2294,13 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         if equ_Density ==1: 
             for name in name_solids:
                 for mat in mat_solids: 
-                    if 'CTR' in name.upper() or 'CTB' in name.upper(): 
-                        if "CTR" in mat[0].strip() or "CTB" in mat[0].strip(): 
-                            if pattern ==0: 
-                                f.write("%4s,      %s,   120,   1.0, %10.2f, 0.95, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
-                            else: 
-                                f.write("%4s,      %s,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
-                            name_compound.append(mat[1][-3:])
-                            break 
-                    elif 'SUT' in name.upper() or 'UTR' in name.upper(): 
-                        if "SUT" in mat[0].strip() or "UTR" in mat[0].strip(): 
-                            f.write("%4s,      %s,   120,   1.0, %10.2f, 1.0, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
-                            name_compound.append(mat[1][-3:])
-                            break 
-                    elif  mat[0].strip() in name : 
+                    if  mat[0].strip() in name : 
                         # mat_cords.append([name,1= code, 2=toping_density, 3=cord_density, 4=line_density, 5=wt * cf/(cf+rf), 6=Area, 7=topping compd, 8=ga])
-                        if mat[0].strip() == 'BD1': 
+                        if "CTR" in mat[0].strip() or "CTB" in mat[0].strip(): 
+                            f.write("%4s,      %s,   120,   1.0, %10.2f, 0.95, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
+                            name_compound.append(mat[1][-3:])
+
+                        elif mat[0].strip() == 'BD1': 
                             f.write("%4s,  ABW121A,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[2]*1000, mat[3], mat[4]))
                         else: 
                             f.write("%4s,      %s,   120,   1.0, %10.2f,  1.0, %.3e, %.5f\n"%(name, mat[1][-3:], mat[2]*1000, mat[3], mat[4]))
@@ -2816,21 +2309,14 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                         break 
         else:
             for name in name_solids:
-                for mat in mat_solids:
-                    if 'CTR' in name.upper() or 'CTB' in name.upper(): 
+                for mat in mat_solids: 
+                    if  mat[0].strip() in name : 
+                        # mat_cords.append([name,1= code, 2=toping_density, 3=cord_density, 4=line_density, 5=wt * cf/(cf+rf), 6=Area, 7=topping compd, 8=ga])
                         if "CTR" in mat[0].strip() or "CTB" in mat[0].strip(): 
                             f.write("%4s,      %s,   120,   1.0\n"%(name, mat[1][-3:]))
                             name_compound.append(mat[1][-3:])
-                            break 
-                    elif 'SUT' in name.upper() or 'UTR' in name.upper(): 
-                        if "SUT" in mat[0].strip() or "UTR" in mat[0].strip(): 
-                            f.write("%4s,      %s,   120,   1.0\n"%(name, mat[1][-3:]))
-                            name_compound.append(mat[1][-3:])
-                            break
 
-                    elif  mat[0].strip() in name : 
-                        # mat_cords.append([name,1= code, 2=toping_density, 3=cord_density, 4=line_density, 5=wt * cf/(cf+rf), 6=Area, 7=topping compd, 8=ga])
-                        if mat[0].strip() == 'BD1': 
+                        elif mat[0].strip() == 'BD1': 
                             f.write("%4s,  ABW121A,   120,   1.0\n"%(name))
                         else: 
                             f.write("%4s,      %s,   120,   1.0\n"%(name, mat[1][-3:]))
@@ -2858,15 +2344,12 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*CORD_FILE=%s\n"%(ISLM_cordDB))
         f.write("*REBAR_SECTION\n")
         cordCord = []
-
-        
-        
+        carcassGa = 1.0
         if equ_Density ==1: 
             for name in name_cords:
                 for mat in mat_cords:
                     if name == mat[0].strip() or ( "OJF" in name  and "JFC" in mat[0]):  
                         ## mat_cords.append([name, code, toping_density, cord_density, line_density])
-                        # mat_cords.append([name,1= code, 2=toping_density, 3=cord_density, 4=line_density, 5=wt * cf/(cf+rf), 6=Area, 7=topping compd, 8=ga])
                         name_compound.append(mat[7][-3:])
                         if "BT" in mat[0]:
                             for dia in beltHalfDia: 
@@ -2907,15 +2390,12 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
                                                                         mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
                             cordCord.append(mat[1])
                         elif "CH" in mat[0]  :
-                            if "CH1" in mat[0]: strAngle='30.0'
-                            elif "CH2" in mat[0]: strAngle='-30.0'
-                            else: strAngle ='30.0'
                             if "ES" in mat[1]:                       
-                                f.write("%4s,    NA, %s, 120.0, 1.0, 1, %5s,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                        mat[0].strip(), mat[1], strAngle, mat[4], mat[2]*1000, mat[5], mat[6]))
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 1,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
                             else:
-                                f.write("%4s,    NA, %s, 120.0, 1.0, 0, %5s,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
-                                                                        mat[0].strip(), mat[1], strAngle, mat[4], mat[2]*1000, mat[5], mat[6]))
+                                f.write("%4s,    NA, %s, 120.0, 1.0, 0,  30.0,        0.0, %10.5e, %10.2f, %10.3f, %10.3e\n"%(\
+                                                                        mat[0].strip(), mat[1], mat[4], mat[2]*1000, mat[5], mat[6]))
                             cordCord.append(mat[1])
                         elif "SPC" in mat[0]  :
                             for dia in beltHalfDia: 
@@ -2995,7 +2475,6 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
         f.write("*** Carcass drum Dia.=%.3f\n"%(Ccd_Dia))
         f.write("*** #1 Carcass gauge =%.3f\n"%(carcassGa))
         f.write("*** Tire Center Min.Radius=%.3f\n"%(center_minR))
-        
         f.write("*********************************************************\n")
 
         name_compound = sorted(name_compound)
@@ -3082,28 +2561,15 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
     if cordSaveFile =="" :  cordSaveFile = 'ISLM_CordDB.txt'
     if fileListFile =="" :  fileListFile = 'ISLM_materialList.txt'
 
-    host="None"; user='None'
-    try: 
-        with open("materialdb.dat") as DB : 
-            lines = DB.readlines()
-        host = lines[0].strip()
-        user = lines[1].strip()
-        pw = lines[2].strip()
-    except:
-        print ("## No Information for log-in to DB")
-        print ("   Please register. (INP/Register DB)")
-        print ("## Current IP:", host)
-        print ("## User:", user)
-        return 
-
-    if parkmiko ==0:  return 0
+    
+    
+    if host =="" :host = '10.82.66.65'
+    if user =="" :user = 'h20200155'
+    if pw =="" :pw = 'h20200155'
 
     ftp = FTP.SSHClient()
     ftp.set_missing_host_key_policy(FTP.AutoAddPolicy())
-    try: ftp.connect(host, username=user, password=pw)
-    except: 
-        print("## cannot login to server")
-        return 0
+    ftp.connect(host, username=user, password=pw)
     sftp = ftp.open_sftp()
 
     dirList =sftp.listdir(wdir)
@@ -3116,7 +2582,8 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
         if "CordDB" in name and ".txt" in name and "SLM" in name: 
             cord = wdir+"/"+name 
     f.close()
-    if cordDBFile !='':   cord = cordDBFile  ## if input by user 
+    if cordDBFile !='': 
+        cord = cordDBFile  ## if input by user 
 
     try: 
         sftp.get(cord, cordSaveFile)
@@ -3130,25 +2597,16 @@ def Update_ISLM_Material(wdir='', cordSaveFile='', fileListFile='', host='', use
     fp.write("%s\n"%(cord))
     fp.close()
 
-    _ = WriteCordList(cordSaveFile)
-
-    return 1 
+    WriteCordList(cordSaveFile)
     
-def ReadTextFile(cordfile): 
-
-    try:  
+def WriteCordList(cordfile): 
+    try: 
         with open(cordfile) as matf: 
             lines = matf.readlines()
     except:
         fp=open(cordfile, 'r', encoding='UTF8')
         lines = fp.readlines()
         fp.close()
-
-    return lines 
-
-def WriteCordList(cordfile): 
-    
-    lines = ReadTextFile(cordfile)
 
     materialNames=[]
     for i, line in enumerate(lines):
@@ -3186,7 +2644,7 @@ def WriteCordList(cordfile):
                 break
 
     cfile.close()
-    return cordsList
+
 
 
 def MeshFileInformation(filename, sectors=1): 
@@ -3400,11 +2858,9 @@ class MESH2D:
                 for lp, rp in zip(self.LeftProfile, self.RightProfile) : 
                     self.TW+= lp[1]
                     self.TW+= rp[1]
-                    if lp[0] == 10.0 or lp[0] == 0.0: 
+                    if lp[0] == 10.0: 
                         isSTL =  1
-                        lp[0] = 10000.0
-                        rp[0] = 10000.0
-        print ("* %s"%(filename.split("/")[-1]))
+
         if self.shoulderType =='R':     print ("* Shoulder profile type : %s"%("ROUND\n"))
         else:                           print ("* Shoulder profile type : %s"%("SQUARE\n"))
 
@@ -3425,8 +2881,8 @@ class MESH2D:
             self.LeftProfile, self.RightProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
                  dropDiff, r=r, halfOD=self.OD/2.0)
             print ("* A curve is added to Tread curves")
-            for pf, pf1 in zip(self.LeftProfile, self.RightProfile): 
-                print ("  R=%.1f/%.1f, Length=%.2f/%.2f"%(pf[0]*1000, pf1[0]*1000, pf[1]*1000, pf1[1]*1000))
+            for pf in self.LeftProfile: 
+                print ("  R=%.1f, Length=%.2f"%(pf[0]*1000, pf[1]*1000))
             print("")
             
         ## Preprocessing CUTE INP  ###################################################################################
@@ -3718,14 +3174,12 @@ class MESH2D:
         ## 'Model Tire TDW and Deco. Width' need to define the removal width of the tread.  import the profile and dimension of the self pattern 
         if layoutProfile ==[]: 
             self.LeftProfile, self.RightProfile, self.TDW, self.TW, self.GD  = self.Temp_readprofile(filename)  ## read target layout tread profile
-        self.TW = 0
-        for pfl, pfr in zip(self.LeftProfile, self.RightProfile) : 
-            self.TW += pfl[1] +  pfr[1]
-
+        
         if len(self.LeftProfile) ==0 or len(self.RightProfile) == 0 or t3dm == 1 : 
             self.LeftProfile = LeftProfile    ## leftprofile : profile from pattern mesh file 
             self.RightProfile = RightProfile  ## rightprofile : profile from pattern mesh file 
             self.T3DMMODE = 1 
+
             # print(">>>>>>>>>>>>>>>>>", LeftProfile)
         else: 
             if len(self.LeftProfile) == len(LeftProfile) and len(self.RightProfile) == len(RightProfile): 
@@ -3738,41 +3192,22 @@ class MESH2D:
         if self.TDW ==0: self.TDW = ptnTDW 
         if self.TW == 0: self.TW = ptnTW 
 
-        #################################################################################
-        ## in case that the deco-lenth is too short compared to model pattern
-        ## increase the length of deco in profile to minimize the shrinkage ratio of the deco. 
-        ## 2021.05.28 
-        #################################################################################
-        Dptn = (ptnTW - ptnTDW)/2.0
-        twR = self.TDW / ptnTDW 
-        Dpf = (self.TW - self.TDW)/2.0 
-        if Dptn*twR > Dpf*0.7 : 
-            DL = (Dptn*twR-Dpf*0.7)/0.7
-            self.LeftProfile[-1][1] += DL
-            self.RightProfile[-1][1]+= DL
-
         ###############################################################################
         ## make the deco-curves to 1 curve.. (sum the lengths)
+
         ## check sum_length == TDW (in case of no sho. curve)
+        
+    
         self.LeftProfile, shocurve,  htdw, r_shocurve,  l_shocurve = LayoutProfileDefineForExpansion(self.LeftProfile, self.TDW/2.0, ShoR=0.05, t3dm=t3dm)
         self.RightProfile, shocurve, htdw, r_shocurve,  l_shocurve = LayoutProfileDefineForExpansion(self.RightProfile, self.TDW/2.0, ShoR=0.05, t3dm=t3dm)
         if t3dm == 0: 
             self.TDW = htdw * 2.0
-
-        
         
 
-        print ("* Crown Profile Info(Neg/Pos side) to expand")
+        print ("* Crown Profile Info(Neg/Pos side)")
         for pf1, pf2 in zip(self.LeftProfile, self.RightProfile): 
-            print (" R=%6.1f, L=%5.1f / R=%6.1f, L=%5.1f"%(pf1[0]*1000, pf1[1]*1000, pf2[0]*1000, pf2[1]*1000))
+            print (" R=%.1f, L=%.1f / R=%.1f, L=%.1f"%(pf1[0]*1000, pf1[1]*1000, pf2[0]*1000, pf2[1]*1000))
         print ("**********************************\n")
-
-        print (" Model  OD=%7.2f, Target  OD=%7.2f"%(ptnOD*1000, self.OD*1000))
-        print (" Model  GD=%7.2f, Target  GD=%7.2f"%(ptnGD*1000, self.GD*1000))
-        print (" Model TDW=%7.2f, Target TDW=%7.2f"%(ptnTDW*1000, self.TDW*1000))
-        print (" Model  TW=%7.2f, Target  TW=%7.2f"%(ptnTW*1000, self.TW*1000))
-        print (" Model DHW=%7.2f, Target DHW=%7.2f"%((ptnTW-ptnTDW)*500, (self.TW-self.TDW)*500))
-
         ##############################################################################
 
         LeftLastEL = 0
@@ -3903,7 +3338,11 @@ class MESH2D:
             # print ("  Curve radius=%.2f"%(self.r_shocurve*1000))
             # print ("############################################")
 
-        
+        print (" Model  OD=%7.2f, Target  OD=%7.2f"%(ptnOD*1000, self.OD*1000))
+        print (" Model  GD=%7.2f, Target  GD=%7.2f"%(ptnGD*1000, self.GD*1000))
+        print (" Model TDW=%7.2f, Target TDW=%7.2f"%(ptnTDW*1000, self.TDW*1000))
+        print (" Model  TW=%7.2f, Target  TW=%7.2f"%(ptnTW*1000, self.TW*1000))
+        print (" Model DHW=%7.2f, Target DHW=%7.2f"%((ptnTW-ptnTDW)*500, (self.TW-self.TDW)*500))
 
         if self.T3DMMODE == 0: 
             # t0 = time.time()
@@ -3991,7 +3430,7 @@ class MESH2D:
             els =[]
             ndi = []
             for el in self.Element.Element: 
-                if el[5] == "CTR" or el[5] == "CTB" or el[5] == "SUT" or el[5] == "UTR" or el[5] == "TRW" or el[5] == "BSW": 
+                if el[5] == "CTR" or el[5] == "CTB" or el[5] == "SUT" or el[5] == "UTR" or el[5] == "TRW": 
                     ix1 = np.where(npn[:, 0] ==el[1])[0][0]
                     ix2 = np.where(npn[:, 0] ==el[2])[0][0]
                     ix3 = np.where(npn[:, 0] ==el[3])[0][0]
@@ -4073,39 +3512,8 @@ class MESH2D:
                         negDirection.append(nxt[2])
                     if nxt[3] != bn1 and nxt[3] != bn2: 
                         negDirection.append(nxt[3])
-                    if nxt[4]: 
-                        if nxt[4] != bn1 and nxt[4] != bn2: 
-                            negDirection.append(nxt[4])
-                    else: 
-                        n2 = negDirection[0]
-                        for k in range(1, 4): 
-                            if els[ix[0]][k] == n2 : 
-                                if k ==1: n1 = els[ix[0]][2]
-                                elif k ==2: n1 = els[ix[0]][3]
-                                else: n1 = els[ix[0]][1]
-                                break 
-                        ix1 = np.where(els[:,1:5] == n1)[0]
-                        ix2 = np.where(els[:,1:5] == n2)[0]
-                        ix = np.intersect1d(ix1, ix2)
-                        try: 
-                            if els[ix[0]][0] == bottoms[-1][0] :   nx = ix[1]
-                            else:                               nx = ix[0]
-                        except Exception: 
-                            print ("Error! Bottom surface at ElimateSquareTread")
-                            return 
-                        nxt = els[nx]
-                        bottoms.append(nxt)
-                        # print ("* %d"%(bottoms[-1][0]))
-                        n3 = 0 
-                        for k in range(1, 5): 
-                            if els[nx][k] == n2 : 
-                                if k ==1: n3 = els[nx][2]
-                                elif k ==2: n3 = els[nx][3]
-                                elif k ==3: n3 = els[nx][4]
-                                else: n3 = els[nx][1]
-                                break 
-                        negDirection= [n3, n2]
-
+                    if nxt[4] != bn1 and nxt[4] != bn2: 
+                        negDirection.append(nxt[4])
                 elif len(ix) > 2: 
                     print ("## Too many element with node %d, %d"%(negDirection[0], negDirection[1]))
                     for x in ix: 
@@ -4113,7 +3521,7 @@ class MESH2D:
                     print("")
                     break 
                 else:
-                    break ## end searching    
+                    break ## end searching  
                 cnt += 1
                 if cnt > 200: 
                     print ("## Too many iteration to search tread bottom.")
@@ -4124,13 +3532,21 @@ class MESH2D:
             while 1:
                 ix1 = np.where(els[:,1:5] == posDirection[0])[0]
                 ix2 = np.where(els[:,1:5] == posDirection[1])[0]
-                ix = np.intersect1d(ix1, ix2)
-
+                try: 
+                    ix = np.intersect1d(ix1, ix2)
+                except: 
+                    print ("## btm f=%d node %d, %d"%(btmface, posDirection[0], posDirection[1]))
+                    print ("center el", start)
+                    for x in ix1: 
+                        print (els[x]) 
+                    print ("**************")
+                    for x in ix2: 
+                        print (els[x]) 
+                    return 
                 if len(ix) == 2: 
                     if tmp[len(tmp)-1][0] == els[ix[0]][0]: nxt = els[ix[1]]
                     else: nxt = els[ix[0]]
                     tmp.append(nxt)
-                    # print (" %d"%(tmp[-1][0]))
                     bn1 = posDirection[0]; bn2 = posDirection[1] 
                     posDirection = []
                     if nxt[1] != bn1 and nxt[1] != bn2: 
@@ -4139,36 +3555,8 @@ class MESH2D:
                         posDirection.append(nxt[2])
                     if nxt[3] != bn1 and nxt[3] != bn2: 
                         posDirection.append(nxt[3])
-                    if nxt[4] != 0: 
-                        if nxt[4] != bn1 and nxt[4] != bn2: 
-                            posDirection.append(nxt[4])
-                    else: 
-                        n2 = posDirection[0]
-                        for k in range(1, 4): 
-                            if els[ix[0]][k] == n2 : 
-                                if k ==1: n1 = els[ix[0]][3]
-                                elif k ==2: n1 = els[ix[0]][1]
-                                else: n1 = els[ix[0]][2]
-                                break 
-                        ix1 = np.where(els[:,1:5] == n1)[0]
-                        ix2 = np.where(els[:,1:5] == n2)[0]
-                        ix = np.intersect1d(ix1, ix2)
-
-                        if els[ix[0]][0] == tmp[-1][0] :   nx = ix[1]
-                        else:                           nx = ix[0]
-                        nxt = els[nx]
-                        tmp.append(nxt)
-                        n3 = 0 
-                        for k in range(1, 5): 
-                            if els[nx][k] == n2 : 
-                                if k ==1: n3 = els[nx][4]
-                                elif k ==2: n3 = els[nx][1]
-                                elif k ==3: n3 = els[nx][2]
-                                else: n3 = els[nx][3]
-                                break 
-
-                        posDirection= [n3, n2]
-
+                    if nxt[4] != bn1 and nxt[4] != bn2: 
+                        posDirection.append(nxt[4])
                 elif len(ix) > 2: 
                     print ("## Too many element with node %d, %d"%(posDirection[0], posDirection[1]))
                     for x in ix: 
@@ -4431,30 +3819,20 @@ class MESH2D:
                 elif "PROFILE_LHS" in line: command="left"
                 elif "PROFILE_RHS" in line: command="right"
                 elif "TR :" in line or "** TR, TW" in line:  ## self.RightProfile=[]  ## **   self.LeftProfile=[]   ## ** 
-                    if command == "right": 
+                    if command == "left": 
                         line = list(line.split(":"))[1]
                         word = list(line.split(","))
                         R = round(float(word[0].strip())*scaling_factor, 5)
                         # print ("LEFT Profile", line.strip())
                         # if R == 10.0: R*= 1000
-                        if profileDone ==0:
-                            if len(self.RightProfile) > 1: 
-                                if self.RightProfile[-1][0] == R : self.RightProfile[-1][1]+= round(float(word[1].strip())*scaling_factor, 9)
-                                else: self.RightProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
-                            else: 
-                                self.RightProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
-                    if command == "left": 
+                        if profileDone ==0:  self.RightProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
+                    if command == "right": 
                         line = list(line.split(":"))[1]
                         word = list(line.split(","))
                         R = round(float(word[0].strip())*scaling_factor, 5)
                         # print ("Right Profile", line.strip())
                         # if R == 10.0: R*= 1000
-                        if profileDone ==0: 
-                            if len(self.LeftProfile)>1 : 
-                                if self.LeftProfile[-1][0] == R :  self.LeftProfile[-1][1]+= round(float(word[1].strip())*scaling_factor, 9)
-                                else: self.LeftProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
-                            else: 
-                                self.LeftProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
+                        if profileDone ==0: self.LeftProfile.append([R, round(float(word[1].strip())*scaling_factor, 9)])
 
                 else: continue 
             elif "*NODE" in line.upper() and not "OUTPUT" in line.upper() and not "PRINT" in line.upper() and not "FILE" in line.upper(): cmd = "ND"
@@ -4463,11 +3841,7 @@ class MESH2D:
             elif "*ELEMENT" in line.upper() and "CGAX4H" in line.upper(): cmd = "EL4"
             elif "*NSET" in line.upper(): cmd = "NS"
             elif "*ELSET" in line.upper(): 
-                try: 
-                    nextline = lines[li+1].split(",")
-                except: 
-                    continue 
-
+                nextline = lines[li+1].split(",")
                 try: 
                     nextnumber = int(nextline[0]) 
                     cmd = "ES"
@@ -4771,10 +4145,6 @@ class MESH2D:
                     tn = n 
                     LeftY = n[2]
                     LeftZ = n[3] 
-        
-        if not len(tn): 
-            return 
-
         LeftEL = 0 
         for ed in OuterEdge.Edge: 
             if ed[0] == int(tn[0]): 
@@ -4843,7 +4213,6 @@ class MESH2D:
         print ("* Right Last Tread EL to delete =%4d, \n  Distance from Center=%7.3f, drop=%7.3f"%(RightEL, dist*1000, drop*1000))
         print ("* Profile Width for pattern = %.3f"%(self.TargetPatternWidth*1000))
         return LeftEL, LeftY, RightEL, RightY, [L_curve, R_curve]
-
     def Searching_Upper_elements(self, el, solids, nodes, el2remove=[], btm_face=0, show=0, parallel=0 ): 
         ix1 = np.where(nodes[:,0] == el[1])[0][0]; n1 = nodes[ix1]
         ix2 = np.where(nodes[:,0] == el[2])[0][0]; n2 = nodes[ix2]
@@ -4857,7 +4226,6 @@ class MESH2D:
         # if el[0] == 2788 or el[0] == 2855  or el[0] == 2871 : 
         #     print (">>>> %d"%(el[0]))
         #     show = 1
-        # show = 1 
         if show==1: 
             print ("\n   START : ", el, " bottom face=",  btm_face)
             # print ("    %d, %7.3f, %7.3f, %7.3f"%(n1[0], n1[1]*1000,  n1[2]*1000,  n1[3]*1000 ))
@@ -4886,8 +4254,7 @@ class MESH2D:
                         print ("    %d, %7.3f, %7.3f, %7.3f"%(n2[0], n2[1]*1000,  n2[2]*1000,  n2[3]*1000 ))
                         print ("    %d, %7.3f, %7.3f, %7.3f"%(n3[0], n3[1]*1000,  n3[2]*1000,  n3[3]*1000 ))
                         print ("    %d, %7.3f, %7.3f, %7.3f"%(n4[0], n4[1]*1000,  n4[2]*1000,  n4[3]*1000 ))
-                        # sys.exit()
-                        return 
+                        sys.exit()
                 bf = f
             else: 
                 bf = f = btm_face 
@@ -4932,124 +4299,53 @@ class MESH2D:
                 ran = np.array([abs(EN1[2]), abs(EN2[2])])
                 rmin = np.min(ran); rmax = np.max(ran)
 
-                if inext[4] > 0 and parallel == 0:  ## 4 node element 
-                    dfn1 = np.setdiff1d(el[1:5], inext[1:5])
-                    dfn2 = np.setdiff1d(inext[1:5], el[1:5])
-                    if (el[1] == dfn1[0] or el[1] == dfn1[1]) and (el[2] == dfn1[0] or el[2] == dfn1[1]):  
-                        e1f1 = 3; e1f2 = 2; e1f3 = 4; e1f4=1 
-                    elif (el[2] == dfn1[0] or el[2] == dfn1[1]) and (el[3] == dfn1[0] or el[3] == dfn1[1]):  
-                        e1f1 = 4; e1f2 = 3; e1f3=1; e1f4=2
-                    elif (el[3] == dfn1[0] or el[3] == dfn1[1]) and (el[4] == dfn1[0] or el[4] == dfn1[1]):  
-                        e1f1 = 1; e1f2 = 4; e1f3=2; e1f4=3 
-                    else: e1f1 = 2; e1f2 = 1; e1f3=3; e1f4 = 4
+                if inext[4] > 0 and parallel == 0: 
+                    diffn = np.setdiff1d(inext[1:5], el[1:5]) 
+                    if len(diffn) > 1: 
+                        if abs(EN1[2]) > abs(EN2[2]): 
+                            fN1 = EN1; fN2 = EN2 
+                        else:
+                            fN1 = EN2; fN2 = EN1
 
-                    if (inext[1] == dfn2[0] or inext[1] == dfn2[1]) and (inext[2] == dfn2[0] or inext[2] == dfn2[1]):  
-                        e2f1 = 3; e2f2=2; e2f3=4; e2f4=1 
-                    elif (inext[2] == dfn2[0] or inext[2] == dfn2[1]) and (inext[3] == dfn2[0] or inext[3] == dfn2[1]):  
-                        e2f1 = 4; e2f2 = 3; e2f3=1; e2f4=2
-                    elif (inext[3] == dfn2[0] or inext[3] == dfn2[1]) and (inext[4] == dfn2[0] or inext[4] == dfn2[1]):  
-                        e2f1 = 1; e2f2 = 4; e2f3=2; e2f4=3 
-                    else: e2f1 = 2; e2f2 = 1; e2f3=3; e2f4 = 4
+                        ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn1=nodes[ix]
+                        ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn2=nodes[ix]
 
+                        if abs(difn1[2]) > abs(difn2[2]): 
+                            sN4 = difn1; sN3=difn2 
+                        elif abs(difn1[2]) == abs(difn2[2]): 
+                            if difn1[3] > difn2[3]:
+                                sN3 = difn1; sN4=difn2 
+                            else:
+                                sN3 = difn2; sN4=difn1 
+                        else: 
+                            sN3 = difn1; sN4=difn2 
 
+                        diffn = np.setdiff1d(inext[1:5], diffn)
+                        ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn3=nodes[ix]
+                        ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn4=nodes[ix]
 
+                        if abs(difn3[2]) > abs(difn4[2]): 
+                            sN1 = difn3; sN2=difn4 
+                        elif abs(difn3[2]) > abs(difn4[2]): 
+                            if difn3[3] > difn4[3]:
+                                sN1 = difn4; sN2=difn3 
+                            else:
+                                sN1 = difn3; sN2=difn4 
+                        else: 
+                            sN1 = difn4; sN2=difn3 
 
-                    ix = np.where(nodes[:,0] == el[e1f1])[0][0]; fN1 = nodes[ix]
-                    ix = np.where(nodes[:,0] == el[e1f2])[0][0]; fN2 = nodes[ix]
-                    ix = np.where(nodes[:,0] == el[e1f3])[0][0]; fN3 = nodes[ix]
-                    ix = np.where(nodes[:,0] == el[e1f4])[0][0]; fN4 = nodes[ix]
+                        V1 =[0, 0, abs(sN2[2])-abs(fN2[2]), sN2[3]-fN2[3]]
+                        V2 =[0, 0, abs(sN3[2])-abs(sN2[2]), sN3[3]-sN2[3]]
+                        btwAngle=Angle_Between_Vectors(V1,V2) 
 
-                    ix = np.where(nodes[:,0] == inext[e2f1])[0][0]; sN1 = nodes[ix]
-                    ix = np.where(nodes[:,0] == inext[e2f2])[0][0]; sN2 = nodes[ix]
-                    ix = np.where(nodes[:,0] == inext[e2f3])[0][0]; sN3 = nodes[ix]
-                    ix = np.where(nodes[:,0] == inext[e2f4])[0][0]; sN4 = nodes[ix]
-
-
-                    V1 =[0, 0, abs(fN1[2])-abs(fN2[2]), fN1[3]-fN2[3]]
-                    V2 =[0, 0, abs(sN1[2])-abs(sN2[2]), sN1[3]-sN2[3]]
-                    btwA1=Angle_Between_Vectors(V1,V2) 
-
-                    V1 =[0, 0, abs(fN3[2])-abs(fN4[2]), fN3[3]-fN4[3]]
-                    V2 =[0, 0, abs(sN3[2])-abs(sN4[2]), sN3[3]-sN4[3]]
-                    btwA2=Angle_Between_Vectors(V1,V2) 
-
-                    if btwA1 > 2.5 or btwA1 < 0.5: para1 = 1
-                    else: para1 = 0 
-                    if btwA2 > 2.5 or btwA2 < 0.5: para2 = 1
-                    else: para2 = 0 
-
-                    if para1 == 0 and para2 == 0: 
-                        restrain = 1
-                        if show == 1: 
-                            # print ("sn2", sN2);     print ("fn2", fN2);   print ("sn3", sN3);     print ("sn4", sN4)
-
-                            print (" >> Direction is turned , Angle=%.1f, %.1f"%(degrees(btwA1), degrees(btwA2)))
-
-                            print (" EL1 Nodes %d, %d, %d, %d"%(fN1[0], fN2[0], fN3[0], fN4[0]))
-                            print (" EL2 Nodes %d, %d, %d, %d"%(sN1[0], sN2[0], sN3[0], sN4[0]))
-                            
-                            # print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
-                            # print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x, n2x, out of the bottom line"%\
-                            #                 (el[0], rmin*1000, rmax*1000, inext[0]))
-                        return el2remove, restrain 
-
-
-
-
-                        
-
-
-
-
-                    # diffn = np.setdiff1d(inext[1:5], el[1:5]) 
-                    # if len(diffn) > 1: 
-                    #     if abs(EN1[2]) > abs(EN2[2]): 
-                    #         fN1 = EN1; fN2 = EN2 
-                    #     else:
-                    #         fN1 = EN2; fN2 = EN1
-
-                    #     ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn1=nodes[ix]
-                    #     ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn2=nodes[ix]
-
-                    #     if abs(difn1[2]) > abs(difn2[2]): 
-                    #         sN4 = difn1; sN3=difn2 
-                    #     elif abs(difn1[2]) == abs(difn2[2]): 
-                    #         if difn1[3] > difn2[3]:
-                    #             sN3 = difn1; sN4=difn2 
-                    #         else:
-                    #             sN3 = difn2; sN4=difn1 
-                    #     else: 
-                    #         sN3 = difn1; sN4=difn2 
-
-                    #     diffn = np.setdiff1d(inext[1:5], diffn)
-                    #     ix = np.where(nodes[:,0] == diffn[0])[0][0]; difn3=nodes[ix]
-                    #     ix = np.where(nodes[:,0] == diffn[1])[0][0]; difn4=nodes[ix]
-
-                    #     if abs(difn3[2]) > abs(difn4[2]): 
-                    #         sN1 = difn3; sN2=difn4 
-                    #     elif abs(difn3[2]) > abs(difn4[2]): 
-                    #         if difn3[3] > difn4[3]:
-                    #             sN1 = difn4; sN2=difn3 
-                    #         else:
-                    #             sN1 = difn3; sN2=difn4 
-                    #     else: 
-                    #         sN1 = difn4; sN2=difn3 
-
-                    #     V1 =[0, 0, abs(sN2[2])-abs(fN2[2]), sN2[3]-fN2[3]]
-                    #     V2 =[0, 0, abs(sN3[2])-abs(sN2[2]), sN3[3]-sN2[3]]
-                    #     btwAngle=Angle_Between_Vectors(V1,V2) 
-
-                    #     if btwAngle > 1.221: ## about above 70.0 degrees 
-                    #         restrain = 1
-                    #         if show == 1: 
-                    #             print ("sn2", sN2);     print ("fn2", fN2);   print ("sn3", sN3);     print ("sn4", sN4)
-
-                    #             print (" >> Direction is turned , Angle=%.1f"%(degrees(btwAngle)))
+                        if btwAngle > 1.1: ## about above 63 degrees 
+                            estrain = 1
+                            if show == 1: 
+                                print (" ^^^^^^^^^^^^^   direction is turned , Angle=%.1f"%(degrees(btwAngle)))
                                 
-                    #             print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
-                    #             print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x, n2x, out of the bottom line"%\
-                    #                             (el[0], rmin*1000, rmax*1000, inext[0]))
-                    #         return el2remove, restrain 
+                                print (EN1[0], ",", EN2[0], ":", difn1[0], "(%.3f),"%(abs(difn1[2])*1000), difn2[0],"(%.3f)"%(abs(difn2[2])*1000) )
+                                print ("  start el=%d, rmin=%.3f, rmax=%.3f, up el=%d, intersection point n1x=%.3f, n2x=%.3f, out of the bottom line"%(el[0], rmin*1000, rmax*1000, inext[0], abs(InNode1[2])*1000, abs(InNode2[2])*1000))
+                            return el2remove, restrain 
 
                 ran = np.array([EN1[2], EN2[2]])
                 rmin = np.min(ran); rmax = np.max(ran)
@@ -5177,7 +4473,7 @@ class MESH2D:
                 elif out == n3[x] : f = 2 
                 else: 
                     print ("!!! ERROR No FOUND BOTTOM FACE. ")
-                    return 
+                    sys.exit()
                 nf = 1
                 
 
@@ -5188,7 +4484,7 @@ class MESH2D:
                 elif out == n3[x] : f = 3
                 else: 
                     print ("!!! ERROR No FOUND BOTTOM FACE. ")
-                    return 
+                    sys.exit()
                 nf = 2
             
             inext = Element2D_NextElement(el, solids, nodes, start=f, next=nf)
@@ -5201,8 +4497,6 @@ class MESH2D:
                 nextelement, _ =  self.Searching_Upper_elements(inext, solids, nodes, el2remove) 
                 if show==1:print ("***&&&^^&* ")
                 return el2remove, restrain
-
-
     def RemoveCTRUTR(self, el, elset): 
         EL = ELEMENT()
         ETL = ELEMENT()
@@ -5216,57 +4510,10 @@ class MESH2D:
             if eset[0] != 'CTB' and eset[0] != 'CTR' and eset[0] != 'SUT' and eset[0] != 'UTR' : 
                 ESET.Elset.append(eset)
         return EL, ESET, ETL 
-    def RemovedTreadHeight(self, els, npn, elements):
-        
-        # print ("Measure ga. ", els)
-        ix = np.where(elements[:,0]==els[0])[0][0]
-
-        el0=[elements[ix][1],elements[ix][2], elements[ix][3]]
-        if elements[ix][4] > 0: 
-            el0.append(elements[ix][4])
-
-
-        tNodes=[]
-        for el in els: 
-            ix = np.where(elements[:,0]==el)[0][0]
-            i =1
-            
-            while i <= elements[ix][5] :
-                ij = np.where(npn[:,0]==elements[ix][i])[0][0]
-                tNodes.append(npn[ij])
-                i += 1
-        cvxNodes = iConvexHull(tNodes, xy=23)
-        mn = np.min(cvxNodes[:,3])
-        for i, n in enumerate(cvxNodes):
-            if mn == n[3]: 
-                imin = i 
-                break 
-
-        heights = -1.0
-        lstY = abs(cvxNodes[imin][2])
-        for i, n in enumerate(cvxNodes):
-            if imin ==i : continue 
-            if abs(n[2]) >= lstY :
-                if len(els) > 1:  
-                    fd = 0 
-                    for e in el0: 
-                        if n[0] == e: 
-                            fd = 1
-                            break 
-                    if fd==1: continue 
-                lstY = abs(n[2])
-                heights = sqrt((cvxNodes[imin][1]-n[1])**2 + (cvxNodes[imin][2]-n[2])**2 + (cvxNodes[imin][3]-n[3])**2)
-                # print (cvxNodes[imin][0], ",", n[0], " D=", heights*1000)
-        if heights <0: heights = 1.0
-        return heights
-
-
     def RemoveTread(self, el, nd, elset, LeftProfile, RightProfile, TDW, ModelPatternTotalWidth=0, ModelPatternDesignWidth=0, LastLeft=0, LastRight=0, LY=0.0, RY=0.0, debug=0): 
 
         # target_halfwidth = self.Define_PatternWidth(LeftProfile, RightProfile, TDW, ModelPatternTotalWidth, ModelPatternDesignWidth)
         t0 = time.time()
-
-        marginHt2Remove = 2.1E-3
 
         LayoutOuter = self.Edge_TireProfile
 
@@ -5406,99 +4653,133 @@ class MESH2D:
         n1 = topmembrane[1]; n2 = topmembrane[2]
         solid_on_membrane = []
         pos = 0; neg = 0 
+        for e in el.Element:
+            cnt = 0
+            f = 0
+            if e[6] == 3: 
+                if n1 == e[1] or n2 == e[1]: 
+                    cnt += 1
+                    f+=1
+                if n1 == e[2] or n2 == e[2]: 
+                    cnt += 1
+                    f+=2
+                if n1 == e[3] or n2 == e[3]: 
+                    cnt += 1
+                    f+=3
+            elif e[6] == 4: 
+                if n1 == e[1] or n2 == e[1]: 
+                    cnt += 1
+                    f+=0
+                if n1 == e[2] or n2 == e[2]: 
+                    cnt += 1
+                    f+=2
+                if n1 == e[3] or n2 == e[3]: 
+                    cnt += 1
+                    f+=3
+                if n1 == e[4] or n2 == e[4]: 
+                    cnt += 1
+                    f+=4
+            ht = []
+            if cnt > 1: 
+                # N = nd.NodeByID(e[1])
+                ix = np.where(npn[:,0]==e[1])[0][0]; N=nd.Node[ix]
+                ix = np.where
+                ht.append(N[3])
+                # N = nd.NodeByID(e[2])
+                ix = np.where(npn[:,0]==e[2])[0][0]; N=nd.Node[ix]
+                ht.append(N[3])
+                # N = nd.NodeByID(e[3])
+                ix = np.where(npn[:,0]==e[3])[0][0]; N=nd.Node[ix]
+                ht.append(N[3])
+                if e[6] == 4: 
+                    # N = nd.NodeByID(e[4])
+                    ix = np.where(npn[:,0]==e[4])[0][0]; N=nd.Node[ix]
+                    ht.append(N[3])
 
-        npe = []
-        for e in el.Element: 
-            npe.append(e[:5])
-        npe = np.array(npe)
-        ixs = np.where(npe[:,3] == 0)[0]
-        membrane = npe[ixs]
-        cntMemb = []
-        for mb in membrane: 
-            ix = np.where(npn[:,0] == mb[1])[0][0]; n1 = npn[ix]
-            ix = np.where(npn[:,0] == mb[2])[0][0]; n2 = npn[ix]
+            if cnt == 2 and max(ht) > topmembrane[3]: 
+                solid_on_membrane = e 
+                ix = np.where(npn[:,0]==e[1])[0][0]; n1=npn[ix]
+                ix = np.where(npn[:,0]==e[2])[0][0]; n2=npn[ix]
+                ix = np.where(npn[:,0]==e[3])[0][0]; n3=npn[ix]
+                if e[6] ==3: 
+                    b1 = (n1[3] + n2[3])/2.0
+                    b2 = (n2[3] + n3[3])/2.0
+                    b3 = (n3[3] + n1[3])/2.0
+                    if b1 < b2 and b1 < b3: 
+                        btm_face = 1 
+                    elif b2 < b1 and b2 < b3: 
+                        btm_face = 2 
+                    else: 
+                        btm_face = 3 
+                else:
+                    ix = np.where(npn[:,0]==e[4])[0][0]; n4=npn[ix]
+                    b1 = (n1[3] + n2[3])/2.0
+                    b2 = (n2[3] + n3[3])/2.0
+                    b3 = (n3[3] + n4[3])/2.0
+                    b4 = (n4[3] + n1[3])/2.0
+                    if b1 < b2 and b1 < b3 and b1 < b4: 
+                        btm_face = 1 
+                    elif b2 < b1 and b2 < b3 and b2 < b4 : 
+                        btm_face = 2 
+                    elif b3 < b1 and b3 < b2 and b3 < b4: 
+                        btm_face = 3 
+                    else: 
+                        # print ("Z= %.2f, %.2f, %.2f, %.2f"%(n1[3]*1000, n2[3]*1000, n3[3]*1000, n4[3]*1000))
+                        # print ("Mid=%.2f, %.2f, %.2f, %.2f"%(b1*1000, b2*1000, b3*1000, b4*1000))
+                        l1 = sqrt((n1[2]-n2[2])**2 + (n1[3]-n2[3])**2)
+                        l2 = sqrt((n2[2]-n3[2])**2 + (n2[3]-n3[3])**2)
+                        l3 = sqrt((n3[2]-n4[2])**2 + (n3[3]-n4[3])**2)
+                        l4 = sqrt((n4[2]-n1[2])**2 + (n4[3]-n1[3])**2)
+                        if l4 > l3 and l4 > l1: 
+                            btm_face = 4 
+                        else: 
+                            if l1 > l2 and l1 > l4: 
+                                if b1 < b3: btm_face = 1 
+                            if l2 > l3 and l2 > l1: 
+                                if b2 < b4: btm_face = 2 
+                            if l3 > l2 and l3 > l4: 
+                                if b3 < b1: btm_face = 3 
 
-            if n1[2] ==0.0 and n2[2] > 0: 
-                cntMemb.append([mb, n1[3]])
-            elif n2[2] ==0.0 and n1[2] > 0: 
-                cntMemb.append([mb, n2[3]])
-            else: 
-                continue 
-        mz = 0.0
-        for mb in cntMemb: 
-            if mb[1] > mz : 
-                cnMemb = mb[0]
-                mz = mb[1]
+                pos = btm_face -1 
+                neg = btm_face + 1
+                if pos == 0 : pos = e[6]
+                if neg > e[6] : neg = 1 
+                # print ("found center", solid_on_membrane, btm_face)
+                if e[5] != 'CTB' and e[5] != 'CTR' and e[5] != 'SUT' and e[5] != 'UTR'  and e[5] != 'TRW' and e[5] != 'BSW': 
+                    # print (" .. topping")
+                    nf = btm_face + 2 
+                    if nf > e[6]: nf -= e[6]
+                    ns = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
+                    ns1, nf = self.SearchNextSolids(ns, face=nf, np_solid=solids, direction=1)
+                    elno = int(ns1[0])
+                    for en in el.Element:
+                        if en[0] == elno:
+                            solid_on_membrane = en 
+                            break 
+                    # print ("found center", solid_on_membrane)        
+                    if en[5] != 'CTB' and en[5] != 'CTR' and en[5] != 'SUT' and en[5] != 'UTR'  and en[5] != 'TRW' and en[5] != 'BSW': 
+                        # print (" .. topping")
+                        nf = btm_face 
+                        ns1, nf = self.SearchNextSolids(ns, face=nf, np_solid=solids, direction=1)
+                        elno = int(ns1[0])
+                        for en in el.Element:
+                            if en[0] == elno:
+                                solid_on_membrane = en 
+                                break 
+                        pos = btm_face +1 
+                        neg = btm_face - 1
+                        if neg == 0 : neg = e[6]
+                        if pos > e[6] : pos = 1 
 
-        print ("* Found center top Membrane %d"%(cnMemb[0]))
-        ix1 = np.where(solids[:, 1:5]==cnMemb[1])[0]
-        ix2 = np.where(solids[:, 1:5]==cnMemb[2])[0]
-        idx = np.intersect1d(ix1, ix2)
-        if len(idx) <2 : 
-            print ("* Check the mesh. No found center element!")
-            return 
-        btms = [cnMemb[1], cnMemb[2]]
-        s1  = solids[idx[0]]
-        fd = 0 
-        for i in range(1, 5): 
-            ix = np.where(npn[:,0] == s1[i])[0][0]
-            if npn[ix][3] < mz: 
-                fd = 1 
+                        # print ("found center", solid_on_membrane)
+
                 break 
-        if fd ==0:  upper = s1 
-        else:       upper = solids[idx[1]]
-
-        fd = 1
-        while fd : 
-            ix = np.where(npe[:,0]==upper[0])[0][0]
-            e =  el.Element[ix]
-            if e[5] != 'CTB' and e[5] != 'CTR' and e[5] != 'SUT' and e[5] != 'UTR'  and e[5] != 'TRW' and e[5] != 'BSW': 
-                nBtms =[]
-                for i in range(1, 5): 
-                    if e[i] != btms[0] and e[i] != btms[1]: 
-                        nBtms.append(e[i])
-
-                ix1 = np.where(solids[:, 1:5]==nBtms[0])[0]
-                ix2 = np.where(solids[:, 1:5]==nBtms[1])[0]
-                idx = np.intersect1d(ix1, ix2)
-                if len(idx) <2 : 
-                    print ("* Check the mesh. No found center element!")
-                    return 
-                
-                if e[0] == solids[idx[0]][0]: upper = solids[idx[1]]
-                else:                         upper = solids[idx[0]]
-                btms = nBtms
-            else: 
-                fd =0 
-
-        if (upper[1] == btms[0] or upper[1] == btms[1]) and (upper[2] == btms[0] or upper[2] == btms[1]): btm_face =  1 
-        elif (upper[2] == btms[0] or upper[2] == btms[1]) and (upper[3] == btms[0] or upper[3] == btms[1]): btm_face =  2 
-        elif (upper[3] == btms[0] or upper[3] == btms[1]) and (upper[4] == btms[0] or upper[4] == btms[1]): btm_face =  3 
-        else: btm_face = 4
-
-        ix = np.where(npe[:,0]==upper[0])[0][0]
-        solid_on_membrane = el.Element[ix] 
-        pos = btm_face -1 
-        neg = btm_face + 1
-        if pos == 0 : pos = e[6]
-        if neg > e[6] : neg = 1 
-
 
         print ("  Center EL above membrane", solid_on_membrane[0], "Bottom F%d"%(btm_face))
-        # print ( " Right Last", LastRight_EL, "Left Last ", LastLeft_EL)
         BottomFace_centerEL = btm_face
 
         debug =1
-
-        mustbeDeleted=[] 
-        for e in el.Element:
-            if e[5]=='CTR' or e[5]=='CTB': 
-                ix = np.where(npn[:,0]==e[1])[0][0]
-                if abs(npn[ix][2]) < TDW*0.45: 
-                    mustbeDeleted.append(e[0])
-
-        # print (" ELEMENTS should be deleted")
-        # print (mustbeDeleted)
+         
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
         element_to_delete=[]
@@ -5524,7 +4805,6 @@ class MESH2D:
         EL3Next = 0 
 
         ppp = 0 
-        debug=0 
         while next_face != 0: 
             ppp += 1 
             if ppp > 1000: 
@@ -5545,7 +4825,6 @@ class MESH2D:
             ps = nextsolid
             preface = next_face 
             nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
-            if debug==1: print ("*ps", ps, "preface",  preface, "next face", next_face)
             # print ("*ps", ps, "preface",  preface, "next face", next_face)
 
             if len(nextsolid) ==0: ## element has tie surface on the right (positive).. 
@@ -5625,8 +4904,6 @@ class MESH2D:
                         if bf > nsol[0][5] : bf -= nsol[0][5]
 
                         ups, cont = self.Searching_Upper_elements(nsol[0], solids, nep, el2remove=ups, btm_face=bf, show=0)
-
-                        if debug==1: print ("  EL to del> ", ups)
                         t_ending =0 
                         for up in ups: 
                             deletes.append(up)
@@ -5658,126 +4935,60 @@ class MESH2D:
                 if next_face > nextsolid[5] : next_face -= nextsolid[5] 
                 continue 
             
-            shouldstop =0 
             ups =[]
-            while nextsolid[5] ==3: 
-                ups.append(nextsolid[0])
-                in1 = next_face
-                in2 = in1 +1
-                if in2 ==4: in2 = 1
-
-                in1 = nextsolid[in1] 
-                in2 = nextsolid[in2] 
-                ixs1 = np.where(solids[:,1:5] ==  in1)[0]
-                ixs2 = np.where(solids[:,1:5] ==  in2)[0]
-                ixs = np.intersect1d(ixs1, ixs2)
-                # print ("$$$", ixs, nextsolid, in1, in2)
-                # print ("%%%", solids[ixs[0]])
-                if len(ixs) >1: 
-                    if solids[ixs[0]][0] == nextsolid[0]: 
-                        nextsolid = solids[ixs[1]]
-                    else : 
-                        nextsolid = solids[ixs[0]]
-
-                    if (nextsolid[1] == in1 or nextsolid[1] == in2) and (nextsolid[2] == in1 or nextsolid[2] == in2): next_face = 3 
-                    elif (nextsolid[2] == in1 or nextsolid[2] == in2) and (nextsolid[3] == in1 or nextsolid[3] == in2): next_face = 4 
-                    elif (nextsolid[3] == in1 or nextsolid[3] == in2) and (nextsolid[4] == in1 or nextsolid[4] == in2): next_face = 1 
-                    else: next_face = 2
-                else: 
-                    shouldstop =1 
-                    break 
-            if shouldstop == 1: 
-                break 
-            if not len(ups) : 
-                bf = next_face + 1
-                if bf > nextsolid[5]: bf = 1
-                # sh=0 
-            else: 
-                bf = next_face + 2 
-                if bf >  nextsolid[5] : bf -= nextsolid[5] 
-                # print ("%%%% ", ups, nextsolid, next_face, bf)
-                # sh=1
-                ix = np.where(solids[:,0]==ups[-1])[0][0]; ps = solids[ix]
-                _, face = Contact_relation_2Elements(nextsolid, ps)
-                next_face = face-1 
-                if next_face ==0: next_face = 4
-
             ups.append(nextsolid[0])
-            # bf = next_face + 1
-            # if bf > nextsolid[5]: bf = 1 
-            
+            bf = next_face + 1
+            if bf > nextsolid[5]: bf = 1 
+            # if nextsolid[0] == 2604: sh = 1 
+            # else: sh = 0 
             ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=0)
-            # if sh==1: print(ups)
-            marginht = 0 
-            marginwidth = 0 
-            for m in range(1, 4): 
-                ix = np.where(npn[:,0]==nextsolid[m])[0][0]
-                if abs(npn[ix][2])> TDW*0.45:
-                    marginwidth =1 
-            ht = 0
-            if marginwidth ==1: 
-                ht = self.RemovedTreadHeight(ups, npn, solids)
-                
-                if ht < marginHt2Remove: 
-                    ending  = 1 
+            for up in ups: 
+                deletes.append(up)
+                element_to_delete.append(up)
+                if LastRight_EL == up : 
                     meetlast = 1 
-                    marginht = 1 
-            # print ("  EL to del>> ", ups)#, "ht=%.2fmm"%(ht*1000))
-            if debug==1: print ("  EL to del>> ", ups)
-            # sys.exit()
-            if marginht == 0: 
-                for up in ups: 
-                    deletes.append(up)
-                    element_to_delete.append(up)
-                    # print ("* adding", up)
-                    if LastRight_EL == up : 
-                        meetlast = 1 
-                        if cont == 0 : 
-                            ending = 1
-                    if skip == 0: 
-                        if meetlast == 1:
-                            ending =  1 
-                # print ("1", nextsolid[0],  bf, ups, ending)
-                if ending ==1:
-                    # print ("FOUND Last ################")
-                    ps = nextsolid
-                    preface = next_face 
-                    nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1) 
-                    if len(nextsolid) > 0 :
-                        if start_triangular == 0: 
-                            _, face = Contact_relation_2Elements(nextsolid, ps)
-                            nf = face + 1 
-                            if nf > nextsolid[5] : nf = 1 
-                        else: 
-                            nf = next_face  
-                        checkups =[]
-                        # checkups.append(nextsolid[0])
-                        bf = next_face + 1
-                        if bf > nextsolid[5]: bf = 1 
-                        checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
-                        adding = 0 
+                    if cont == 0 : 
+                        ending = 1
+                if skip == 0: 
+                    if meetlast == 1:
+                        ending =  1 
+            # print ("1", nextsolid[0],  bf, ups, ending)
+            if ending ==1:
+                # print ("FOUND Last ################")
+                ps = nextsolid
+                preface = next_face 
+                nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1) 
+                if len(nextsolid) > 0 :
+                    if start_triangular == 0: 
+                        _, face = Contact_relation_2Elements(nextsolid, ps)
+                        nf = face + 1 
+                        if nf > nextsolid[5] : nf = 1 
+                    else: 
+                        nf = next_face  
+                    checkups =[]
+                    checkups.append(nextsolid[0])
+                    bf = next_face + 1
+                    if bf > nextsolid[5]: bf = 1 
+                    checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
+                    adding = 0 
+                    for up in checkups: 
+                        if LastRight_EL == up: 
+                            adding = 1 
+                            break 
+                    if adding == 1: 
                         for up in checkups: 
-                            if LastRight_EL == up: 
-                                adding = 1 
-                                break 
-                        if adding == 1: 
-                            for up in checkups: 
-                                deletes.append(up)
-                                element_to_delete.append(up)
-                                print ("adding", up)
+                            deletes.append(up)
+                            element_to_delete.append(up)
 
-                    print ("  Profile Right Last Elements(%d)\n   to be deleted with"%(LastRight_EL), ups)
-                    break 
-            else: 
-                print ("  Stopped to search tread to remove (Ht=%.1fmm)"%(ht*1000), ups)
-                break
+                print ("  Profile Right Last Elements(%d)\n   to be deleted with"%(LastRight_EL), ups)
+                break 
             if meetlast == 1: skip = 0 
             if nextsolid[5] == 4: EL3Next = 0
 
             ups = [nextsolid[0]]
             counting=0
             nxsolid = nextsolid
-            while nxsolid[5] ==3 :
+            while nxsolid[5] ==3:
                 
                 counting += 1
                 if counting > 10: 
@@ -5798,11 +5009,7 @@ class MESH2D:
                 # print ("B ns", nxsolid, "face=", face)
                 nxsolid, nxface = self.SearchNextSolids(nxsolid, face=face, np_solid=solids, direction=1)
                 # print (ps, " >> C ns:", nxsolid, "face=", nxface, " < Up element on 3-node Element")
-                if len(nxsolid) > 0: 
-                    ups.append(nxsolid[0])
-
-                # else: 
-                #     return NEL, NELSET, Deleted
+                ups.append(nxsolid[0])
                 # print (ups)
                 # face = nxface
 
@@ -5815,7 +5022,6 @@ class MESH2D:
                 for up in ups: 
                     deletes.append(up)
                     element_to_delete.append(up)
-                    # print ("adding ** ", up)
                     if LastRight_EL == up : 
                         ending = 1 
                         # print ("last El", LastRight_EL)
@@ -5825,7 +5031,7 @@ class MESH2D:
             if ending ==1: 
                 break 
 
-        # sys.exit()
+
 
         nextsolid = [solid_on_membrane[0], solid_on_membrane[1], solid_on_membrane[2], solid_on_membrane[3], solid_on_membrane[4], solid_on_membrane[6]]
         #############################################################
@@ -5843,7 +5049,6 @@ class MESH2D:
         ups=[nextsolid[0]]
         ups, _ = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, show=0)
         
-        # print ("UPS", ups, "NF", nf)
         for up in ups: 
             element_to_delete.append(up)
 
@@ -5875,7 +5080,7 @@ class MESH2D:
             ## WARNING!! if there is a tie surface on the element, errer may occur  ###########################
             if ps[0] == nextsolid[0]:
                 # print ("###########################")
-                # print (ps[0], ": ", nextsolid, next_face)
+                # print (nextsolid, next_face)
                 nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=-1) 
                 # print (" >> ", nextsolid, next_face)
                 # print ("###########################")
@@ -5960,7 +5165,7 @@ class MESH2D:
                         next_face = nf0 -1 
                         if next_face == 0: next_face = nextsolid[5]
                 else: 
-                    print ("** There is a tie surface next to %d"%(ps[0]))
+                    print ("* There is a tie surface next to %d"%(ps[0]))
                     break 
             # print ("                                   ", nextsolid)
             dup = 0 
@@ -5973,129 +5178,68 @@ class MESH2D:
                 if next_face ==0 : next_face = nextsolid[5] 
                 
                 continue 
-            shouldstop = 0 
+
+
             ups =[]
-            while nextsolid[5] ==3: 
-                ups.append(nextsolid[0])
-
-                in1 = next_face -1 
-                if in1 ==0: in1 = 3
-                in2 = in1 +1
-                in1 = nextsolid[in1] 
-                in2 = nextsolid[in2] 
-                ixs1 = np.where(solids[:,1:5] ==  in1)[0]
-                ixs2 = np.where(solids[:,1:5] ==  in2)[0]
-                ixs = np.intersect1d(ixs1, ixs2)
-                # print (ixs, nextsolid, in1, in2)
-                # print (solids[ixs[0]])
-                if len(ixs) > 1: 
-                    if solids[ixs[0]][0] == nextsolid[0]: 
-                        nextsolid = solids[ixs[1]]
-                    else : 
-                        nextsolid = solids[ixs[0]]
-
-                    if (nextsolid[1] == in1 or nextsolid[1] == in2) and (nextsolid[2] == in1 or nextsolid[2] == in2): next_face = 3 
-                    elif (nextsolid[2] == in1 or nextsolid[2] == in2) and (nextsolid[3] == in1 or nextsolid[3] == in2): next_face = 4 
-                    elif (nextsolid[3] == in1 or nextsolid[3] == in2) and (nextsolid[4] == in1 or nextsolid[4] == in2): next_face = 1 
-                    else: next_face = 2
-                else: 
-                    shouldstop =1 
-                    break 
-            if shouldstop ==1: 
-                break 
-
-            if not len(ups) : 
-                bf = next_face -1 
-                if bf ==0: bf = nextsolid[5]
-            else: 
-                bf = next_face - 2 
-                if bf <=0 : bf = next_face + 4 
-
-                ix = np.where(solids[:,0]==ups[-1])[0][0]; ps = solids[ix]
-                _, face = Contact_relation_2Elements(nextsolid, ps)
-                next_face = face+1 
-                if next_face ==5: next_face = 1
-
             ups.append(nextsolid[0])
+            bf = next_face -1 
+            if bf ==0: bf = nextsolid[5]
             # print (nextsolid, bf )
             ups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=ups, btm_face=bf, show=0)
             # print (nextsolid, bf, " UPS : ", ups)
-
-            marginht = 0 
-            marginwidth = 0 
-            for m in range(1, 4): 
-                ix = np.where(npn[:,0]==nextsolid[m])[0][0]
-                if abs(npn[ix][2])> TDW*0.45:
-                    marginwidth =1 
-
-            if marginwidth ==1: 
-                ht = self.RemovedTreadHeight(ups, npn, solids)
-                
-                if ht < marginHt2Remove: 
-                    ending  = 1 
+            for up in ups: 
+                deletes.append(up)
+                element_to_delete.append(up)
+                if LastLeft_EL == up : 
                     meetlast = 1 
-                    marginht = 1 
-            
-            # print ("  EL to del>> ", ups)
-            if debug==1: print ("  EL to del>> ", ups)
-            # sys.exit()
-            if marginht == 0: 
-                for up in ups: 
-                    deletes.append(up)
-                    element_to_delete.append(up)
-                    if LastLeft_EL == up : 
-                        meetlast = 1 
-                        if cont == 0 : 
-                            ending = 1
-                    if skip == 0: 
-                        if meetlast == 1:
-                            ending =  1 
-                if ending ==1: 
-                    ps = nextsolid       
-                    preface = next_face 
-                    nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=-1)
-                    if len(nextsolid) > 0: 
-                        if start_triangular == 0: 
-                            _, face = Contact_relation_2Elements(nextsolid, ps)
-                            nf = face - 1 
-                            if nf ==0: nf = nextsolid[5]
-                        else: 
-                            nf = next_face 
-                            next_face += 1
-                            if next_face == nextsolid[5] : next_face = 1
-                            nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
+                    if cont == 0 : 
+                        ending = 1
+                if skip == 0: 
+                    if meetlast == 1:
+                        ending =  1 
+            if ending ==1: 
+                ps = nextsolid       
+                preface = next_face 
+                nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=-1)
+                if len(nextsolid) > 0: 
+                    if start_triangular == 0: 
+                        _, face = Contact_relation_2Elements(nextsolid, ps)
+                        nf = face - 1 
+                        if nf ==0: nf = nextsolid[5]
+                    else: 
+                        nf = next_face 
+                        next_face += 1
+                        if next_face == nextsolid[5] : next_face = 1
+                        nextsolid, next_face = self.SearchNextSolids(nextsolid, face=next_face, np_solid=solids, direction=1)
 
-                        checkups =[]
-                        # checkups.append(nextsolid[0])
-                        bf = next_face -1 
-                        if bf ==0: bf = nextsolid[5]
-                        # print (nextsolid, bf )
-                        checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
+                    checkups =[]
+                    checkups.append(nextsolid[0])
+                    bf = next_face -1 
+                    if bf ==0: bf = nextsolid[5]
+                    # print (nextsolid, bf )
+                    checkups, cont = self.Searching_Upper_elements(nextsolid, solids, nep, el2remove=checkups, btm_face=bf, show=0)
+                    adding = 0 
+                    for up in checkups: 
+                        if LastLeft_EL == up : 
+                            adding =1 
+                            break 
+                    sameEl = 0
+                    for up in checkups: 
+                        for u in ups: 
+                            if u==up: 
+                                sameEl+=1 
+                                break
+                    if sameEl > 1: 
                         adding = 0 
+                    
+                    if adding == 1: 
                         for up in checkups: 
-                            if LastLeft_EL == up : 
-                                adding =1 
-                                break 
-                        sameEl = 0
-                        for up in checkups: 
-                            for u in ups: 
-                                if u==up: 
-                                    sameEl+=1 
-                                    break
-                        if sameEl > 1: 
-                            adding = 0 
-                        
-                        if adding == 1: 
-                            for up in checkups: 
-                                deletes.append(up)
-                                element_to_delete.append(up)
+                            deletes.append(up)
+                            element_to_delete.append(up)
 
-                    # print (" Tread Last EL to remove %d is in "%(LastLeft_EL), ups)
-                    print ("*  Profile Left Last Elements(%d)\n   to be deleted with"%(LastLeft_EL), ups)
-                    break 
-            else: 
-                print ("  Stopped to search tread to remove (Ht=%.1fmm)"%(ht*1000), ups)
-                break
+                # print (" Tread Last EL to remove %d is in "%(LastLeft_EL), ups)
+                print ("*  Profile Left Last Elements(%d)\n   to be deleted with"%(LastLeft_EL), ups)
+                break 
             if meetlast == 1: skip = 0 
             if nextsolid[5] == 4: EL3Next = 0
 
@@ -6120,12 +5264,8 @@ class MESH2D:
                     if face == 4: face = 1 
                 ps = nxsolid
                 nxsolid, nxface = self.SearchNextSolids(nxsolid, face=face, np_solid=solids, direction=1)
-                if nxsolid[5] ==4: 
-                    nxface -= 1
-                # print(" 3-node element", ps, face, " Next el / face:", nxsolid, nxface)
-                nextsolid = nxsolid 
-                next_face = nxface
-                # ups.append(nxsolid[0])
+                # print(" 3-node element", ps, " Next :", nxsolid)
+                ups.append(nxsolid[0])
 
             if counting > 0: 
                 _, bf = Contact_relation_2Elements(nxsolid, ps)
@@ -6140,10 +5280,10 @@ class MESH2D:
             if ending ==1: 
                 break 
 
-        element_to_delete += mustbeDeleted
+
         element_to_delete = np.array(element_to_delete)
         element_to_delete = np.unique(element_to_delete)
-
+    
         NEL=ELEMENT()
         undelete = []
         cnt = 0 
@@ -6171,7 +5311,7 @@ class MESH2D:
                     element_to_delete= np.delete(element_to_delete, i)
                     break 
                 i += 1
-        
+
         ############################################################
         ## in case the element is divided into 2 elements 
         ## sometimes there are some elements to be deleted (isolated elements, no connection with other elelemnts )
@@ -6558,6 +5698,9 @@ def BeadWidth(Element, Node):
 def TieSurface(Elements, Nodes):
     AllEdges=FindEdge(Elements)
     FreeEdges=FindFreeEdge(AllEdges)
+
+
+
 
     CenterNodes = FindCenterNodes(Nodes)
     OutEdges=FindOutEdges(FreeEdges, CenterNodes, Nodes, Elements)
@@ -7133,11 +6276,9 @@ def FindOutEdges(FreeEdge, CenterNodes, Nodes, Elements):
     idx = np.where(posNodes[:,3]==zMin)[0]
     if len(idx) > 0: 
         rightToe = posNodes[idx[0]]
-        ## print the nodes if the number of nodes is more than 1.
-        # if len(idx)>1: 
-        #     print ("# Outer Surface right bottom ")
-        #     for ix in idx: 
-        #         print("  %d (%.1f, %.1f)"%(posNodes[ix][0], posNodes[ix][2], posNodes[ix][3]))
+        if len(idx)>1: 
+            for ix in idx: 
+                print("### Outer surface right bottom : ", posNodes[ix])
         
     for k, ix in enumerate(FreeEdge):
         if ix[0] == rightToe[0]: 
@@ -7308,11 +6449,10 @@ def DivideInnerFreeEdgesToMasterSlave(edges, node_class):
     isError = 0 
     TIE_ERROR = []
     for e in masters: 
-        # if e[0][2] == 'SUT': 
-        #     print ("*****************")
-        #     print (e[0])
-        #     print ("-----------------")
-        #     print (e[1])
+        # print ("*****************")
+        # print (e[0])
+        # print ("-----------------")
+        # print (e[1])
         excluding.append(e[0])
         excluding.append(e[1][0])
         if len(e[1]) <2: 
@@ -7348,11 +6488,8 @@ def DivideInnerFreeEdgesToMasterSlave(edges, node_class):
         if nexts[0][0] != ed[1][1][1] and nexts[0][1] != ed[1][1][0] : 
             excluding.append(nexts[0]) 
             nexts = ConnectedEdge(nexts[0], edges, exclude=excluding)
-            while len(nexts): 
-                s_temp.append(nexts[0])
-                excluding.append(nexts[0]) 
-                nexts = ConnectedEdge(nexts[0], edges, exclude=excluding)
-        
+            s_temp.append(nexts[0])
+            # print (ed[0], ":::", nexts)
         slave_edge.append(s_temp)
         # print ("**Slave Edges %2d, No=%d"%(i, len(s_temp)))
 
@@ -7669,7 +6806,7 @@ class PATTERN:
         self.Surface=[]
         self.leftprofile =[]
         self.rightprofile = []
-        self.pitch=[]
+        self.pitch1=[]
         self.pitchsequence =[] 
         
         self.NoPitch = 0
@@ -7714,20 +6851,8 @@ class PATTERN:
             self.IsError =  1 
             return 
         self.npn = np.array(self.Node)
-        self.nps = np.array(self.Solid)
-        # fp = open("newNds.txt", 'w')
-        # for n in self.npn:
-        #     if n[2] > 0.117: 
-        #         n[2] += 0.004
-        #     elif n[2] < -0.117: 
-        #         n[2] -= 0.004
-                
-        #     fp.write("%10d, %15.7E, %15.7E, %15.7E\n"%(n[0]-10**7, n[1]*1000, n[2]*1000, n[3]*1000))
-        # fp.close()
-
-
         self.Node_Origin = np.array(self.npn) 
-        
+        self.nps = np.array(self.Solid)
         self.pitchlength = self.Pitchlength()
         self.errsolid = [] 
         self.HalfDia = round(self.HalfDia*self.profilescaling, 5)
@@ -7735,8 +6860,8 @@ class PATTERN:
         if len(self.UpFront) > 0: 
             ix = np.where(self.npn[:,0]== self.UpFront[0][1])[0][0]
             if self.npn[ix][3] != self.HalfDia: 
-                print ("# Half diameter=%.2fmm, Guide Ht=%.2fmm"%(self.HalfDia*1000, self.npn[ix][3]*1000))
-                print ("  Nodes are shifted (%.4fmm)"%((self.HalfDia - self.npn[ix][3])*1000))
+                print ("# Half diameter=%.2f, Guide Ht=%.2f"%(self.HalfDia*1000, self.npn[ix][3]*1000))
+                print ("  Nodes are shifted (%.4f)"%((self.HalfDia - self.npn[ix][3])*1000))
                 self.npn[:,3] += self.HalfDia - self.npn[ix][3]
 
                 self.diameter = round(self.npn[ix][3] *2.0, 5)
@@ -7778,7 +6903,6 @@ class PATTERN:
             # t0=time.time()
             self.freetop, self.freebottom, self.uncheckedfree, self.Surface = self.Top_Bottom_FreeSurfacesFromAllSurfaces_01(self.Surface, self.npn, radius=self.diameter/2.0, margin=1.0E-03)
             # t1 = time.time(); print ("## Top/Btm/Free %.3f"%(t1-t0))
-
             if len(self.freetop) ==0: 
                 print ("## Cannot find Top Surface ") 
                 print ("## Check the tire Half diameter in *.ptn\n")
@@ -7919,7 +7043,8 @@ class PATTERN:
                 if len(ix) >    0 :             SF_fulldepthgroove.append(sf)
                 else:                           SF_subgroove.append(sf)
             self.SF_fulldepthgroove = np.array(SF_fulldepthgroove)
-
+            
+            
             ###############
             ## Error eccurs when the main groove bottom surface is also on the pattern side
             ## this removes the surfaces on the pattern side from main groove bottom 
@@ -8066,18 +7191,6 @@ class PATTERN:
             print ("* Groove depth=%.2fmm"%(self.ModelGD*1000))
             print ("* Pitch length=%.2fmm"%(self.pitchlength*1000))
             print ("*********************************************\n")
-
-            # print()
-            # ix = np.where(self.Surface[:,0]==10**7+5862)[0]
-            # for x in ix : 
-            #     surf = self.Surface[x]
-            #     print ("Surf %d, F=%d, %d, %d, %d, %d"%(surf[0]-10**7, surf[1], surf[7]-10**7, surf[8]-10**7, surf[9]-10**7, surf[10]-10**7))
-            
-            # ix = np.where(self.KerfsideSurface[:,0]==10**7+5862)[0]
-            # for x in ix : 
-            #     surf = self.KerfsideSurface[x]
-            #     print ("ADDF %d, F=%d, %d, %d, %d, %d"%(surf[0]-10**7, surf[1], surf[7]-10**7, surf[8]-10**7, surf[9]-10**7, surf[10]-10**7))
-            
 
             NodesInFullDepthGrooves = self.NodesInSurface(self.SF_fulldepthgroove)
             self.Boundary_fulldepthgroove = self.SurfaceBoundary(self.SF_fulldepthgroove)  ## the nodes are counter-clockwise 
@@ -8292,9 +7405,6 @@ class PATTERN:
             lines = PTN.readlines()
         cmd = ""
         depths=[]
-        solidname = ''
-        centerbeams = []
-        upAft =[]; lwAft = []; UpFwd =[]
         for line in lines:
             if "Regenerated Pattern mesh from P3DM" in line: 
                 print ("* This mesh was generated by P3DM.")
@@ -8364,81 +7474,22 @@ class PATTERN:
                     cmd = "SD8"
                 elif "ELEMENT" in line.upper() and "C3D6" in line.upper():
                     cmd = "SD6"
-                elif "*ELSET" in line.upper() and "SOLID" in line.upper():
-                    if 'generate' in line.lower(): 
-                        cmd = 'SOLG'
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                solidname = d.split("=")[1].strip()
-                                break 
-                    else:
-                        cmd ="SOL"
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                solidname = d.split("=")[1].strip()
-                                break 
                 elif "*ELSET" in line.upper() and "CENTER" in line.upper():
-                    if 'generate' in line.lower(): 
-                        cmd = 'BCENG'
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break
+                    if 'generate' in line.lower(): cmd = 'BCENG'
                     else:
                         cmd ="BCEN"
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break 
                 elif "ELSET" in line.upper() and "UPFWD" in line.upper():
-                    if 'generate' in line.lower(): 
-                        cmd = 'BUFG'
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break
+                    if 'generate' in line.lower(): cmd = 'BUFG'
                     else:   
                         cmd = "BUF"
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break
                 elif "ELSET" in line.upper() and "UPAFT" in line.upper():
-                    if 'generate' in line.lower(): 
-                        cmd = 'BUAG'
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break
+                    if 'generate' in line.lower(): cmd = 'BUAG'
                     else:   
                         cmd = "BUA"
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break
                 elif "ELSET" in line.upper() and "LWAFT" in line.upper():
-                    if 'generate' in line.lower(): 
-                        cmd = 'BLAG'
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break
+                    if 'generate' in line.lower(): cmd = 'BLAG'
                     else:
                         cmd = "BLA"
-                        dline = line.split(",")
-                        for d in dline: 
-                            if "ELSET" in d.upper() and "=" in d: 
-                                beamname = d.split("=")[1].strip()
-                                break
                 elif "TREADPTN_NIDSTART_NIDOFFSET_EIDSTART_EIDOFFSET" in line.upper(): 
                     return 0 
                 else:
@@ -8456,27 +7507,20 @@ class PATTERN:
                     self.rightprofile.append([PR, float(data[1].strip())*self.profilescaling])
                 if cmd =="P1": 
                     data = line.split(",")
-                    self.pitch.append([data[0].strip(), data[4].strip(), data[5].strip(), data[6].strip(), data[7].strip(), data[8].strip()])
+                    for dt in data:
+                        self.pitch1.append(dt.strip())
                 if cmd =="PS":
                     data = line.split(",")
-                    if len(data) == 3: 
-                        self.pitchsequence.append([int(data[0].strip()), data[1].strip(), int(data[2].strip()) ])
+                    if len(data) == 3: self.pitchsequence.append([int(data[0].strip()), data[1].strip(), int(data[2].strip()) ])
                 if cmd =="ND":
-                    skip = 0 
                     data = line.split(",")
-                    if len(data)>=4: 
-                        if float(data[3].strip()) > 0: 
-                            self.Node.append([float(int(data[0].strip()) + self.Nstart),  round(float(data[1].strip()) * self.pitchscaling, 7), \
-                                        round(float(data[2].strip()) * self.pitchscaling, 7),  round(float(data[3].strip()) * self.pitchscaling, 7)])
-                        else: 
-                            print ("* All the Z values of the nodes should be positive")
-                            print ("  This mesh can not be expanded.")
-                            return 101 
-
-                    # except:
-                    #     print ("ERROR!! ", line, data)
-                    #     return 101
-                        
+                    if float(data[3].strip()) > 0: 
+                        self.Node.append([float(int(data[0].strip()) + self.Nstart),  round(float(data[1].strip()) * self.pitchscaling, 7), \
+                                    round(float(data[2].strip()) * self.pitchscaling, 7),  round(float(data[3].strip()) * self.pitchscaling, 7)])
+                    else: 
+                        print ("* All the Z values of the nodes should be positive")
+                        print ("  This mesh can not be expanded.")
+                        return 101 
 
                     # if self.MaxY < float(data[2].strip()) * self.pitchscaling: self.MaxY = float(data[2].strip()) * self.pitchscaling
                     # if self.MinY > float(data[2].strip()) * self.pitchscaling: self.MinY = float(data[2].strip()) * self.pitchscaling
@@ -8501,7 +7545,6 @@ class PATTERN:
                         int(data[7].strip()) + self.Nstart, int(data[6].strip()) + self.Nstart, 8])                    
                 if cmd == "BCEN":
                     data = line.split(",")
-                    temp = [beamname]
                     for dt in data:
                         if dt.strip() =="": continue 
                         if dt.strip() !="": bid =  int(dt.strip()) + self.Estart
@@ -8518,17 +7561,12 @@ class PATTERN:
                                         break
                                 
                                 self.Center.append(tmp)
-                                temp.append(tmp)
-                    centerbeams.append(temp)
-
-                                
                 if cmd == 'BCENG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
-                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -8544,12 +7582,9 @@ class PATTERN:
                                         break
                                 
                                 self.Center.append(tmp)
-                                temp.append(tmp)
-                    centerbeams.append(temp)
-                
+
                 if cmd == "BUF":
                     data = line.split(",")
-                    temp = [beamname]
                     for dt in data:
                         if dt.strip() =="": continue 
                         bid =  int(dt.strip()) + self.Estart
@@ -8566,15 +7601,12 @@ class PATTERN:
                                         break
                                 
                                 self.UpFront.append(tmp)
-                                temp.append(tmp)
-                    UpFwd.append(temp)
                 if cmd == 'BUFG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
-                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -8589,12 +7621,9 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.UpFront.append(tmp)  # # upAft =[]; lwAft = []; UpFwd =[]
-                                temp.append(tmp)
-                    UpFwd.append(temp)
+                                self.UpFront.append(tmp)
                 if cmd == "BUA":
                     data = line.split(",")
-                    temp = [beamname]
                     for dt in data:
                         if dt.strip() =="": continue 
                         bid =  int(dt.strip()) + self.Estart
@@ -8610,16 +7639,13 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.UpBack.append(tmp) # # upAft =[]; lwAft = []; UpFwd =[]
-                                temp.append(tmp)
-                    upAft.append(temp)
+                                self.UpBack.append(tmp)
                 if cmd == 'BUAG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
-                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -8634,12 +7660,10 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.UpBack.append(tmp)# # upAft =[]; lwAft = []; UpFwd =[]
-                                temp.append(tmp)
-                    upAft.append(temp)
+                                self.UpBack.append(tmp)
                 if cmd == "BLA":
                     data = line.split(",")
-                    temp = [beamname]
+                    
                     for dt in data:
                         if dt.strip() =="": continue 
                         bid =  int(dt.strip()) + self.Estart
@@ -8655,16 +7679,13 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.LowBack.append(tmp)# # upAft =[]; lwAft = []; UpFwd =[]
-                                temp.append(tmp)
-                    lwAft.append(temp)
+                                self.LowBack.append(tmp)
                 if cmd == 'BLAG': 
                     data = line.split(",")
                     if len(data) < 3 : continue
                     data[0] = int(data[0].strip())
                     data[1] = int(data[1].strip())
                     data[2] = int(data[2].strip())
-                    temp = [beamname]
                     for dn in range(data[0], data[1]+1, data[2]): 
                         bid = dn + self.Estart 
                         for bm in self.Beam: 
@@ -8679,62 +7700,44 @@ class PATTERN:
                                         tmp.append([nd[1], nd[2], nd[3]])
                                         break
                                 
-                                self.LowBack.append(tmp)# # upAft =[]; lwAft = []; UpFwd =[]
-                                temp.append(tmp)
-                    lwAft.append(temp)
-                # self.pitch=[P1, ELSET_NAME]
-                if cmd == 'SOLG': 
-                    temp = []
-                    data = line.split(",")
-                    if len(data) < 3 : continue
-                    data[0] = int(data[0].strip())
-                    data[1] = int(data[1].strip())
-                    data[2] = int(data[2].strip())
-                    for dn in range(data[0], data[1]+1, data[2]): 
-                        temp.append(dn + self.Estart)
-
-                    for p in self.pitch: 
-                        if p[1] == solidname: 
-                            if len(p) == 6: 
-                                p.append(temp)
-                            else: 
-                                for t in temp: 
-                                    p[-1].append(t)
-
-                if cmd == 'SOL': 
-                    data = line.split(",")
-                    for d in data: 
-                        d = d.strip()
-                        if d!="": 
-                            d = int(d)
-                    for p in self.pitch: 
-                        if p[1] == solidname: 
-                            if len(p) == 6: 
-                                p.append(data)
-                            else: 
-                                for t in data: 
-                                    p[-1].append(t.strip())
-
-
+                                self.LowBack.append(tmp)
+        
         if len(self.Node) > 10_0000: 
             print ("\n Too many nodes in the mesh (=%d >100,000)"%(len(self.Node)))
             return 0
         if len(self.Solid) == 0: 
             print ("\n No information of pattern mesh\n")
             return 0
-
-        if len(self.pitch) > 1:
-            p0=self.pitch[0][0] 
-            s0 =self.pitch[0][1] 
-            i = 1
-            while i < len(self.pitch): 
-                if self.pitch[i][0] != p0 and self.pitch[i][1] != s0: 
-                    self.CombinePitches(self.pitch, self.pitchsequence, centerbeams, upAft, lwAft, UpFwd)
-                    break 
-                i += 1 
         
-        self.TreadDesignWidth = round(self.TreadDesignWidth/1000, 9)
+        # if self.TreadDesignWidth == 0: 
 
+        #     tmp = 0
+        #     sho = 0 
+        #     for i, pf in enumerate(self.leftprofile): 
+        #         if abs(pf[0]) > 0.05 and i < len(self.leftprofile)-1: 
+        #             self.TreadDesignWidth += pf[1]
+        #             sho = 1
+        #         else: 
+        #             tmp = pf[1]
+        #             break 
+        #     if sho == 1: self.TreadDesignWidth -= tmp/3.0 *2
+        #     tmp = 0
+        #     sho = 0 
+        #     for i, pf in enumerate(self.rightprofile): 
+        #         if abs(pf[0]) > 0.05 and i < len(self.rightprofile)-1: 
+        #             self.TreadDesignWidth += pf[1]
+        #             sho = 1
+        #         else: 
+        #             tmp = pf[1]
+        #             break 
+        #     if sho==1: self.TreadDesignWidth -= tmp/3.0 *2
+
+        #     self.TreadDesignWidth = round(self.TreadDesignWidth, 9)
+        # else: 
+        self.TreadDesignWidth = round(self.TreadDesignWidth/1000, 9)
+            
+        
+        # self.PatternWidth 
         tnode = np.array(self.Node)
         zs = tnode[:,3]
         self.diameter = np.max(zs) * 2.0
@@ -8754,332 +7757,17 @@ class PATTERN:
         #     print ("*Design Width was set to 'Total width -10mm'")
 
         return 1 
-    def CombinePitches(self, pitches, sequence, beams, upAft, lwAft, UpFwd): 
-        # print ("\n")
-        # for p in pitches: 
-        #     print (" %s, %s, No. of Elements=%d"%(p[0], p[1], len(p[2])))
-        
-        if len(pitches) > 2: 
 
-            print ("\n P3DM does not support the divided mesh yet.")
-            print (" They should be combined ahead")
-            print (" ")
-            return 
-        else: 
-            # print (" %d, %s, %d"%(sequence[0][0], sequence[0][1], sequence[0][2]))
-            # print (" %d, %s, %d"%(sequence[1][0], sequence[1][1], sequence[1][2]))
-            # tmp = [bm[0], bm[1], bm[2], [n1x, n1y, n1z], [n2x, n2y, n2z]]
-
-            P1=[]; P2=[]
-            nps = np.array(self.Solid)
-            npn = np.array(self.Node)
-            for pitch in pitches: 
-                if pitch[0] == sequence[0][1]:
-                    for beam in beams: 
-                        if beam[0] == pitch[2]: 
-                            if beam[1][3][0] > beam[1][4][0]: 
-                                p1xu  = beam[1][3][0]
-                                p1xd  = beam[1][4][0]
-                            else: 
-                                p1xu  = beam[1][4][0]
-                                p1xd  = beam[1][3][0]
-                            i = 2 
-                            while i < len(beam): 
-                                if beam[1][3][0] > beam[1][4][0]: 
-                                    if p1xu > beam[1][3][0]: 
-                                        p1xu  = beam[1][3][0]
-                                    if p1xd < beam[1][4][0]: 
-                                        p1xd  = beam[1][4][0]
-                                else: 
-                                    if p1xu > beam[1][4][0]: 
-                                        p1xu  = beam[1][4][0]
-                                    if p1xd < beam[1][3][0]: 
-                                        p1xd  = beam[1][3][0]
-                                i += 1 
-                    
-                    for p in pitch[6]: 
-                        try: 
-                            ix = np.where(nps[:,0]==p)[0][0]
-                            P1.append(nps[ix])
-                        except:
-                            continue 
-                    P1Solid = pitch[1]
-                    P1BCen = pitch[2]
-                    P1BUpAft = pitch[3]
-                    P1BLwAft = pitch[4]
-                    P1BUpFwd = pitch[5]
-                if pitch[0] == sequence[1][1]:
-                    for beam in beams: 
-                        if beam[0] == pitch[2]: 
-                            if beam[1][3][0] > beam[1][4][0]: 
-                                p2xu  = beam[1][3][0]
-                                p2xd  = beam[1][4][0]
-                            else: 
-                                p2xu  = beam[1][4][0]
-                                p2xd  = beam[1][3][0]
-                            i = 2 
-                            while i < len(beam): 
-                                if beam[1][3][0] > beam[1][4][0]: 
-                                    if p2xu > beam[1][3][0]: 
-                                        p2xu  = beam[1][3][0]
-                                    if p2xd < beam[1][4][0]: 
-                                        p2xd  = beam[1][4][0]
-                                else: 
-                                    if p2xu > beam[1][4][0]: 
-                                        p2xu  = beam[1][4][0]
-                                    if p2xd < beam[1][3][0]: 
-                                        p2xd  = beam[1][3][0]
-                                i += 1 
-                    for p in pitch[6]: 
-                        try: 
-                            ix = np.where(nps[:,0]==p)[0][0]
-                            P2.append(nps[ix])
-                        except:
-                            continue 
-                    P2Solid = pitch[1]
-                    P2BCen = pitch[2]
-                    P2BUpAft = pitch[3]
-                    P2BLwAft = pitch[4]
-                    P2BUpFwd = pitch[5]
-
-            if p1xu > p2xu : 
-                up = np.array(P1)
-                down = np.array(P2)
-                upT = p1xu 
-                upD = p1xd 
-                downT = p2xu 
-                downD = p2xd 
-                
-                UpSolid = P1Solid
-                DownSolid = P2Solid
-                UpCen = P1BCen
-                UpUpAft = P1BUpAft
-                UpLwAft = P1BLwAft
-                UpUpFwd = P1BUpFwd 
-
-                DwCen = P2BCen
-                DwUpAft = P2BUpAft
-                DwLwAft = P2BLwAft
-                DwUpFwd = P2BUpFwd
-            else: 
-                up = np.array(P2)
-                down = np.array(P1)
-
-                upT = p2xu 
-                upD = p2xd 
-                downT = p1xu 
-                downD = p1xd 
-
-                UpSolid = P2Solid
-                DownSolid = P1Solid
-
-                UpCen = P2BCen
-                UpUpAft = P2BUpAft
-                UpLwAft = P2BLwAft
-                UpUpFwd = P2BUpFwd 
-
-                DwCen = P1BCen
-                DwUpAft = P1BUpAft
-                DwLwAft = P1BLwAft
-                DwUpFwd = P1BUpFwd
-
-            shift = upD - downT 
-
-            print ("* Pitch Shift to combine = %.3fmm"%(shift*1000))
-            print ("* Solid Elset : %s, %s"%(UpSolid, DownSolid))
-            # print (" UP", UpCen, UpUpAft, UpLwAft, UpUpFwd)
-
-            idx = np.where(up[:,9] ==6)[0]
-            sol6 = up[idx]
-            idx = np.where(up[:,9] ==8)[0]
-            sol8 = up[idx]
-            nid6 = sol6[:,1:7]
-            nid8 = sol8[:,1:9]
-            nid6 = nid6.flatten()
-            nid8 = nid8.flatten()
-            nid = np.concatenate((nid6, nid8))
-            nid = np.unique(nid)
-
-            for bm in beams: 
-                if bm[0] == UpCen: 
-                    UpCen = bm 
-                    break 
-            for bm in upAft: 
-                if bm[0] == UpUpAft: 
-                    UpUpAft = bm 
-                    break 
-            for bm in lwAft: 
-                if bm[0] == UpLwAft: 
-                    UpLwAft = bm 
-                    break 
-            for bm in UpFwd: 
-                if bm[0] == UpUpFwd: 
-                    UpUpFwd = bm 
-                    break 
-
-            
-            bnds=[]
-            i = 1  
-            while i < len(UpCen): 
-                bnds.append(UpCen[i][1])
-                bnds.append(UpCen[i][2])
-                i += 1
-            i = 1  
-            while i < len(UpUpAft): 
-                bnds.append(UpUpAft[i][1])
-                bnds.append(UpUpAft[i][2])
-                i += 1
-            i = 1  
-            while i < len(UpLwAft): 
-                bnds.append(UpLwAft[i][1])
-                bnds.append(UpLwAft[i][2])
-                i += 1
-            i = 1  
-            while i < len(UpUpFwd): 
-                bnds.append(UpUpFwd[i][1])
-                bnds.append(UpUpFwd[i][2])
-                i += 1
-
-            bnds = np.array(bnds, dtype=np.int32)
-            nid = np.concatenate((nid, bnds))
-            nid = np.unique(nid)
-
-            print ("* Upper Pitch nodes =%d"%(len(nid)))
-
-
-            shiftedNode = []
-
-            for n in nid: 
-                ix = np.where(npn[:,0]==n)[0][0]
-                shiftedNode.append([npn[ix][0], npn[ix][1]-shift, npn[ix][2], npn[ix][3]])
-            shiftedNode = np.array(shiftedNode)
-
-            MatchingNodes=[]
-            for n in shiftedNode: 
-                ix1 = np.where(npn[:,1] > n[1]-0.0005)[0]
-                ix2 = np.where(npn[:,1] < n[1]+0.0005)[0]
-                ix = np.intersect1d(ix1, ix2)
-
-                ix1 = np.where(npn[:,2] > n[2]-0.0005)[0]
-                ix2 = np.where(npn[:,2] < n[2]+0.0005)[0]
-                iy = np.intersect1d(ix1, ix2)
-
-                ix1 = np.where(npn[:,3] > n[3]-0.0005)[0]
-                ix2 = np.where(npn[:,3] < n[3]+0.0005)[0]
-                iz = np.intersect1d(ix1, ix2)
-
-                idx = np.intersect1d(ix, iy)
-                idx = np.intersect1d(idx, iz)
-
-                if len(idx)> 0: 
-                    for ix in idx: 
-                        jx = np.where(up[:,1:9] == npn[ix][0])[0] 
-                        if len(jx) ==0: 
-                            MatchingNodes.append([n[0], npn[ix][0]])
-
-            print ("* Nodes on the connecting face =%d"%(len(MatchingNodes)))
-            for nd in MatchingNodes: 
-                ixs = np.where(down[:,1:9]==nd[1])[0]
-                # if len(ixs) > 0: print ("no of nodes on the face =%d"%(len(ixs)))
-                for ix in ixs: 
-                    if down[ix][1] == nd[1] : down[ix][1] = nd[0]
-                    if down[ix][2] == nd[1] : down[ix][2] = nd[0]
-                    if down[ix][3] == nd[1] : down[ix][3] = nd[0]
-                    if down[ix][4] == nd[1] : down[ix][4] = nd[0]
-                    if down[ix][5] == nd[1] : down[ix][5] = nd[0]
-                    if down[ix][6] == nd[1] : down[ix][6] = nd[0]
-                    if down[ix][7] == nd[1] : down[ix][7] = nd[0]
-                    if down[ix][8] == nd[1] : down[ix][8] = nd[0]
-            
-            self.Center =[]
-
-            for bm in beams: 
-                if bm[0] == UpCen: 
-                    i =1 
-                    while i < len(bm): 
-                        bm[3][0] -= shift 
-                        bm[4][0] -= shift 
-                        self.Center.append(bm[i])
-                        i += 1
-                else: 
-                    i =1 
-                    while i < len(bm): 
-                        self.Center.append(bm[i])
-                        i += 1
-
-            self.UpFront = UpUpFwd[1:]
-            for bm in self.UpFront: 
-                bm[3][0] -= shift 
-                bm[4][0] -= shift 
-
-            for bm in lwAft: 
-                if bm[0] != UpLwAft[0]: 
-                     self.LowBack = bm[1:]
-                    
-            for bm in UpFwd: 
-                if bm[0] != UpUpAft[0]: 
-                     self.UpBack = bm[1:]
-
-            
-
-            self.Solid = []
-            for sl in up: 
-                self.Solid.append(sl)
-            for sl in down: 
-                self.Solid.append(sl)
-
-            self.Node=[]
-            
-            cnt = 0
-            for n in npn: 
-                ix = np.where(shiftedNode[:,0]==n[0])[0]
-                if len(ix) > 0: 
-                    cnt += 1
-                    self.Node.append(shiftedNode[ix[0]])
-                else: 
-                    self.Node.append(n)
-
-            print ("* %d nodes are shifted by %.3fmm"%(cnt, shift*1000))
-
-            npn = np.array(self.Node)
-
-            for bm in self.Center: 
-                ix = np.where(npn[:,0]==bm[1])[0][0]
-                bm[3][0] = npn[ix][1]
-                ix = np.where(npn[:,0]==bm[2])[0][0]
-                bm[4][0] = npn[ix][1]
-
-            for bm in self.UpFront: 
-                ix = np.where(npn[:,0]==bm[1])[0][0]
-                bm[3][0] = npn[ix][1]
-                ix = np.where(npn[:,0]==bm[2])[0][0]
-                bm[4][0] = npn[ix][1]
-
-            for bm in self.LowBack: 
-                ix = np.where(npn[:,0]==bm[1])[0][0]
-                bm[3][0] = npn[ix][1]
-                ix = np.where(npn[:,0]==bm[2])[0][0]
-                bm[4][0] = npn[ix][1]
-
-            for bm in self.UpBack: 
-                ix = np.where(npn[:,0]==bm[1])[0][0]
-                bm[3][0] = npn[ix][1]
-                ix = np.where(npn[:,0]==bm[2])[0][0]
-                bm[4][0] = npn[ix][1]
-            
-        
     def Pitchlength(self): 
         pmin = 10000.0
         pmax = -10000.0
         x = int(self.GlobalXY/10)
         y = int(self.GlobalXY%10)
-        for bm in self.Center:
-            # print ("PL Calculation BEAM", bm) 
+        for bm in self.Center: 
             if pmin > bm[3][y-1]: pmin = bm[3][y-1]
             if pmin > bm[4][y-1]: pmin = bm[4][y-1]
             if pmax < bm[3][y-1]: pmax = bm[3][y-1]
             if pmax < bm[4][y-1]: pmax = bm[4][y-1]
-        # print (" Pitch Length=%f"%((pmax-pmin)))
         return (pmax-pmin)
         # print ("Pitch length =%.3fmm"%(self.pitchlength*1000))
     def Expansion(self, layoutOD, layoutTDW, layoutTW, layoutGD, user_pitch_no=0, t3dm=0, shoulder="R"):
@@ -9913,7 +8601,7 @@ class PATTERN:
                         continue 
                     radius, pCen = Circle3Nodes(posnd[i-2], posnd[i-1], posnd[i], xy=23, radius=1, center=1, error=0)
                     
-                    # print ("radius=, %.5f"%(radius*1000), pCen)
+                    # print ("radius=, %.5f"%(radius*1000))
                     
                     if radius < 0.05: 
                         lowR = 1
@@ -9922,16 +8610,13 @@ class PATTERN:
                         chamfer = 1
                         print ("## Chamfered pattern mesh")
                         print ("   Pattern TDW modified to TW (%.1f -> "%(self.TreadDesignWidth*1000), end="")
-                        if pCen[0] == -1 : 
+                        if pCen[0] == -1: 
                             # print ("\n%d, %.7f, %.7f"%(posnd[i-2][0], posnd[i-2][2], posnd[i-2][3]))
                             # print ("%d, %.7f, %.7f"%(posnd[i-1][0], posnd[i-1][2], posnd[i-1][3]))
                             # print ("%d, %.7f, %.7f"%(posnd[i][0], posnd[i][2], posnd[i][3]))
                             self.TreadDesignWidth = ( posnd[i][2] + (halfOD - posnd[3]) *(posnd[i][2]-posnd[i-1][2]) / (posnd[i][3]-posnd[i-1][3])  ) * 2.0
                         else: 
-                            L1=[[0, 0, 0, halfOD], [0, 0, 1, halfOD]]
-                            L2 = [posnd[i-1], posnd[i]]
-                            IN = IntersectionPointOf2Lines(L1, L2, xy=23)
-                            self.TreadDesignWidth = round(IN[2]*2, 4)
+                            self.TreadDesignWidth = (pCen[2] - sqrt(radius*radius - (halfOD - pCen[3])**2)) * 2.0 
                         print (" %.1f)\n"%(self.TreadDesignWidth*1000))
 
                         break 
@@ -10919,59 +9604,58 @@ class PATTERN:
         main = np.array(main)
         boundary = self.SurfaceBoundary(top_surf)
         adds = []
-        if len(main): 
-            for bd in boundary: 
-                adj_sf = 1 
-                cnt = 0 
-                ups=[bd[0], bd[1]]
-                pre = []
-                while adj_sf: 
-                    cnt += 1
-                    if cnt > 15: break 
+        for bd in boundary: 
+            adj_sf = 1 
+            cnt = 0 
+            ups=[bd[0], bd[1]]
+            pre = []
+            while adj_sf: 
+                cnt += 1
+                if cnt > 15: break 
 
-                    adf1 = np.where(free[:,7:]==ups[0])[0]
-                    adf2 = np.where(free[:,7:]==ups[1])[0]
-                    adf = np.intersect1d(adf1, adf2)
-                    if len(adf) ==0 or len(adf) > 2: 
-                        break 
-                    # print (" start > %d"%(len(adf)))
+                adf1 = np.where(free[:,7:]==ups[0])[0]
+                adf2 = np.where(free[:,7:]==ups[1])[0]
+                adf = np.intersect1d(adf1, adf2)
+                if len(adf) ==0 or len(adf) > 2: 
+                    break 
+                # print (" start > %d"%(len(adf)))
 
-                    if cnt > 1 and len(adf) ==1: 
-                        break 
-                    if len(adf) == 2: 
-                        if free[adf[0]][6] < free[adf[1]][6] : 
-                            adf = [adf[0]]
-                        else: 
-                            adf = [adf[1]]
-                    
-                    if cnt == 1 :  ## check it belongs to the main groove side at the 1st loop
+                if cnt > 1 and len(adf) ==1: 
+                    break 
+                if len(adf) == 2: 
+                    if free[adf[0]][6] < free[adf[1]][6] : 
+                        adf = [adf[0]]
+                    else: 
+                        adf = [adf[1]]
+                
+                if cnt == 1:  ## check it belongs to the main groove side at the 1st loop
+                    ix1 = np.where(main[:,7:]==free[adf[0]][7])[0]
+                    ix2 = np.where(main[:,7:]==ups[0])[0]
+                    ixa = np.intersect1d(ix1, ix2)
+
+                    ix1 = np.where(main[:,7:]==free[adf[0]][8])[0]
+                    ix2 = np.where(main[:,7:]==ups[1])[0]
+                    ixb = np.intersect1d(ix1, ix2)
+
+                    if len(ixa) == 0 or len(ixb) == 0: 
                         ix1 = np.where(main[:,7:]==free[adf[0]][7])[0]
-                        ix2 = np.where(main[:,7:]==ups[0])[0]
+                        ix2 = np.where(main[:,7:]==ups[1])[0]
                         ixa = np.intersect1d(ix1, ix2)
 
                         ix1 = np.where(main[:,7:]==free[adf[0]][8])[0]
-                        ix2 = np.where(main[:,7:]==ups[1])[0]
+                        ix2 = np.where(main[:,7:]==ups[0])[0]
                         ixb = np.intersect1d(ix1, ix2)
-
                         if len(ixa) == 0 or len(ixb) == 0: 
-                            ix1 = np.where(main[:,7:]==free[adf[0]][7])[0]
-                            ix2 = np.where(main[:,7:]==ups[1])[0]
-                            ixa = np.intersect1d(ix1, ix2)
+                            break 
+               
+                main = np.append(main, [free[adf[0]]], axis=0) 
+                adds.append(free[adf[0]])
 
-                            ix1 = np.where(main[:,7:]==free[adf[0]][8])[0]
-                            ix2 = np.where(main[:,7:]==ups[0])[0]
-                            ixb = np.intersect1d(ix1, ix2)
-                            if len(ixa) == 0 or len(ixb) == 0: 
-                                break 
-                
-                    main = np.append(main, [free[adf[0]]], axis=0) 
-                    adds.append(free[adf[0]])
-
-                    downnodes = OtherNodes_InSurface(free[adf[0]], [ups[0], ups[1]])
-                    ups= [downnodes[0][0], downnodes[1][0]]
-                    # print ("add ", bd, "> ", ups, "surf %d, %d"%(free[adf[0]][0]-10**7, free[adf[0]][1]))
-                    pre = free[adf[0]]
-                    ## next loop 
+                downnodes = OtherNodes_InSurface(free[adf[0]], [ups[0], ups[1]])
+                ups= [downnodes[0][0], downnodes[1][0]]
+                # print ("add ", bd, "> ", ups, "surf %d, %d"%(free[adf[0]][0]-10**7, free[adf[0]][1]))
+                pre = free[adf[0]]
+                ## next loop 
                 
         for sf in adds: 
             ix1 = np.where(free[:, 0]==sf[0])[0]
@@ -11559,7 +10243,7 @@ class PATTERN:
                             Trimmed.append(edges[k])
                             # print ("7. Trimmed", edges[k][3]-10**7)
                             if k <1: 
-                                print ("Warning, NO EDGE between Edges")
+                                print ("ERROR, NO EDGE between Edges")
                                 break 
                                 
                             
@@ -11862,7 +10546,7 @@ class PATTERN:
         print ("\n* Profile TDW=%7.2f"%(TargetTDW*1000))
         print (  "* Pattern TDW=%7.2f"%(ModelTDW*1000))
         print (  "* Scaled  TDW=%7.2f"%((ModelTDW*Ratio_TW*1000)))
-
+        
         NodeOrigin = [] 
         for i, nd in enumerate(self.npn): 
             NodeOrigin.append([nd[0], nd[1], nd[2], nd[3]])
@@ -11988,13 +10672,13 @@ class PATTERN:
         #######################################################
         sum = 0 
         sortedpos = []
-        for bm in ptchbase:
+        for bm in ptchbase: 
             idx1 = np.where(NewNode[:, 0] == bm[1])[0][0]
             N1 = NewNode[idx1]
             idx2 = np.where(NewNode[:, 0] == bm[2])[0][0]
             N2 = NewNode[idx2]
             w = N2[2] - N1[2]
-            dh = -(N2[1] - N1[1]) + (bm[4][0] - bm[3][0])/(bm[4][1]-bm[3][1])  * w   ## the value of dh should be Subtracted. (-1 * value)
+            dh = -(N2[1] - N1[1]) + (bm[4][0] - bm[3][0])/(bm[4][1]-bm[3][1])  *w   ## the value of dh should be Subtracted. (-1 * value)
 
             bm.append([sum, w, dh])
             bm.append(N1)
@@ -12302,8 +10986,7 @@ class PATTERN:
         #######################################################
         sum = 0 
         sortedpos = []
-        for i, bm in enumerate(ptchbase): 
-            
+        for bm in ptchbase: 
             idx1 = np.where(NewNode[:, 0] == bm[1])[0][0]
             N1 = NewNode[idx1]
             idx2 = np.where(NewNode[:, 0] == bm[2])[0][0]
@@ -12373,9 +11056,7 @@ class PATTERN:
                     # rn = sortedpos[len(sortedpos)-1]
                     NewNode[i][1] = (nd[1]+rnf[5][0]) + (nd[2]-rnf[6][2]) * rnf[5][2] / rnf[5][1]
                 else: 
-                    continue 
                     # rn = sortedpos[0]
-                    print ("SHIFTING, ", NewNode[i])
                     NewNode[i][1] = (nd[1]+rn0[5][0]) + (nd[2]-rn0[6][2]) * rn0[5][2] / rn0[5][1]
         
 
@@ -14383,8 +13064,7 @@ class PATTERN:
                                 # if orgn[ndn][0] == 3505+10**7: print ("*## 3505")
                             if debugmode ==1: print ("No of edges in the group=%d"%(len(sgroup)))
                             # print ("1")
-                            N = len(indx)
-                            trans=self.MoveNodesBetween2Nodes(N00=orgn[indx[0]], NN0=orgn[indx[-1]], N01=self.npn[indx[0]], NN1=self.npn[indx[-1]], orgn=orgn, indexes=indx, debug=debugmode)
+                            trans=self.MoveNodesBetween2Nodes(N00=orgn[indx[0]], NN0=orgn[indx[N]], N01=self.npn[indx[0]], NN1=self.npn[indx[N]], orgn=orgn, indexes=indx, debug=debugmode)
                             pN=len(trans)
                             if N > 1: 
                                 for k in range(1, pN+1): 
@@ -16278,14 +14958,13 @@ def Jacobian_check(nodes, solids):
     ## cannot check horizental/vertical plane 
     print ("\n******************************************")
     cnt = 0; jnt = 0; negleng=0; countshow = 2
-    Jmin = 0.0005
-    hmg = 0.3
+    Jmin = 0.005
+    hmg = 0.45E-03 
     show = 0
     errel=[]
     Jacs = []
     Length8=[]
     Length6=[]
-    points=[[1, 1, -1], [-1, 1, -1], [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1]]
     for sd in solids: 
         if sd[8] > 0: 
             ix = np.where(nodes[:,0]==sd[1])[0][0]; n1 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
@@ -16328,25 +15007,93 @@ def Jacobian_check(nodes, solids):
                 # errel.append(sd) 
                 jnt += 1 
                 negleng += 1 
-                
-            minLength = min([l1, l2, l3, l4, l5, l6, l7, l8, h1, h2, h3,h4])
-            if minLength < hmg: 
+                continue 
+
+            if l1 < hmg  or l2 < hmg  or l3 < hmg  or l4 < hmg or h1 < hmg  or h2 < hmg  or h3 < hmg  or h4 < hmg or l5 < hmg  or l6 < hmg  or l7 < hmg  or l8 < hmg: 
+                # print (" The bottom edge lengthes of the solid %4d are %7.3f, %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, l1*1000, l2*1000, l3*1000, l4*1000))
+                # print ("              The heights of the solid %4d are %7.3f, %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, h1*1000, h2*1000, h3*1000, h4*1000))
                 cnt += 1 
-            
-            for pt in points : 
-                J = Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, r=pt[0], s=pt[1], t=pt[2])
-                Jacs.append(J)
-                if J < Jmin : 
-                    jnt += 1 
-                    errel.append(sd)
-                    break 
+                # errel.append(sd)
+                if show ==1 and cnt < countshow: ShowSolid(sd, nodes)
+
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=1, u=-1)
+            Jacs.append(J)
+            if J < Jmin : 
+                # print ("#1 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
                 
+                jnt += 1
+                # print ("%6d,%6d,%6d,%6d,%6d,%6d,%6d,%6d,%6d"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7, sd[8]-10**7))
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue 
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=-1, u=-1)
+            Jacs.append(J)
+            if J <Jmin: 
+                # print ("#2 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
+                jnt += 1
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue 
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=-1, u=-1)
+            Jacs.append(J)
+            if J < Jmin: 
+                # print ("#3 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
+                jnt += 1
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue 
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=1, u=-1)
+            Jacs.append(J)
+            if J < Jmin: 
+                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
+                jnt += 1
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue
+
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=-1, u=1)
+            Jacs.append(J)
+            if J < Jmin: 
+                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
+                jnt += 1
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=1, t=1, u=1)
+            Jacs.append(J)
+            if J < Jmin: 
+                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
+                jnt += 1
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=1, u=1)
+            Jacs.append(J)
+            if J < Jmin: 
+                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
+                jnt += 1
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue
+            J = Jacobian_Hexahedron(n4, n3, n2, n1, n8, n7, n6, n5, s=-1, t=-1, u=1)
+            Jacs.append(J)
+            if J < Jmin: 
+                # print ("#4 Jacobian of Solid %5d is negative (%.3f)"%(sd[0]-10**7, J))
+                jnt += 1
+                if show ==1 and jnt <countshow: ShowSolid(sd, nodes)
+                errel.append(sd)
+                continue
         else: 
             # print ("%6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d, %6d"%(sd[0]-10**7,sd[1]-10**7,sd[2]-10**7,sd[3]-10**7,sd[4]-10**7,sd[5]-10**7,sd[6]-10**7,sd[7],sd[8]))
             ix = np.where(nodes[:,0]==sd[1])[0][0]; n1 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[2])[0][0]; n2 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[3])[0][0]; n3 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
-            ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
+            try:
+                ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
+            except:
+                print(sd[1], sd[2], sd[3],sd[4],sd[5],sd[6],sd[7],sd[8])
+                ix = np.where(nodes[:,0]==sd[4])[0][0]; n4 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
+
             ix = np.where(nodes[:,0]==sd[5])[0][0]; n5 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
             ix = np.where(nodes[:,0]==sd[6])[0][0]; n6 = [nodes[ix][0], nodes[ix][1]*1000, nodes[ix][2]*1000, nodes[ix][3]*1000]
 
@@ -16372,21 +15119,17 @@ def Jacobian_check(nodes, solids):
                 # errel.append(sd) 
                 jnt += 1 
                 negleng += 1 
+                continue 
 
-            minLength = min([l1, l2, l3, l4, l5, l6, h1, h2, h3])
-            if minLength < hmg: 
-                cnt += 1 
+            if l1 < hmg  or l2 < hmg  or l3 < hmg or h1 < hmg  or h2 < hmg  or h3 < hmg or l4 < hmg  or l5 < hmg  or l6 < hmg: 
+                print (" The edge lengthes of the tri-angule (solid %4d) are %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, l1*1000, l2*1000, l3*1000))
+                print ("       The heights of the tri-angule (solid %4d) are %7.3f, %7.3f, %7.3f"%(sd[0]-10**7, h1*1000, h2*1000, h3*1000))
+                cnt += 1
+                errel.append(sd)
 
-            for m, pt in enumerate(points) :
-                if m ==0 or m ==1 or m ==4 or m==5: continue
-                J = Jacobian_Hexahedron(n1, n1, n2, n3, n4, n4, n5, n6, r=pt[0], s=pt[1], t=pt[2])
-                Jacs.append(J)
-                if J < Jmin : 
-                    jnt += 1 
-                    errel.append(sd)
-                    break 
-
-    
+    text =  "** Negative Jacobian(< %.3f): %d / %d \n"%(Jmin, len(errel), len(solids))
+    text += "** Small length Element(< %.2fmm) : %d"%(hmg*1000, cnt)
+    print (text)
 
     Jacs = np.array(Jacs)
     min_jac = np.min(Jacs)
@@ -16396,53 +15139,27 @@ def Jacobian_check(nodes, solids):
         Len6 = np.array(Length6).reshape(-1)
         Len = np.concatenate((Len, Len6), axis=None)
 
-    text =  "** Negative Jacobian(< %.1E): %d / %d \n"%(Jmin, len(errel), len(solids))
-    text += "** Small size elements(L< %.2fmm): %d\n"%(hmg, cnt)
-    text += "** Negative length elements : %d"%(negleng)
-
-    print (text)
-
     MinLen = np.min(Len) 
-    print ("** Minimum J=%.2E, Length=%.2fmm"%(min_jac, MinLen))
+    print ("  Minimum J=%.2E, L=%.2fmm"%(min_jac, MinLen))
     print ("******************************************\n")
     return errel, text, negleng, cnt  
-
-def Hexahedron_partialR(s, t, xs):
-    return ((1+s)*(1-t)*xs[0] - (1+s)*(1-t)*xs[1] - (1-s)*(1-t)*xs[2] + (1-s)*(1-t)*xs[3] + (1+s)*(1+t)*xs[4] - (1+s)*(1+t)*xs[5] - (1-s)*(1+t)*xs[6] + (1-s)*(1+t)*xs[7])/8.0 
-def Hexahedron_partialS(r, t, xs):
-    return ((1+r)*(1-t)*xs[0] + (1-r)*(1-t)*xs[1] - (1-r)*(1-t)*xs[2] - (1+r)*(1-t)*xs[3] + (1+r)*(1+t)*xs[4] + (1-r)*(1+t)*xs[5] - (1-r)*(1+t)*xs[6] - (1+r)*(1+t)*xs[7])/8.0
-def Hexahedron_partialT(r, s, xs):
-    return (-(1+r)*(1+s)*xs[0] - (1-r)*(1+s)*xs[1] - (1-r)*(1-s)*xs[2] - (1+r)*(1-s)*xs[3] + (1+r)*(1+s)*xs[4] + (1-r)*(1+s)*xs[5] + (1-r)*(1-s)*xs[6] + (1+r)*(1-s)*xs[7])/8.0
-
-def Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, r=1, s=1, t=-1) : 
-
-    X = [n1[1], n2[1], n3[1], n4[1], n5[1], n6[1], n7[1], n8[1]]
-    Y = [n1[2], n2[2], n3[2], n4[2], n5[2], n6[2], n7[2], n8[2]]
-    Z = [n1[3], n2[3], n3[3], n4[3], n5[3], n6[3], n7[3], n8[3]]
-
-    J = [
-        [Hexahedron_partialR(s, t, X), Hexahedron_partialR(s, t, Y), Hexahedron_partialR(s, t, Z)],
-        [Hexahedron_partialS(r, t, X), Hexahedron_partialS(r, t, Y), Hexahedron_partialS(r, t, Z)],
-        [Hexahedron_partialT(r, s, X), Hexahedron_partialT(r, s, Y), Hexahedron_partialT(r, s, Z)]
-    ]
-
-    return np.linalg.det(np.array(J))
-
+def Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, s=1, t=1, u=-1) : 
 
     N1s = -(1+t)*(1-u)/8;    N2s = -(1-t)*(1-u)/8;   N3s = (1-t)*(1-u)/8;     N4s = (1+t)*(1-u)/8
     N5s = -(1+t)*(1+u)/8;    N6s = -(1-t)*(1+u)/8;   N7s = (1-t)*(1+u)/8;     N8s = (1+t)*(1+u)/8
 
     Ns = [N1s, N2s, N3s, N4s, N5s, N6s, N7s, N8s]
-    
+    X = [n1[1], n2[1], n3[1], n4[1], n5[1], n6[1], n7[1], n8[1]]
 
     N1t =  (1-s)*(1-u)/8;    N2t = -(1-s)*(1-u)/8;    N3t = -(1+s)*(1-u)/8; N4t = (1+s)*(1-u)/8 
     N5t =  (1-s)*(1+u)/8;    N6t = -(1-s)*(1+u)/8;    N7t = -(1+s)*(1+u)/8; N8t = (1+s)*(1+u)/8 
     Nt = [N1t, N2t, N3t, N4t, N5t, N6t, N7t, N8t]
+    Y = [n1[2], n2[2], n3[2], n4[2], n5[2], n6[2], n7[2], n8[2]]
 
     N1u = (1-s)*(1+t)/8;   N2u = (1-s)*(1-t)/8;    N3u = (1+s)*(1-t)/8; N4u = (1+s)*(1+t)/8
     N5u = -N1u;            N6u = -N2u;             N7u = -N3u;          N8u = -N4u 
     Nu = [N1u, N2u, N3u, N4u, N5u, N6u, N7u, N8u] 
-    
+    Z = [n1[3], n2[3], n3[3], n4[3], n5[3], n6[3], n7[3], n8[3]]
 
     Xs = 0
     for ns, x in zip(Ns, X): 
@@ -16496,44 +15213,24 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
     btmmax = 0 
     truncation = 5
     layer = -1
-
-    checkEL = 5841; checkEL1 = 5862
-
-    vertLine = [0, 0, 0, 1]
-
     for solid in nps:
 
-        
-        if solid[9] == 6: N=7     ## solid[9] == 6
-        else: N=9                 ## solid[9] == 8
-
-        # if solid[0]-10**7 == checkEL: 
-        #     print ("The No. of Node=%d"%(N-1))
+        # if solid[0]-10**7 == 928: 
         #     print ("%d, %d, %d, %d, %d, %d, %d, %d, %d"%(solid[0]-10**7, solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7,solid[7]-10**7, solid[8]-10**7))
 
-
+        if solid[9] == 6: N=7     ## solid[9] == 6
+        else: N=9                 ## solid[9] == 8
         nodes_coord = []
-        elementNodes = []
-        angles=[]
-
         sx = 0.0;   sy = 0.0;      sz = 0.0
         topnode = []
-        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            # print (" Calculation the center of the faces")
         for i in range(1, N):
             index = np.where(npn[:, 0] == solid[i])
             tx = npn[index[0][0]][1]; ty=npn[index[0][0]][2]; tz =npn[index[0][0]][3]
             sx += tx;                  sy += ty;                 sz += tz 
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: print(npn[index[0][0]])
+
             # if round(tz, 7) == round(diameter/2.0, 7) : topnode.append(npn[index[0][0]][0])
             if abs(round(tz -R, truncation)) < 0.5E-3 : topnode.append(npn[index[0][0]][0])
             nodes_coord.append([tx,ty,tz])
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("node=%d"%(solid[0]-10**7), int(npn[index[0][0]][0])-10**7)
-            idx = index[0][0]
-            elementNodes.append(npn[index[0][0]])
-
-
 
         SolidCenter = [round(sx/solid[9], truncation), round(sy/solid[9], truncation), round(sz/solid[9], truncation)] 
 
@@ -16543,7 +15240,7 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
         top = 0 
         gap = R*2 
         
-        # if solid[0]-10**7 == checkEL:  print ("The No. of Node=%d"%(N-1))
+        
         
         if N == 9: 
             i = 0; j=1; m=2; n=3
@@ -16551,96 +15248,54 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation)
             centers.append([ssx, ssy, ssz, 1])
-            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
-            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("1: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
-            #     print("1:", Normal)
             if ssz >= topmargin and R-ssz < gap : 
                 top =1 
                 gap = R-ssz 
-                # if solid[0]-10**7 == checkEL:       print (" Top %d case "%(top))
 
             i = 4; j=5; m=6; n=7
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 2])
-            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
-            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("2: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
-            #     print(Normal)
-
             if ssz >= topmargin and R-ssz < gap : 
                 top =2 
                 gap = R-ssz 
-                # if solid[0]-10**7 == checkEL:           print (" Top %d case "%(top))
 
             i = 0; j=1; m=5; n=4
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 3])
-            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
-            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("3: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
-            #     print(Normal)
             if ssz >= topmargin and R-ssz < gap : 
                 top =3 
                 gap = R-ssz 
-                # if solid[0]-10**7 == checkEL:            print (" Top %d case "%(top))
 
             i = 1; j=2; m=6; n=5
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 4])
-            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
-            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("4: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
-            #     print(Normal)
             if ssz >= topmargin and R-ssz < gap : 
                 top =4 
                 gap = R-ssz 
-                # if solid[0]-10**7 == checkEL:                     print (" Top %d case "%(top))
 
             i = 2; j=3; m=7; n=6
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 5])
-            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
-            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("5: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
-            #     print(Normal)
             if ssz >=topmargin and R-ssz < gap : 
                 top =5 
                 gap = R-ssz 
-                # if solid[0]-10**7 == checkEL:                     print (" Top %d case "%(top))
 
             i = 3; j=0; m=4; n=7
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] + nodes_coord[n][0])  / 4.0, truncation)
             ssy = round((nodes_coord[i][1] + nodes_coord[j][1] + nodes_coord[m][1] + nodes_coord[n][1])  / 4.0, truncation)
             ssz = round((nodes_coord[i][2] + nodes_coord[j][2] + nodes_coord[m][2] + nodes_coord[n][2])  / 4.0, truncation) 
             centers.append([ssx, ssy, ssz, 6])
-            Normal = NormalVector_plane(elementNodes[i], elementNodes[j], elementNodes[m])
-            angles.append(Angle_Between_Vectors(Normal, vertLine)-1.570796)
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("6: ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
-            #     print(Normal)
-                
             if ssz >=topmargin and R-ssz < gap : 
                 top =6 
                 gap = R-ssz 
-                # if solid[0]-10**7 == checkEL:                     print (" Top %d case "%(top))
-
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("The No. of nodes=%d Top %d case "%(N-1, top))
-            #     print ("ssz=%.2f (margin=%.2f), R=%.2f, gap=%.2f(real=%.2f)"%(ssz*1000, topmargin*1000, R*1000, gap*1000, (R-ssz)*1000))
         else:
             i = 0; j=1; m=2
             ssx = round((nodes_coord[i][0] + nodes_coord[j][0] + nodes_coord[m][0] )  / 3.0, truncation)
@@ -16686,15 +15341,13 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             if ssz >= topmargin and R-ssz < gap : 
                 top =5 
                 gap = R-ssz 
-        
-        
-        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-        #     print (" %d (No. of nodes=%d) TOP Face=%d "%(solid[0]-10**7, N-1, top))
+        # if top > 0: 
+        #     print (" %d (N=%d) TOP Face=%d "%(solid[0]-10**7, N-1, top))
         #     if len(centers) ==6: 
-        #         print ("Dist from Top: %5.2f,%5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000,R1000-centers[5][2]*1000))
+        #         print ("%5.2f,%5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000,R1000-centers[5][2]*1000))
         #     else: 
-        #         print ("Dist from Top: %5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000))
-        
+        #         print ("%5.2f,%5.2f,%5.2f,%5.2f,%5.2f"%(R1000-centers[0][2]*1000,R1000-centers[1][2]*1000,R1000-centers[2][2]*1000,R1000-centers[3][2]*1000,R1000-centers[4][2]*1000))
+
         if top == 0 or N != 9: 
             cnt = 0
             mz = 100000.0
@@ -16703,37 +15356,25 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             for cz in centers: 
                 if cz[1] > my2: my2 = cz[1]
                 if cz[1] < my1: my1 = cz[1]
-            # if solid[0]-10**7 == checkEL:print ("*********")
+            # print ("*********")
             for i, cz in enumerate(centers): 
-                # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:   print("CZ=%.3f vs MZ=%.3f"%(cz[2]*1000, mz*1000))
-                if N == 9: 
-                    if cz[2] < mz and abs(angles[i]) > 0.785398 : 
-                        mz = cz[2]
-                        if my1 < cz[1] and cz[1] < my2: 
-                            cnt = i
-                else: 
-                    if cz[2] < mz  : 
-                        mz = cz[2]
-                        if my1 < cz[1] and cz[1] < my2: 
-                            cnt = i
-                        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:   print ("%d my1=%.3f, cz[1]=%.3f, my2=%.2f cz=%.2f"%(i, my1*1000, cz[1]*1000, my2*1000, cz[2]*1000))
-        elif N==9 : 
-            if top == 2  :  cnt = 0 
-            elif top == 1 : cnt = 1
-            elif  top == 3 :cnt = 4
-            elif top == 4 : cnt = 5
-            elif top == 5 : cnt = 2
-            else :          cnt = 3
+                # if solid[0]-10**7 == 260: 
+                #     print ("%d, %f"%(i, cz[2]*1000))
+                if cz[2] < mz: 
+                    # if solid[0]-10**7 == 260:   print (" >> max...")
+                    mz = cz[2]
+                    if cz[1] > my1 and cz[1] < my2: cnt = i
+        else : 
+            if N==9 and top == 2 : cnt = 0 
+            elif N==9 and top == 1 : cnt = 1
 
-        #     if solid[0]-10**7 == checkEL: print ("top=%d, cnt=%d"%(top, cnt))
-
-        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1:print ("N=%d, top=%d, cnt=%d"%(N, top, cnt))
+            elif N==9 and top == 3 : cnt = 4
+            elif N==9 and top == 4 : cnt = 5
+            elif N==9 and top == 5 : cnt = 2
+            elif N==9 : cnt = 3
 
         if N ==9: 
-            # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-            #     print ("The No. of Node=%d"%(N-1))
-            #     print ("## ROTATION C3D8 cnt=%d"%(cnt), solid[0]-10**7, " \n nodes=", solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7, solid[7]-10**7, solid[8]-10**7)
-            #     print ("%d, %d, %d, %d, %d, %d, %d, %d, %d"%(solid[0]-10**7, solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7,solid[7]-10**7, solid[8]-10**7))
+            # print ("## ROTATION C3D8 %d"%(cnt), solid[0]-10000000, " \n ", solid[1]-10000000, solid[2]-10000000, solid[3]-10000000, solid[4]-10000000, solid[5]-10000000, solid[6]-10000000, solid[7]-10000000, solid[8]-10000000)
             if cnt == 0:   orders = [[0, 1, 4, 3, 2, 5, 8, 7, 6, 9] , [0, 1, 5, 4, 3, 2] ]  # [0, 1, 2, 3, 4, 5]  ## orders = [[el[0], N1[i]],   centers of faces ()]
             elif cnt == 1: orders = [[0, 6, 7, 8, 5, 2, 3, 4, 1, 9] , [1, 0, 3, 4, 5, 2] ]  # [[0,   6, 5, 8, 7,   2, 1, 4, 3, 9] , [1, 0,   2, 5, 4, 3] ]
 
@@ -16743,7 +15384,7 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
             elif cnt == 5: orders = [[0, 1, 5, 8, 4, 2, 6, 7, 3, 9] , [5, 3, 2, 1, 4, 0] ]  # [[0,   1, 4, 8, 5,   2, 3, 7, 6, 9] , [5, 3,   0, 4, 1, 2] ]
             else:  
                 orders = [[0, 1, 4, 3, 2, 5, 8, 7, 6, 9] , [0, 1, 5, 4, 3, 2] ]
-                print ("## Warning no combination C3D8 ", solid[0]-10**7, " \n ", solid[1]-10**7, solid[2]-10**7, solid[3]-10**7, solid[4]-10**7, solid[5]-10**7, solid[6]-10**7, solid[7]-10**7, solid[8]-10**7)
+                print ("## ERROR no combination C3D8 ", solid[0]-10000000, " \n ", solid[1]-10000000, solid[2]-10000000, solid[3]-10000000, solid[4]-10000000, solid[5]-10000000, solid[6]-10000000, solid[7]-10000000, solid[8]-10000000)
                 # errsolid = [solid]
                 # text = "!! Error in solid construction %d"%(solid[0]-10**7)
         else: 
@@ -16762,7 +15403,6 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
         tmp = []
         for i in orders[0]: 
             tmp.append(solid[i])
-            # if solid[0]-10**7 == checkEL: print ("%d-%i"%(i, solid[i]-10**7))
 
         tmp.append(SolidCenter[0])
         tmp.append(SolidCenter[1])
@@ -16781,10 +15421,10 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
                     tmp.append(nodes_coord[i-1][1])
                     tmp.append(nodes_coord[i-1][2])
 
-        # if solid[0]-10**7 == checkEL or solid[0]-10**7 == checkEL1: 
-        #     print ("*** The No. of Node=%d"%(N-1))
-        #     print (" cnt =%d, element id, node ids"%(cnt))
+        # if solid[0]-10**7 == 260: 
+        #     print (" cnt =", cnt )
         #     print ("%d, %d, %d, %d, %d, %d, %d, %d, %d"%(tmp[0]-10**7, tmp[1]-10**7, tmp[2]-10**7, tmp[3]-10**7, tmp[4]-10**7, tmp[5]-10**7, tmp[6]-10**7,tmp[7]-10**7, tmp[8]-10**7))
+        # print (solid[0])
         
         margin = 0.15E-03
         pl =0 
@@ -16819,7 +15459,6 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
     Surface = np.array(Surface)
     text += "\n* The node order of PTN was checked(%dEA)\n"%(changed)
     errsolid = []
-    # sys.exit()
     return nps, Surface, text, errsolid
 def Point_Plane_Distance(n, nodes): 
     n1 = nodes[0]; n2 = nodes[1]; n3 = nodes[2] 
@@ -16855,85 +15494,6 @@ def Point_Plane_Distance(n, nodes):
         
     return D, det 
 
-def SearchingNodesInElement(npn=None, nps=None): 
-    NodesInSolid = []
-    print ("** SEARCHING NODES INSIDE ELEMENT")
-    nds = nps[:,1:9] 
-    nds = np.unique(nds)
-    if nds[0] ==0: 
-        nds = np.delete(nds, 0)
-    ns = []
-    for n in nds: 
-        ix = np.where(npn[:,0]==n)[0][0]
-        ns.append(npn[ix])
-    nds = np.array(ns)
-    
-    for sd in nps: 
-        xs=[];         ys=[];         zs=[]
-        ix = np.where(nds[:,0]==sd[1])[0][0]
-        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-        ix = np.where(nds[:,0]==sd[2])[0][0]
-        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-        ix = np.where(nds[:,0]==sd[3])[0][0]
-        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-        ix = np.where(nds[:,0]==sd[4])[0][0]
-        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-        ix = np.where(nds[:,0]==sd[5])[0][0]
-        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-        ix = np.where(nds[:,0]==sd[6])[0][0]
-        xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-        if sd[9] == 8: 
-            ix = np.where(nds[:,0]==sd[7])[0][0]
-            xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-            ix = np.where(nds[:,0]==sd[8])[0][0]
-            xs.append(nds[ix][1]); ys.append(nds[ix][2]); zs.append(nds[ix][3]); 
-
-        xmin=min(xs); xmax=max(xs)
-        ymin=min(ys); ymax=max(ys)
-        zmin=min(zs); zmax=max(zs)
-
-        ix1 = np.where(nds[:,1]>=xmin)[0]
-        ix2 = np.where(nds[:,1]<=xmax)[0]
-        ix = np.intersect1d(ix1, ix2)
-
-        ix1 = np.where(nds[:,2]>=ymin)[0]
-        ix2 = np.where(nds[:,2]<=ymax)[0]
-        iy = np.intersect1d(ix1, ix2)
-
-        ix1 = np.where(nds[:,3]>=zmin)[0]
-        ix2 = np.where(nds[:,3]<=zmax)[0]
-        iz = np.intersect1d(ix1, ix2)
-
-        ix = np.intersect1d(ix, iy)
-        ix = np.intersect1d(ix, iz)
-
-        if len(ix)>0: 
-            i = 0
-            while i < len(ix): 
-                j = 1 
-                fd = 0 
-                while j <= sd[9]: 
-                    if nds[ix[i]][0] == sd[j]: 
-                        ix = np.delete(ix, i)
-                        fd = 1 
-                        break 
-                    j += 1
-                if fd ==1: continue 
-                i += 1 
-            if len(ix) > 0: 
-                points=[]
-                for x, y, z in zip(xs, ys, zs): 
-                    points.append([x, y, z])
-                inNode=[]
-                for x in ix: 
-                    pnt = [nds[x][1],nds[x][2], nds[x][3]]
-                    isIn = PointsInOutPolyhedron(np.array(points), pnt)
-
-                    if isIn == True: 
-                        inNode.append(nds[x][0]-10**7)
-                if len(inNode)>0: 
-                    NodesInSolid.append([sd[0]-10**7, inNode])
-    return  NodesInSolid           
 
 def NodeDistanceChecking(nodes, nps, margin=0.1E-03): 
 
@@ -16947,8 +15507,6 @@ def NodeDistanceChecking(nodes, nps, margin=0.1E-03):
         newnode.append(nodes[id0])
     nodes = np.array(newnode)
 
-    ## node distance checking 
-    
     count =0 
     smalldist = []
     dists = []
@@ -16991,50 +15549,6 @@ def NodeDistanceChecking(nodes, nps, margin=0.1E-03):
         md = np.min(dists)
         print ("* Mininum distance of pattern nodes %.2f"%(md*1000))
     return count, smalldist 
-
-def PatternElementDuplicationCheck(nps): 
-    print ("** ELEMENT DUPLICATION CHECK ")
-    dup = []
-    for sd in nps:
-        fd = 0 
-        for d in dup: 
-            if d == sd[0]: 
-                fd=1
-                break 
-        if fd==1: continue 
-        ix1 = np.where(nps[:,1:8]==sd[1])[0]
-        ix2 = np.where(nps[:,1:8]==sd[2])[0]
-        ix3 = np.where(nps[:,1:8]==sd[3])[0]
-        ix4 = np.where(nps[:,1:8]==sd[4])[0]
-        ix5 = np.where(nps[:,1:8]==sd[5])[0]
-        ix6 = np.where(nps[:,1:8]==sd[6])[0]
-
-        ix = np.intersect1d(ix1, ix2)
-        ix = np.intersect1d(ix, ix3)
-        ix = np.intersect1d(ix, ix4)
-        ix = np.intersect1d(ix, ix5)
-        ix = np.intersect1d(ix, ix6)
-
-        if sd[9] == 8 : 
-            ix7 = np.where(nps[:,1:8]==sd[7])[0]
-            ix8 = np.where(nps[:,1:8]==sd[8])[0]
-
-        if len(ix)>1: 
-            i = 0 
-            while i < len(ix): 
-                if sd[0] == nps[ix[i]][0]: 
-                    ix = np.delete(ix, i, axis=0)
-                    continue 
-                i += 1
-            print (" ")
-            print ("%4d (%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d)"%(sd[0]-10**7, sd[1]-10**7, sd[2]-10**7, sd[3]-10**7, sd[4]-10**7, sd[5]-10**7, sd[6]-10**7, sd[7]-10**7,sd[8]-10**7))
-            for x in ix: 
-                dup.append(nps[x][0])
-                print ("%4d (%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d)"%(nps[x][0]-10**7, nps[x][1]-10**7, nps[x][2]-10**7, nps[x][3]-10**7, nps[x][4]-10**7, nps[x][5]-10**7, nps[x][6]-10**7, nps[x][7]-10**7, nps[x][8]-10**7))
-
-    print ("")
-
-
 
 def SearchingNode(nid, npn, index=1): 
     ix = np.where(npn[:,0]==nid)[0]
@@ -17319,7 +15833,7 @@ def Angle_3nodes(n1=[], n2=[], n3=[], xy=0): ## n2 : mid node
             print (n1)
             print (n2)
             print (n3)
-            
+
     return angle 
 def Distance_2nodes(n1, n2, d2=0, xy=23): 
     if d2 == 0: 
@@ -17584,88 +16098,6 @@ def NormalVector_plane(n1, n2, n3):
 
     return [0, II, JJ, KK]
 
-def IntersectionPointOf2Lines(L1=None, L2=None, xy=23): 
-    
-    # L1 = [N1, N2], L2=[N3, N4]
-    x = int(xy/10); y=int(xy%10)
-
-    x1=L1[0][x]; y1=L1[0][y]
-    x2=L1[1][x]; y2=L1[1][y]
-    x3=L2[0][x]; y3=L2[0][y]
-    x4=L2[1][x]; y4=L2[1][y]
-
-    N = None 
-
-    if  round(x1, 6) == round(x2, 6) and round(x3, 6) == round(x4, 6) and round(x2, 6) == round(x3, 6): 
-        print ("All nodes are at the same line [x=%f]"%(x1))
-        return N 
-    
-    if  round(y1, 6) == round(y2, 6) and round(y3, 6) == round(y4, 6) and round(y2, 6) == round(y3, 6): 
-        print ("All nodes are at the same line [y=%f]"%(y1))
-        return N 
-
-    if  round(x1, 6) == round(x2, 6) and round(y1, 6) == round(y2, 6) : 
-        print ("The nodes on 1st Line is at the same position")
-        return N 
-
-    if  round(x3, 6) == round(x4, 6) and round(y3, 6) == round(y4, 6) : 
-        print ("The nodes on 2nd Line is at the same position")
-        return N 
-
-
-    if round(x1, 6) == round(x2, 6) and round(x3, 6) != round(x4, 6):  
-        iX = x1 
-        if round(y3, 6) == round(y4, 6): 
-            iY = y3 
-            # print("c1")
-        else: 
-            iY = (y4-y3) / (x4-x3) * (iX - x3) + y3 
-            # print("c2")
-    elif round(x1, 6) != round(x2, 6) and round(x3, 6) == round(x4, 6):  
-        iX = x3 
-        if round(y1, 6) == round(y2, 6): 
-            iY = y1 
-            # print("c3")
-        else: 
-            iY = (y2-y1) / (x2-x1) * (iX - x1) + y1 
-            # print("c4")
-
-
-    elif round(y1, 6) == round(y2, 6) and round(y3, 6) != round(y4, 6): 
-        iY = y1 
-        if round(x3, 6) == round(x4, 6): 
-            iX = x3 
-            # print("c5")
-        else: 
-            iX = (x4-x3) / (y4-y3) * (iY - y3) + x3 
-            # print("c6")
-    elif round(y1, 6) != round(y2, 6) and round(y3, 6) == round(y4, 6): 
-        iY = y3 
-        if round(x1, 6) == round(x2, 6): 
-            iX = x1 
-            # print("c7")
-        else: 
-            iX = (x2-x1) / (y2-y1) * (iY - y1) + x1 
-            # print("c8")
-
-    else: 
-        A1 = (y2-y1) / (x2-x1)
-        A2 = (y4-y3) / (x4-x3)
-
-        if round(A1, 6) == round(A2, 6): ## parallel 
-            return N 
-
-        B1 = A1 * x1 - y1 
-        B2 = A2 * x3 - y3 
-
-        iX = (B1-B2) / (A1-A2)
-        iY = A1*(iX - x1) + y1 
-
-    N = [0, 0, 0, 0]
-    N[x] = iX; N[y]=iY 
-    return N 
-
-
 def TiltShoulderNodes(angle=0.0, nodes=[], less=10000.0, more=10000.0, buffer=0, shoulder_radius=0): 
     R = np.max(nodes[:,3]) 
     Hpw = np.max(nodes[:,2])
@@ -17832,16 +16264,16 @@ def RepositionNodesAfterShoulder_old(shopoint=[], endpoint=[], ptn_tw=0.0, curre
             N = NormalPositionFromLineInPlane(position_ratio=position_ratio, ref_line=ref_line, n=n)
 
             nodes[ix][x] = N[x]
+            # nodes[ix][y] = N[y]
+
+
     return nodes 
 
 def Get_layout_treadbottom(flatten, allnodes): 
     nodes = []
-    try: 
-        for nd in flatten: 
-            ix = np.where(allnodes[:,0]==nd[0])[0][0]
-            nodes.append(allnodes[ix])
-    except:
-        pass 
+    for nd in flatten: 
+        ix = np.where(allnodes[:,0]==nd[0])[0][0]
+        nodes.append(allnodes[ix])
     return np.array(nodes)
 
 def ShiftShoulderNodesSquarePattern(npn, orn, profiles, curves, sideNodes, surf_posSide, surf_negSide, ptn_TDW, profile_TDW, ptn_sideBtmNode):
@@ -18027,7 +16459,10 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         profile = tmpprofile 
         PN = icurve + 1
 
-   
+    # for pf in profile: 
+    #     print (" %.2f, %.2f"%(pf[0]*1000, pf[1]*1000))            
+
+
 
     if icurve == PN -2 and repo ==1  : 
         profile_last_r = profile[PN-1][0]
@@ -18050,7 +16485,6 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         delA_R = Angle_3nodes(curve_last[0], curve_last[2], n1, xy=23)
         Rlength_last = delA_R * profile_last_r
         # print ("right n1 x=%.2f, y=%.2f"%(n1[2]*1000, n1[3]*1000))
-        # print ("1")
 
     elif icurve == PN-1 and repo ==0: 
         profile_last_r = profile[PN-1][0]
@@ -18072,8 +16506,6 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
 
         delA_R = Angle_3nodes(curve_last[0], curve_last[2], n1, xy=23)
         Rlength_last = delA_R * profile_last_r
-
-
     else: 
         profile_last_r = profile[PN-1][0]
         curve_last = curves[PN-1]
@@ -18095,7 +16527,6 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         delA_R = Angle_3nodes(curve_last[0], curve_last[2], n1, xy=23)
         Rlength_last = delA_R * profile_last_r
 
-
     expansed_lastCurve_length =  np.max(ptn_gaged[:,2]) - (start + len_shocurve)
     last_l_ratio = Llength_last / expansed_lastCurve_length
     last_r_ratio = Rlength_last / expansed_lastCurve_length
@@ -18105,7 +16536,6 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         print ("   Left=%.2f, Scaled= %.2f >> %.2f"%(last_l_ratio, expansed_lastCurve_length*1000, Llength_last*1000 ))
         print ("  Right=%.2f, Scaled= %.2f >> %.2f"%(last_r_ratio, expansed_lastCurve_length*1000, Rlength_last*1000 ))
         print ("  Sho. Angle Start=%.1f, End=%.1f/%.1f"%(degrees(start_angle), degrees(L_end_angle), degrees(R_end_angle)))
-        print ("  Nodes adjust start from=%.1fmm"%(start*1000))
     else: 
         print ("* Shoulder Element thickness re-adjusting")
 
@@ -18141,8 +16571,7 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         temp1 = np.where(ptn_orgn[:,2] >= addsho * WidthR)[0] 
         temp2 = np.where(ptn_orgn[:,2] <= -addsho * WidthR)[0] 
 
-        # print ("start %.3f.. width ratio=%.2f "%(start*1000, WidthR),
-        #  "collect nodes after", start * WidthR*1000)
+        # print ("start.. orgn", start * WidthR*1000)
 
         temp = np.concatenate((temp1, temp2), axis=None)
         tn = ptn_orgn[temp, 0]
@@ -18210,9 +16639,10 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         if len(ix) > 0 : ix = ix[0]
         else:           continue 
         n = ptn_gaged[ix]
+        # if show ==1: print ("N x=%.2f"%(n[2]*1000))
 
-        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
-        #     print ("**** checking node [mm]")
+        # if nid[0] -10**7 == 198: 
+        #     print ("checking node", nid)
         #     print ("%d, %.1f, %.1f, %.1f"%(n[0]-10**7, n[1]*1000, n[2]*1000, n[3]*1000))
 
         if n[2] < 0.0 : 
@@ -18221,91 +16651,63 @@ def RepositionNodesAfterShoulder(pf_endings, ptn_gaged, surf_pos_side, surf_neg_
         else: 
             ny = n[2]
             end_angle = R_end_angle 
-        
-
-        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253:  
-        #     print ("ny=%.3f, start=%.3f, len_shocurve=%f"%(ny*1000, start*1000, len_shocurve))
-
+        s = (ny - start) / width
+        angle = s * end_angle + (1-s) * start_angle 
 
         if ny < start and len_shocurve == 0  : 
             L = profile[PN-2][1] - (start - ny)
             curve = curves[PN-2]
             SR =  profile[PN-2][0]
             angle = start_angle
-            # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253:  print ("************************")
 
-        ### added 2021. 04. 29 
-        elif ny < start: 
-            angle = start_angle
-            SR =  profile[PN-3][0]
-            curve = curves[PN-3]
-            L = profile[PN-3][1] - (start - ny)
-        ## 2021.04.29 
-        ################################################
         elif start <= ny and start +len_shocurve > ny : 
             L = ny - start
             curve = curves[PN-2]
             SR = profile[PN-2][0]
-            
-            s = (ny - start) / width
-            angle = s * end_angle + (1-s) * start_angle 
-            # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
+            # if nid[0] -10**7 == 198: 
             #     print("1 y=%.2f, SR=%.1f"%(ny*1000, SR*1000))
             #     print ("dist = %.2f"%((ny -  start)*1000))
             #     print ("L=%.1f, CV_y=%.1f, CV_z= %.1f, sr=%.1f"%(L*1000, curve[0][2]*1000, curve[0][3]*1000, SR*1000))
-        
         else: 
-            # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253:  print ("#################################")
             if nid[2] > 0: 
                 L = (ny -  (start  + len_shocurve)) * last_r_ratio
             else: 
                 L = (ny -  (start  + len_shocurve)) * last_l_ratio
             curve = curves[PN-1]
             SR = profile[PN-1][0]
-
-            s = (ny - start) / width
-            angle = s * end_angle + (1-s) * start_angle 
             # print("2 y=%.2f, SR=%.1f"%(ny*1000, SR*1000))
 
         toppos = positionOnCurve_byLength(L, curve[0], curve[1], curve[2], r=SR, xy=23)
         if n[2] > 0:    tops.append(toppos)
         else:           tops.append([toppos[0], toppos[1], -toppos[2], toppos[3]])
-        # if n[0]-10**7 == 4603 or n[0]-10**7 == 3951: 
+        # if nid[0] -10**7 == 198: 
         #     print ("dist = %.2f ratio=%.1f"%((ny -  (start  + len_shocurve))*1000, last_r_ratio ))
         #     print ("%.1f, %.1f, %.1f, sr=%.1f"%(L*1000, curve[0][2]*1000, curve[0][3]*1000, SR*1000))
+        # if nid[0] -10**7 == 198: 
         #     print (" L = %.1f"%(L*1000))
         pattern_gage_ratio = Gauge_Ratio_to_Bottom_of_Pattern_node(n, ptn_section, ptn_R, ptn_orgn)
         layout_gage, other_pos = Layout_Tread_Gauge_at_pattern_node (toppos, bodybottom, angle)
         if n[2] > 0: other.append(other_pos)
         else:        other.append([-other_pos[0], other_pos[1]])
-        # if n[0]-10**7 == 4603 or n[0]-10**7 == 3951: 
-        #     print ("n3 x=%.1f, y=%.1f, Top x=%.1f, y=%.1f"%(n[2]*1000, n[3]*1000, toppos[2]*1000, toppos[3]*1000))
-        #     # if pattern_gage_ratio > 1.0: 
-        #     print (" x=%.1f y=%.1f rotating Angle =%.1f, Ratio=%.2f,layout Ga=%.1f > target ga %.1f"%(n[2]*1000, n[3]*1000, degrees(angle), pattern_gage_ratio, layout_gage*1000, layout_gage * pattern_gage_ratio*1000))
-            
+
+        # print ("n3 x=%.1f, y=%.1f, Top x=%.1f, y=%.1f"%(n[2]*1000, n[3]*1000, toppos[2]*1000, toppos[3]*1000))
+        # if pattern_gage_ratio > 1.0: 
+        #     print (" x=%.1f y=%.1f A =%.1f, R=%.2f, Ga=%.1f > %.1f"%(n[2]*1000, n[3]*1000, degrees(angle), pattern_gage_ratio, layout_gage*1000, layout_gage * pattern_gage_ratio*1000))
         if pattern_gage_ratio >=0 and layout_gage > 0: 
             ht = layout_gage * pattern_gage_ratio 
         else: 
+            # print ("No value n=%d ratio=%.1f, ga=%.2f"%(n[0]-10**7, pattern_gage_ratio, layout_gage*1000))
             ht = R - n[3]
-        
+
         initpos = [0, toppos[1], toppos[2], toppos[3] - ht]
 
-        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
-        #     print (" value n=%d ratio=%.1f, ga=%.2f, ga from top=%.2f"%(n[0]-10**7, pattern_gage_ratio, layout_gage*1000, ht*1000))
-        #     print (" rotating angle=%.3f, deg=%.2f"%(-angle, degrees(-angle)))
-        #     print (" vert Top  x=%.2f, y=%.2f"%(toppos[2]*1000, toppos[3]*1000))
-        #     print (" vert Init x=%.2f, y=%.2f"%(initpos[2]*1000, initpos[3]*1000))
-            
         if ht ==R: 
             rd = toppos
         else: 
             rd = RotateNode(initpos, -angle, toppos, xy=23)
         ix = np.where(ptn_npn[:,0]==n[0])[0][0]
-
-        # if n[0]-10**7 == 3304 or n[0]-10**7 == 3253: 
-        #     print (" defm post x=%.2f, y=%.2f"%(ptn_npn[ix][2]*1000, ptn_npn[ix][3]*1000))
-        #     print (" Rotd post x=%.2f, y=%.2f"%(rd[2]*1000, rd[3]*1000))
-
+        # print (" (%.2f, %.2f) => (%.2f, %.2f)"%( ptn_npn[ix][2]*1000,  ptn_npn[ix][3]*1000, rd[2]*1000, rd[3]*1000))
+        # print (" (%.2f, %.2f) => (%.2f, %.2f)"%( initpos[2]*1000,  initpos[3]*1000, rd[2]*1000, rd[3]*1000))
         if n[2] < 0: ptn_npn[ix][2] = - rd[2] 
         else:        ptn_npn[ix][2] =  rd[2]  
         ptn_npn[ix][3] = rd[3]
@@ -18355,10 +16757,7 @@ def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R
 
     if n[3] == R : return 0 
 
-    # if N[0]-10**7 == 3304: 
-    #     print ("Initial  N x=%8.2f, y=%8.2f Dist=%.2f"%(n[2]*1000, n[3]*1000, (R-n[3])*1000))
-    #     print ("deformed N x=%8.2f, y=%8.2f "%(N[2]*1000, N[3]*1000))
-    #     print ("iN R=%.2f, org ptn R=%.2f"%(R*1000, np.max(ptn_orgn[:,3])*1000))
+    # print ("N x=%8.2f, y=%8.2f Dist=%.2f"%(N[2]*1000, N[3]*1000, (R-N[3])*1000))
 
 
     TG = -1  
@@ -18366,12 +16765,7 @@ def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R
     for sec in sections: 
         if sec[0][0] <= n[2] and n[2] <= sec[1][0] : 
             TG = (sec[1][1] - sec[0][1]) / (sec[1][0] - sec[0][0]) * ( n[2] - sec[0][0] ) + sec[0][1] 
-            # if N[0]-10**7 == 3304:  
-            #     print ("* Bottom Ht around node %d=%.5f"%(N[0]-10**7, TG*1000))
-            #     print ("sec ", sec)
-            #     print (" (%.2f - %.2f)/(%.2f - %.2f)=%.3f"%(R*1000, n[3]*1000, R*1000, TG*1000, (R-n[3]) / (R-TG)))
-            break
-    
+            break 
     if TG>0: 
         return (R-n[3]) / (R-TG)
     if n[2] < 0: 
@@ -18379,11 +16773,6 @@ def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R
     else: 
         N = len(sections)-1 
         TG = (sections[N][1][1] - sections[N][0][1]) / (sections[N][1][0] - sections[N][0][0]) * ( n[2] - sections[N][0][0] ) + sections[N][0][1] 
-    
-    # if N[0]-10**7 == 3304:  
-    #     print ("* Bottom Ht at End =%.5f"%(TG*1000))
-    #     print ("sec ", sections[-1])
-
     
     if TG>0: 
         return (R-n[3]) / (R-TG)
@@ -18451,7 +16840,7 @@ def Pattern_Gauge_ratio_adjustment(section, nodes_solids, pattern_solid, pattern
     PR = ModelR
 
     pnodes = []
-    # m = len(section) -1 
+    m = len(section) -1 
     fix_ratio = 0
     if start > 0: GaugeConstantRange = start 
     border_width = 10.0E-03 # np.max(pattern_nodes[:,2]) - GaugeConstantRange
@@ -18464,7 +16853,6 @@ def Pattern_Gauge_ratio_adjustment(section, nodes_solids, pattern_solid, pattern
             ix = np.where(pattern_nodes[:,0] == n)[0][0]
             pn = pattern_nodes[ix]
             ## section : profile top surface (tread bottom surface) - edges.. 
-            
             if pn[x] <=section[0][0][0]:    ## k = 0 : in case that the nodes are over the total pattern width  to the negative 
                 ty = ((section[0][1][1]-section[0][0][1])/(section[0][1][0]-section[0][0][0])) * (pn[x]-section[0][0][0]) + section[0][0][1]
                 CG = R - ty ## Target Tire Tread Gauge 
@@ -18475,20 +16863,14 @@ def Pattern_Gauge_ratio_adjustment(section, nodes_solids, pattern_solid, pattern
                 pnodes.append(pn)
                 continue 
 
-            elif pn[x] >= section[-1][1][0]:  ## m = len(section) - 1 :  in case that the nodes are over the total pattern width  to the positive 
-                ty = ((section[-1][1][1]-section[-1][0][1])/(section[-1][1][0]-section[-1][0][0])) * (pn[x]-section[-1][0][0]) + section[-1][0][1]
+            elif pn[x] >= section[m][1][0]:  ## m = len(section) - 1 :  in case that the nodes are over the total pattern width  to the positive 
+                ty = ((section[m][1][1]-section[m][0][1])/(section[m][1][0]-section[m][0][0])) * (pn[x]-section[m][0][0]) + section[m][0][1]
                 CG = R-ty ## Target Tire Tread Gauge 
                 CL = R - pn[y]   # distance from Tire OD to the current node 
-                
-                ix = np.where(pattern_org_nodes[:,0] == pn[0])[0][0]
-                ON = pattern_org_nodes[ix]
-                PL = PR - ON[3] ## pattern position of nodes 
-                PG = PR - modelgauges[-1][3] ## pattern gauge at end 
-                # print ("***********************************\n%d, %f, %f, R=%.1f, dist=%.1f"%(pn[0], pn[x]*1000, pn[y]*1000, R*1000, (R-pn[y])*1000))
-                pn[y]=R -  CG *  PL / PG
-                # print (" Model Pattern : Gauge ratio=%.2f (Gauge=%.2f, Dist from Top=%.1f)"%( PL / PG, PG*1000, PL*1000))
-                # print (" scaled Pattern: Gauge ratio=%.2f (Gauge=%.2f, Dist from Top=%.1f)"%( CL / CG, CG*1000, CL*1000))
-                # print (" Profile R=%.1f,(R-%.1f) profile ga at end=%.1f, adjusted Ptn Node R=%.1f"%(R*1000, CG *  PL / PG*1000, CG*1000, pn[y]*1000))
+                ix = np.where(pattern_org_nodes[:,0] == pn[0])[0][0]; ON = pattern_org_nodes[ix]
+                PL = PR - ON[3] 
+                PG = PR - modelgauges[m][3]
+                pn[y]=R - PL * CG / PG 
                 pnodes.append(pn)
                 continue 
 
@@ -18551,7 +16933,7 @@ def Pattern_Gauge_ratio_adjustment(section, nodes_solids, pattern_solid, pattern
                                 break 
                         if round(PG, 3) <= 0 : 
                             if ON[x] < 0 : PG = PR - modelgauges[0][3]
-                            else:          PG = PR - modelgauges[-1][3]
+                            else:          PG = PR - modelgauges[len(modelgauges)-1][3]
                             # print (" No model gauge, position x =%.3f, replace PG = %.3f"%(pn[x]*1000, PG*1000) )
                         # modified_gauge =  CG *  PL / PG 
                         pn[y]=R -  CG *  PL / PG
@@ -18985,11 +17367,11 @@ def AttatchSquarePatternSideNodes(layout_sidenodes, npn, orgn, surf_posSide, sur
     if layout_sidenodes[2][2] <0 : layout_sidenodes[2][2] *= -1
     sideR, sideCen = Circle3Nodes(layout_sidenodes[0], layout_sidenodes[1], layout_sidenodes[2], xy=23, radius=1, center=1)
 
-    # print (" Profile side Radius =%.1f"%(sideR*1000))
-    # print ("%d, %.3f, %.3f"%(layout_sidenodes[0][0], layout_sidenodes[0][2], layout_sidenodes[0][3]))
-    # print ("%d, %.3f, %.3f"%(layout_sidenodes[1][0], layout_sidenodes[1][2], layout_sidenodes[1][3]))
-    # print ("%d, %.3f, %.3f"%(layout_sidenodes[2][0], layout_sidenodes[2][2], layout_sidenodes[2][3]))
-
+    # print (" 3 nodes on profile side")
+    # print (layout_sidenodes[0][2], ",", layout_sidenodes[0][3])
+    # print (layout_sidenodes[1][2], ",", layout_sidenodes[1][3])
+    # print (layout_sidenodes[2][2], ",", layout_sidenodes[2][3])
+    
     sideNodes=[]
     for sf, sf1 in zip(surf_posSide, surf_negSide): 
         sideNodes.append(sf[7]);    sideNodes.append(sf[8]);    sideNodes.append(sf[9]);    sideNodes.append(sf[10])
@@ -19045,7 +17427,7 @@ def AttatchSquarePatternSideNodes(layout_sidenodes, npn, orgn, surf_posSide, sur
     # print ("Side Center, %.2f, %.2f"%(sideCen[2]*1000, sideCen[3]*1000))
 
     # for p in layout_sidenodes: 
-    #     print ("layout_sidenodes, %d, %.2f, %.2f"%(p[0], p[2]*1000, p[3]*1000))
+    #     print ("point, %.2f, %.2f"%(p[2]*1000, p[3]*1000))
 
     return npn, nodeSideBtm
 
@@ -19288,18 +17670,11 @@ def Unbending_layoutTread(nodes, Tread, LProfile, RProfile, Lcurves, Rcurves, OD
             
         up_flatten = np.array(up_flatten.Node)
         GD = round(R - np.min(up_flatten[:, 3]), 4)
-
-        flatterned_sorted = np.array(flatterned_sorted)
-        
-    return flatterned_sorted, GD
+    return np.array(flatterned_sorted), GD
 def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, shoDrop=0.0): 
-    # print("** Unbending Tread elements in Layout \n")
+    # print("UNBENDING Layout tread")
 
     edge_tread = Tread.OuterEdge(nodes)
-
-    # print (len(edge_tread.Edge), " >> edge tread no.")
-    # print (" Tire Radius =%.2f"%(OD/2.0*1000))
-    # sys.exit()
 
     edgenodes=[]
     for ed in edge_tread.Edge:
@@ -19345,6 +17720,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
     
     angles=[]
     for crv in curves:
+        
         vert = [0, 0, crv[2][2], crv[2][3]+1.0]
         angle_start = Angle_3nodes(vert, crv[2], crv[0], xy=23)
         angle_end = Angle_3nodes(vert, crv[2], crv[1], xy=23)
@@ -19391,8 +17767,8 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                     
                     height = round(height, 4)
                     flatten.Add([n[0], n[1],  length, height])
-                    # print ("Flattened > ", [n[0], n[1],  length, height])
-                    # print ("      TR=%.1f, dist from top=%.5f"%(pf[0]*1000, (R-height)*1000))
+                    # print ([n[0], n[1],  length, height])
+                    # print ("R=%.1f, ht=%.5f"%(pf[0], height*1000))
                     fd = 1
                     break 
                 else: 
@@ -19455,7 +17831,7 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                 # print (" Del L=%.3f, R=%.2f dist=%.3f ht=%.4f"%(del_length, lastR*1000, dist*1000, height*1000))
                 # print ("center, %.3f, %.3f"%(lastCnt[2]*1000, lastCnt[3]*1000))
                 flatten.Add([n[0], n[1], -length, height])
-    # sys.exit()
+
     # for on, fn in zip(orgn.Node, flatten.Node): 
     #     print ("%d, %.6f, %.6f, , %d, %.6f, %.6f"%(on[0], on[2], on[3], fn[0], fn[2], fn[3]))
 
@@ -19463,23 +17839,21 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
 
     # flatterned_sorted = flatten.Sort(item=2)
     npn = np.array(flatten.Node)
-
-    # for n in npn: 
-    #     print("%d, %.3f, %.3f"%(n[0], n[2]*1000, n[3]*1000))
+    
 
     ## search bottom nodes 
     # btm_edges = EDGE()
     btm_edges = []
     e1=[]; e2=[]; edges=[]
-    # print ("## TREAD EDGE TOP R=%.2f"%(R*1000))
+    # print ("## TREAD EDGE TOP")
     for ed in edge_tread.Edge:
         ix1 = np.where(npn[:,0] == ed[0])[0][0]
         ix2 = np.where(npn[:,0] == ed[1])[0][0]
 
         # print (" %.5f, %.5f,\n %.5f, %5.5f,"%(npn[ix1][2], npn[ix1][3], npn[ix2][2], npn[ix2][3]))
         if npn[ix1][3] < R or npn[ix2][3] < R: 
-            # print ("Tread %d (%.2f), %d (%.2f)"%(ed[0], npn[ix1][3]*1000, ed[1], npn[ix2][3]*1000))
-            # print("      %d,"%(ed[4]), end=" ")
+            # print ("%d (%.2f), %d (%.2f)"%(ed[0], npn[ix1][3]*1000, ed[1], npn[ix2][3]*1000))
+            # print("%d,"%(ed[4]), end=" ")
             btm_edges.append(ed)
             e1.append(ed[0])
             e2.append(ed[1])
@@ -19488,8 +17862,6 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
     e1 = np.array(e1); e2 = np.array(e2); edges = np.array(edges)
     en = np.setdiff1d(e1, e2)
     # print ("the No. of Tread Edge separated %d\n\n"%(len(en)))
-
-
     if len(en)>1: 
         connected = []
         for e in en: 
@@ -19511,33 +17883,19 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
                 # print ("EDGE selected..")
     # print ("BTM Edges\n\n")
     # for ed in btm_edges:
-        # print("%d, %d, %d"%(ed[4], ed[0], ed[1]))
-        # print("%d"%(ed[4]), end=",")
-    # print ("end...")
+    #     print("%d, %d, %d"%(ed[4], ed[0], ed[1]))
 
-    # print ("* SEARCHING TREAD SIDE NODES : No=%d"%(len(btm_edges)))
+    # print ("end...")
+    # print ("* SEARCHING TREAD SIDE NODES")
     i = 0
     N = len(btm_edges)-5
     cnt = 0 
-    errExit = 0 
     while 1:
         cnt += 1
         if i >= N or cnt > 100000: break 
-        # print (btm_edges[0])
-        # print (btm_edges[1])
-        # print ("%d, %d, %d"%(btm_edges[0][0], btm_edges[0][1], btm_edges[1][1]))
-        try: 
-            ix = np.where(nodes[:,0]==btm_edges[0][0])[0][0]; n0=nodes[ix]
-            ix = np.where(nodes[:,0]==btm_edges[0][1])[0][0]; n1=nodes[ix]
-            ix = np.where(nodes[:,0]==btm_edges[1][1])[0][0] 
-        except: 
-
-            print (" Error to find the nodes on tread side.")
-            print (" Check shoulder drop value!!")
-            print (" Current shoulder drop = %.2fmm"%(shoDrop*1000))
-            errExit = 1
-            break 
-
+        ix = np.where(nodes[:,0]==btm_edges[0][0])[0][0]; n0=nodes[ix]
+        ix = np.where(nodes[:,0]==btm_edges[0][1])[0][0]; n1=nodes[ix]
+        ix = np.where(nodes[:,0]==btm_edges[1][1])[0][0] 
         n2=nodes[ix]
         if abs(n0[2] - n1[2]) > abs(n0[3] - n1[3]) : 
             del(btm_edges[0])
@@ -19549,51 +17907,47 @@ def Unbending_squareLayoutTread(nodes, Tread, LProfile, RProfile, OD, curves, sh
         del(btm_edges[0])
         if angle < 2.3: ## 130 degrees
             break 
-
-    if errExit ==0: 
-        cnt = 0 
-        while 1: 
-            cnt += 1
-            N = len(btm_edges)-1
-            if N < 5 or cnt > 100000: break 
-            ix = np.where(npn[:,0]==btm_edges[N][1])[0][0]; n0=npn[ix]
-            ix = np.where(npn[:,0]==btm_edges[N][0])[0][0]; n1=npn[ix]
-            ix = np.where(npn[:,0]==btm_edges[N-1][0])[0][0]; n2=npn[ix]
-            if abs(n0[2] - n1[2]) > abs(n0[3] - n1[3]) : 
-                del(btm_edges[N])
-                continue 
-            angle = Angle_3nodes(n0, n1, n2, xy=23)
-            if n0[2] > 0: 
-                treadSide2Nodes = [n0[0], n1[0]]
+    cnt = 0 
+    while 1: 
+        cnt += 1
+        N = len(btm_edges)-1
+        if N < 5 or cnt > 100000: break 
+        ix = np.where(npn[:,0]==btm_edges[N][1])[0][0]; n0=npn[ix]
+        ix = np.where(npn[:,0]==btm_edges[N][0])[0][0]; n1=npn[ix]
+        ix = np.where(npn[:,0]==btm_edges[N-1][0])[0][0]; n2=npn[ix]
+        if abs(n0[2] - n1[2]) > abs(n0[3] - n1[3]) : 
             del(btm_edges[N])
-            if angle < 2.3: ## 130 degrees
-                break 
+            continue 
+        angle = Angle_3nodes(n0, n1, n2, xy=23)
+        if n0[2] > 0: 
+            treadSide2Nodes = [n0[0], n1[0]]
+        del(btm_edges[N])
+        if angle < 2.3: ## 130 degrees
+            break 
 
-        # print ("BTM Edges")
-        # for ed in btm_edges:
-        #     print("%d,"%(ed[4]), end="")
+    # print ("BTM Edges")
+    # for ed in btm_edges:
+    #     print("%d,"%(ed[4]), end="")
 
-        btm_nodes=NODE()
-        for i, ed in enumerate(btm_edges): 
-            if i == 0: 
-                ix = np.where(npn[:,0]==ed[0])[0][0]
-                btm_nodes.Add(npn[ix])
-            ix = np.where(npn[:,0]==ed[1])[0][0]
+    btm_nodes=NODE()
+    for i, ed in enumerate(btm_edges): 
+        if i == 0: 
+            ix = np.where(npn[:,0]==ed[0])[0][0]
             btm_nodes.Add(npn[ix])
-        # for n in btm_nodes.Node:
-        #     print("%d,"%(n[0]))
-        btm_nodes = btm_nodes.Sort(item=2)
+        ix = np.where(npn[:,0]==ed[1])[0][0]
+        btm_nodes.Add(npn[ix])
+    # for n in btm_nodes.Node:
+    #     print("%d,"%(n[0]))
+    btm_nodes = btm_nodes.Sort(item=2)
 
-        ix = np.where(nodes[:,0]== treadSide2Nodes[0])[0][0]
-        sideNodes.append(nodes[ix])
-        ix = np.where(nodes[:,0]== treadSide2Nodes[1])[0][0]
-        sideNodes.append(nodes[ix])
+    ix = np.where(nodes[:,0]== treadSide2Nodes[0])[0][0]
+    sideNodes.append(nodes[ix])
+    ix = np.where(nodes[:,0]== treadSide2Nodes[1])[0][0]
+    sideNodes.append(nodes[ix])
 
-        print("* Reference nodes on Tread side %d, %d"%(treadSide2Nodes[0],treadSide2Nodes[1] ))
+    print("* Reference nodes on Tread side %d, %d"%(treadSide2Nodes[0],treadSide2Nodes[1] ))
 
-        return  np.array(btm_nodes), sideNodes
-    else: 
-        return [], []
+    return  np.array(btm_nodes), sideNodes
 
 def Pattern_Gauge_Adjustment_ToBody(bottom_nodes_sorted, pattern_nodes, pattern_btm_surf, pattern_solid, OD, GaugeConstantRange, pattern_org_nodes, surf_ptnside_pos, surf_ptnside_neg, xy=23, mg=0.5E-03): 
     #        _Tread_bottom_sorted, pattern.npn, pattern.freebottom, pattern.nps, layout.OD, gauge_constant_range, pattern.Node_Origin, pattern.surf_pattern_pos_side, pattern.surf_pattern_neg_side)
@@ -19719,8 +18073,6 @@ def Pattern_Gauge_Adjustment_ToBody(bottom_nodes_sorted, pattern_nodes, pattern_
         modelgauges.append([start_node[x], org_btnodes[ix][x], start_node[y], org_btnodes[ix][y]])
         start_node = org_btnodes[ix]
 
-        # print (modelgauges[-1])
-
     modelgauges = np.array(modelgauges)
 
     # border_width = pmax - GaugeConstantRange
@@ -19736,8 +18088,7 @@ def Pattern_Gauge_Adjustment_ToBody(bottom_nodes_sorted, pattern_nodes, pattern_
     # if fix == 1: 
     #     print ("** Groove Depth ratio adjusted after half width %.2fmm from center"%(start*1000))
     #     pnodes, _,   _ = Pattern_Gauge_ratio_adjustment(section, nodes_solids, pattern_solid, pattern_nodes, pattern_org_nodes, modelgauges, GaugeConstantRange, fix=fix, start=start, xy=xy, mg=mg, TargetR=R, ModelR=PR)
-    # print (section[0])
-    # print (section[-1])
+
     for n in btmnodes:   ## add bottom nodes 
         pnodes.append(n)   
     pnodes = np.array(pnodes)                                     
@@ -19858,8 +18209,6 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
     x = int(xy/10); y = int(xy%10)
     prf = []
     print ("\n## Bending Pattern - Positive side profile")
-
-    
     lsum = 0 
     if profiles[-1][0] < 0: del(profiles[-1])
     for pf in profiles:
@@ -19882,17 +18231,6 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
         px = 0.0
         py = 0.0 
         deformed = [nd[0], nd[1], nd[2], nd[3]]
-
-        ##########################################################################################
-        ## for debugging 
-        ##########################################################################################
-        # if nd[3] == 0.5135: show=1
-        # else: show =  0 
-        # if show ==1: 
-        #     print ("**************************************************")
-        #     print ("** Node %d, %2f, %2f, %2f (OD/2=%.2f)"%(nd[0]-10**7, nd[1]*1000, nd[2]*1000, nd[3]*1000,OD/2.0 ))
-        ##########################################################################################
-
         if abs(nd[2]) < mg : 
             px = nd[x]; py=nd[y]
         else: 
@@ -19925,10 +18263,8 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
             cx = round(curves[npf][2][x], 9); cy = round(curves[npf][2][y], 9)
             r = profiles[npf][0]
             del_l = abs(nd[x]) - s_length 
-            # if show ==1:
-            #     if del_l > profiles[npf][1]: 
-            #         print ("%d, x=%.1f, Curve L=%.3f, Del=%.3f"%(npf, nd[x]*1000, profiles[npf][1]*1000, del_l*1000))
-            
+            # if del_l > profiles[npf][1]: 
+            #     print ("%d, x=%.1f, Curve L=%.3f, Del=%.3f"%(npf, nd[x]*1000, profiles[npf][1]*1000, del_l*1000))
             h = OD/2.0 - nd[y] 
 
             if negR == 0: 
@@ -19945,10 +18281,10 @@ def BendingSquarePattern(OD=0.0, profiles=[], curves=[], nodes=[], xy=23):
                 px = cx - (r+h) * cos(A)
                 py = cy - (r+h) * sin(A)
 
-        # if show ==1:
-        #     if py > OD/2 or r < 0 : 
-        #         print (" curve R=,%.6f, flat X=,%.6f, Ht=,%.6f, bended x=,%.6f, y=,%.6f, angle=,%.3f, sx=,%.6f, sy=,%6f, cx=,%.6f, cy=,%.6f"%(r, nd[x], h, px, py, degrees(A), sx,sy, cx, cy))
-        #         print ("del L, %.6f, Del Angle, %.3f, start Angle=%.3f"%(del_l, degrees(del_l / r ), degrees(asin((cy - sy)/r)) ))
+
+        # if py > OD/2 or r < 0 : 
+            # print (" curve R=,%.6f, flat X=,%.6f, Ht=,%.6f, bended x=,%.6f, y=,%.6f, angle=,%.3f, sx=,%.6f, sy=,%6f, cx=,%.6f, cy=,%.6f"%(r, nd[x], h, px, py, degrees(A), sx,sy, cx, cy))
+            # print ("del L, %.6f, Del Angle, %.3f, start Angle=%.3f"%(del_l, degrees(del_l / r ), degrees(asin((cy - sy)/r)) ))
 
 
         if nd[2]>0: deformed[x] = px 
@@ -20132,9 +18468,7 @@ def ShoulderTreadGa(OD, profiles, curves, layout_btm_nodes, TDW, shoR=0, xy=23):
     return mga 
 
 def AttatchBottomNodesToBody(bodynodes=[], bodyelements=[], ptnnodes=[], ptnbottom=[], start=0, shoulder='R',\
-    ptnelements=None): 
-    if isinstance(ptnelements, type(None)):  ptnelements=[]
-
+    ): 
     btnodes = ptnbottom[:,7:]
     btnodes = np.unique(btnodes)
     btm = []
@@ -20206,72 +18540,31 @@ def AttatchBottomNodesToBody(bodynodes=[], bodyelements=[], ptnnodes=[], ptnbott
     for nd in btm: 
         # if nd[0] == 4282+10**7 or nd[0] == 4355 + 10**7 : sh = 1
         # else: sh = 0 
-
-        und = None
-
-        k = 0 
-        while k < 4: 
-            k += 1
-            ixs = np.where(ptnelements[:, k] == nd[0])[0]
-            if len(ixs) > 0: 
-                ix = ixs[0]
-                if ptnelements[ix][8] > 0:   offn = 4  
-                else: offn = 3 
-                
-                upN = ptnelements[ix][k + offn] 
-
-                ix = np.where(ptnnodes[:,0]==upN)[0][0]
-                und = ptnnodes[ix]
-                break 
-        
         fd = 0 
-        ixf = np.where(ptnnodes[:, 0] == nd[0])[0][0]
+        for bs in base: 
+            dist, cn = DistanceFromLineToNode2D(nd, nodes=bs, xy=23)
+            if cn[2]*nd[2] < 0: continue
+            # if dist < 0.05e-3 : 
+            #     fd = 1
+            #     break  
+            if bs[0][3] > bs[1][3]: 
+                up=bs[0][3]; down=bs[1][3]
+            else: 
+                up=bs[1][3]; down=bs[0][3]
 
-        # print (" Up/Dw Nodes %d-%d"%(und[0]-10**7, nd[0]-10**7))
-        if isinstance(und, type(None)): 
-            for bs in base: 
-                dist, cn = DistanceFromLineToNode2D(nd, nodes=bs, xy=23)
-                if cn[2]*nd[2] < 0: continue  ## for error case. 
-                # if dist < 0.05e-3 : 
-                #     fd = 1
-                #     break  
-                if bs[0][3] > bs[1][3]: 
-                    up=bs[0][3]; down=bs[1][3]
-                else: 
-                    up=bs[1][3]; down=bs[0][3]
+            if bs[0][2] > bs[1][2]: 
+                lt=bs[1][2]; rt = bs[0][2]
+            else: 
+                lt=bs[0][2]; rt = bs[1][2]
 
-                if bs[0][2] > bs[1][2]: 
-                    lt=bs[1][2]; rt = bs[0][2]
-                else: 
-                    lt=bs[0][2]; rt = bs[1][2]
-
-                # if sh == 1: print (" %d (%.2f,%.2f)> (%.2f,%.2f)- (%.2f,%.2f)/(%.2f,%.2f)"%(nd[0]-10**7, nd[2]*1000, nd[3]*1000, cn[2]*1000, cn[3]*1000, bs[0][2]*1000, bs[1][2]*1000, down*1000, up*1000))
-                if cn[2] >= lt and cn[2] <= rt and down<=cn[3] and cn[3] <=up: 
-                    # if sh == 1: print (" **************** MATCH")               
-                    fd = 1 
-                    ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
-                    ptnnodes[ix][2] = cn[2]
-                    ptnnodes[ix][3] = cn[3]
-                    break
-        
-        else: 
-            for i, bs in enumerate(base): 
-                iN = IntersectionPointOf2Lines([und, nd], bs, xy=23)
-                
-                if isinstance(iN, type(None)): continue 
-                if iN[2]*nd[2] < 0: continue  ## for error case. 
-
-                if bs[0][2] < bs[1][2]: 
-                    lN = bs[0]; rN = bs[1]
-                else: 
-                    lN = bs[1]; rN = bs[0]
-                if lN[2]<=iN[2] and iN[2]<=rN[2]:
-                    # print ("%d, %.3f, %.3f -> %.3f, %.3f"%(ptnnodes[ixf][0]-10**7, ptnnodes[ixf][2]*1000, ptnnodes[ixf][3]*1000, iN[2]*1000, iN[3]*1000))
-                    ptnnodes[ixf][2] = iN[2]
-                    ptnnodes[ixf][3] = iN[3] 
-                    fd =1 
-                    break 
-        
+            # if sh == 1: print (" %d (%.2f,%.2f)> (%.2f,%.2f)- (%.2f,%.2f)/(%.2f,%.2f)"%(nd[0]-10**7, nd[2]*1000, nd[3]*1000, cn[2]*1000, cn[3]*1000, bs[0][2]*1000, bs[1][2]*1000, down*1000, up*1000))
+            if cn[2] >= lt and cn[2] <= rt and down<=cn[3] and cn[3] <=up: 
+                # if sh == 1: print (" **************** MATCH")               
+                fd = 1 
+                ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
+                ptnnodes[ix][2] = cn[2]
+                ptnnodes[ix][3] = cn[3]
+                break
         if fd == 0: 
             # print (">> %d, %.3f, %.3f"%(nd[0]-10**7, nd[2]*1000, nd[3]*1000))
             mdist = 10e10
@@ -20287,10 +18580,10 @@ def AttatchBottomNodesToBody(bodynodes=[], bodyelements=[], ptnnodes=[], ptnbott
                     mdist = dist 
                     md = bs[1]
                     # if dist < 0.01: print ("     %d, %.3f, %.3f, d=%.3f"%(bs[1][0], bs[1][2]*1000, bs[1][3]*1000, dist*1000))
-            # ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
-            ptnnodes[ixf][2] = md[2]
-            ptnnodes[ixf][3] = md[3]
-    # sys.exit()        
+            ix = np.where(ptnnodes[:, 0] == nd[0])[0][0]
+            ptnnodes[ix][2] = md[2]
+            ptnnodes[ix][3] = md[3]
+            
     return ptnnodes
 def BendintPatternInCircumferentialDirection(nodes, OD): 
     R = OD/2.0 
@@ -20302,8 +18595,7 @@ def BendintPatternInCircumferentialDirection(nodes, OD):
         bended.append([nd[0], r  * sin(theta), nd[2], r  * cos(theta),  r,  theta])
     return np.array(bended)
 def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_down, surf_free=[], \
-    surf_btm=[], surf_side=[], elset=[], offset=10000, pl=0, ptn_org=[], ptn_pl=0, pd=[], rev=False, newPitchNodes=[], \
-        shoulderType='R'): # pn: the number of pitches, 
+    surf_btm=[], surf_side=[], elset=[], offset=10000, pl=0, ptn_org=[], ptn_pl=0, pd=[], rev=False, newPitchNodes=[]): # pn: the number of pitches, 
     ## the nodes should have its radius for the processing speed.
     # pn : pitch number, OD : Tire OD (target) 
     # surf_side = [neg_pitch_side, pos_pitch_side]
@@ -20398,6 +18690,9 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
     # else: print ("## Pattern is not reversed...")
     # print (deleted_nodes)
     mched_nodes = np.array(mched_nodes)
+    
+    #########################
+    ## , deleted_nodes >> self.nd_deleted , mched_nodes
 
     delta = 2*PI / float(pn) 
     if pl >0: ## check the delta angle 
@@ -20491,30 +18786,25 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
             surf_free = np.delete(surf_free, idx[0], 0)
 
     surf_to_body=[]
-    if shoulderType == 'R': 
-        for sf in surf_side[0]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
-            #print("SIDE %d, Face=%d"%(sf[0]-10**7, sf[1]))
-            ix1 = np.where(surf_free[:,0] == sf[0])[0]
-            ix2 = np.where(surf_free[:,1] == sf[1])[0]
-            idx = np.intersect1d(ix1, ix2) 
-            if len(idx) == 1: 
-                surf_to_body.append(sf)
-                surf_free = np.delete(surf_free, idx[0],  axis=0)
-        for sf in surf_side[1]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
-            ix1 = np.where(surf_free[:,0] == sf[0])[0]
-            ix2 = np.where(surf_free[:,1] == sf[1])[0]
-            idx = np.intersect1d(ix1, ix2) 
-            if len(idx) == 1: 
-                surf_to_body.append(sf)
-                surf_free = np.delete(surf_free, idx[0],  axis=0)
-    
+    for sf in surf_side[0]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
+        #print("SIDE %d, Face=%d"%(sf[0]-10**7, sf[1]))
+        ix1 = np.where(surf_free[:,0] == sf[0])[0]
+        ix2 = np.where(surf_free[:,1] == sf[1])[0]
+        idx = np.intersect1d(ix1, ix2) 
+        if len(idx) == 1: 
+            surf_to_body.append(sf)
+    for sf in surf_side[1]:  ## surf_side = [[surfaces in the neg. side], [surfaces in the pos. side]]
+        ix1 = np.where(surf_free[:,0] == sf[0])[0]
+        ix2 = np.where(surf_free[:,1] == sf[1])[0]
+        idx = np.intersect1d(ix1, ix2) 
+        if len(idx) == 1: 
+            surf_to_body.append(sf)
     for sf in surf_btm: 
         ix1 = np.where(surf_free[:,0] == sf[0])[0]
         ix2 = np.where(surf_free[:,1] == sf[1])[0]
         idx = np.intersect1d(ix1, ix2) 
         if len(idx) == 1: 
             surf_to_body.append(sf)
-            surf_free = np.delete(surf_free, idx[0],  axis=0)
 
     surf_XTRD1001=[]
     surf_YTIE1001=[]
@@ -20537,7 +18827,7 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
         esed([sets[0], nos])
 
 
-    return fnodes, fsolids, elset3d, surf_XTRD1001, surf_YTIE1001, deleted_nodes, mched_nodes, surf_free, surf_to_body
+    return fnodes, fsolids, elset3d, surf_XTRD1001, surf_YTIE1001, deleted_nodes, mched_nodes
 def GenerateFullBodyMesh(nodes, elements, elsets, surfaces=[], sectors=240, offset=10000, body_outer=[]): 
     PI = 3.14159265358979323846
     nodes3d = []
@@ -20759,7 +19049,7 @@ def SubTreadCenterGa(up, down, position=0.0):
         if cn[2] > un[0][2] and cn[2] < un[1][2]: 
             # print ("Sub TD Ga at %.3f=%.3fmm"%(position*1000, L*1000))
             return L 
-    # print ("NO found sub tread ga at=%.3f"%(position*1000))
+    print ("NO found sub tread ga at=%.3f"%(position*1000))
     return -1 
 
 def ReplaceNodesOnSurface(surface, psolid, nsolid, pitch=0): 
@@ -20826,12 +19116,12 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             Elset = ["CTR", ptn_solid[:,0]]
         elsets=[]  # Elset_SUT = ["SUT", []]
         elsets.append(Elset)
-        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, [], []
+        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, []
 
     if btm ==1: 
         btmsolid = surf_btm[:, 0]
         if shoulder=="S": 
-            margin = tdw*0.35
+            margin = tdw*0.48
             cap=[]
             for sf in surf_btm: 
                 ix = np.where(ptn_node[:,0]==sf[7])[0][0]
@@ -20896,15 +19186,11 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
 
         up=[]
         down=[]
-        ys =[]
         for edge in str_outer.Edge: 
             ix1 = np.where(ln[:, 0] == edge[0])[0][0]
             ix2 = np.where(ln[:, 0] == edge[1])[0][0]
             if ln[ix1][2] > ln[ix2][2]: down.append([ln[ix2], ln[ix1]]) 
             else:                 up.append([ln[ix1], ln[ix2]])
-            ys.append(ln[ix1][2]); ys.append(ln[ix2][2])
-        ys = np.array(ys)
-        minSutY = np.min(ys); maxSutY = np.max(ys)
         ################################################################
 
         cP = 0 
@@ -21043,24 +19329,22 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
         
         cP = 0 
         restore = 0 
-        matchEL =[]
+
         for ix in btmSolidIdx:
             sod =[]
             for sd in ptn_solid[ix]: 
                 sod.append(sd)
                 
             newE.append(sod)
-            
             eCnt += 1 
             # print ("%d: EL New %d -> %d"%(len(newE), newE[-1][0], elMax+eCnt))
-            matchEL.append([sod[0], elMax+eCnt])
             newE[-1][0] = elMax+eCnt
             if ptn_solid[ix][7]>0: 
                 ix1 = np.where(newN[:,4]== ptn_solid[ix][5])[0][0]
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el(1): %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -21072,7 +19356,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el(2): %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -21084,7 +19368,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el(3): %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -21096,7 +19380,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][4])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el(4): %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -21119,7 +19403,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][1])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el(*): %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -21131,7 +19415,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][2])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el(#): %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -21143,7 +19427,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 ix2 = np.where(newN[:,5]== ptn_solid[ix][3])[0][0]
                 idx = np.intersect1d(ix1, ix2)
                 if len(idx) == 0: 
-                    print(" ERROR NO Match el(!): %d"%(ptn_solid[ix][0]))
+                    print(" ERROR NO Match el: %d"%(ptn_solid[ix][0]))
                     restore =1 
                     break
                 else:
@@ -21192,7 +19476,6 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                 if len(newSurf) > 0: 
                     newSidePos.append(newSurf) 
                     # Nside -= 1
-        newSurfs=[]
         if restore ==0: 
             newPitchUp = np.array(newPitchUp)
             newPitchDown = np.array(newPitchDown)
@@ -21203,8 +19486,6 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             pitchDown      = np.concatenate((pitchDown, newPitchDown), axis=0)
             sideNeg      = np.concatenate((sideNeg, newSideNeg), axis=0)
             sidePos      = np.concatenate((sidePos, newSidePos), axis=0)
-
-            newSurfs = np.concatenate((newPitchUp, newPitchDown, newSideNeg, newSidePos), axis=0)
             
             print ("## Bottom Elements was divided")
             # print ("pitch sum=%d, side sum=%d"%(Npitch, Nside))
@@ -21217,7 +19498,6 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
         else:
             print ("## Bottom Elements cannot be divided")
             ptn_solid = backupSolid.nps
-            matchEL = []
         #################################################################
         ## Searching Sub Tread Area 
         poly = []
@@ -21225,10 +19505,9 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             ix = np.where(ln[:, 0] == edge[1])[0][0]
             poly.append([ln[ix][x], ln[ix][y]])
 
-        subTreadElset = []
         for sol in ptn_solid: 
-            # sidx = np.where(btmsolid[:]==sol[0])[0]
-            # if len(sidx) > 0: continue 
+            sidx = np.where(btmsolid[:]==sol[0])[0]
+            if len(sidx) > 0: continue 
 
             cx = 0.0;  cy =0.0
             ix = np.where(ptn_node[:,0]==sol[1])[0][0]
@@ -21257,22 +19536,15 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
 
             if IsPointInPolygon([cx, cy], poly) : 
                 btmsolid = np.append(btmsolid, sol[0])
-                subTreadElset.append(sol[0])
         #################################################################
-        # minSutY = np.min(ys); maxSutY = np.max(ys)
-        subTreadElset = np.array(subTreadElset)
+
         allsolid = ptn_solid[:, 0]
         if iCTR ==0: 
-            sut = ["SUT", subTreadElset]
-            ctb = ["CTB", np.setdiff1d(allsolid,  subTreadElset)]
-            # sut = ["SUT", btmsolid]
-            # ctb = ["CTB", np.setdiff1d(allsolid,  btmsolid)]
-
+            sut = ["SUT", btmsolid]
+            ctb = ["CTB", np.setdiff1d(allsolid,  btmsolid)]
         else: 
-            sut = ["UTR", subTreadElset]
-            ctb = ["CTR", np.setdiff1d(allsolid,  subTreadElset)]
-            # sut = ["UTR", btmsolid]
-            # ctb = ["CTR", np.setdiff1d(allsolid,  btmsolid)]
+            sut = ["UTR", btmsolid]
+            ctb = ["CTR", np.setdiff1d(allsolid,  btmsolid)]
 
         elsets=[ctb, sut]  # Elset_SUT = ["SUT", []]
 
@@ -21286,8 +19558,8 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             pitchDown= backupSolid.surf_pitch_down
             sideNeg= backupSolid.surf_pattern_neg_side
             sidePos= backupSolid.surf_pattern_pos_side
-        
-        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, matchEL, newSurfs
+
+        return elsets, ptn_solid, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, newPitchNode
     else: 
         lnode = STR.Nodes(node=layout_node) 
         str_outer = STR.OuterEdge(lnode)
@@ -21342,15 +19614,15 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
             sut=["UTR", sutn]
             ctb=["CTR", ctbn] 
         ptn_elset = [sut, ctb]
-        
-        return ptn_elset, ptn_solid, ptn_node, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, matchEL
+
+        return ptn_elset, ptn_solid, ptn_node, ptn_node, pitchUp, pitchDown, sideNeg, sidePos, []
 def Creating_pattern_pitch(expanded_pattern, pattern, LProfile, RProfile, Lcurves, Rcurves, OD, GD, ptn_id=10**7, TDW=0.0, fname="",\
- PN=0, pitch_up=[], pitch_down=[], pitch_side_pos=[], pitch_side_neg=[], bottom_surf=[], top_free=[],xtrd=[], ytie=[], revPtn=False): 
+ PN=0, pitch_up=[], pitch_down=[], pitch_side_pos=[], pitch_side_neg=[], bottom_surf=[], top_free=[], revPtn=False): 
     revPtn=False
     npn = expanded_pattern.npn 
     nps = expanded_pattern.nps 
     free = expanded_pattern.Free_Surface_without_BTM
-
+    
     Rangles=[]
     for crv in Rcurves:
         # print ("* ", crv[0], end=" : ")
@@ -21571,31 +19843,6 @@ def Creating_pattern_pitch(expanded_pattern, pattern, LProfile, RProfile, Lcurve
                 elif sf[1] == 5: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 3))
                 else: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
 
-    if len(xtrd) > 0: 
-        f.writelines("*SURFACE, TYPE=ELEMENT, NAME=XTRD1001\n")
-        for sf in xtrd: 
-            tns.append(sf[7]-ptn_id); tns.append(sf[8]-ptn_id); tns.append(sf[9]-ptn_id) 
-            if sf[10]>=10**7: tns.append(sf[10]-ptn_id) 
-            tes.append(sf[0]-ptn_id)
-            if revPtn == False:  f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
-            else: 
-                if sf[1] ==3: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 5))
-                elif sf[1] == 5: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 3))
-                else: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
-    if len(ytie) > 0: 
-        f.writelines("*SURFACE, TYPE=ELEMENT, NAME=YTIE1001\n")
-        for sf in ytie: 
-            tns.append(sf[7]-ptn_id); tns.append(sf[8]-ptn_id); tns.append(sf[9]-ptn_id) 
-            if sf[10]>=10**7: tns.append(sf[10]-ptn_id) 
-            tes.append(sf[0]-ptn_id)
-            if revPtn == False:  f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
-            else: 
-                if sf[1] ==3: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 5))
-                elif sf[1] == 5: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, 3))
-                else: f.writelines("%6d, S%d\n"%(sf[0]-ptn_id, sf[1]))
-    
-
-
     tns = np.array(tns)
     tns = np.unique(tns)
     f.writelines("*NSET, NSET=TOP_SURFACE\n")
@@ -21642,7 +19889,7 @@ def Creating_tread_removed_layout(fname="", nodes=[], elements=[], elsets=[], su
         nmin = 0 
         for i, ed in enumerate(interface.Edge): 
             # n = all_nodes.NodeByID(ed[0]) 
-            ix = np.where(npn[:,0] == ed[0])[0][0]; n = npn[ix]
+            ix = np.where(npn[:,0] == ed[0])[0][0]; n = all_nodes[ix]
             # print(i, ed[0], n)
             if i == 0: 
                 nmax = n[0] 
@@ -21843,7 +20090,7 @@ def SolidComponents_checking(fname="Solid_Components.mat", trd='', axi='', retur
         
     solids = sorted(solids)
     
-    print ("\n* Continuum Components (%d EA)"%(len(solids)))
+    print ("* Continuum Components (%d EA)"%(len(solids)))
     for n in solids: 
         # f.write(" %s\n"%(n))
         print (" %s"%(n), end="  ")
@@ -21869,9 +20116,10 @@ def SolidComponents_checking(fname="Solid_Components.mat", trd='', axi='', retur
     if return_value ==1: 
         return solids, cords 
 
-def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body_offset=0, body_sector=0, profiles=[], curves=[],\
-                        ptn_top=[],  ptn_free=[], ptn_npn=[], ptn_deleted_nodes=[], ptn_deleted=[], \
-                        ptn_PN=0, ptn_PL=0.0, ptn_offset=0, shoulder="R", revPtn=False, grooveTire=0, crownEdge=[]): 
+def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body_offset=0, 
+            body_sector=0, profiles=[], curves=[],\
+            ptn_top=[],  ptn_free=[], ptn_npn=[], ptn_deleted_nodes=[], ptn_deleted=[], \
+            ptn_PN=0, ptn_PL=0.0, ptn_offset=0, shoulder="R", revPtn=False): 
     ## ]
     print ("\n* Generating 'FricView' input")
     revPtn=False
@@ -21909,7 +20157,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
 
     bds = []
     for nid in ndid: 
-        ix = np.where(bdn[:,0] == nid)[0][0]
+        ix = np.where(bdn[:,0] == nid)[0][0]  ## 20289
         bds.append(bdn[ix])
     
     bds = np.array(bds)
@@ -21978,12 +20226,6 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                 else: 
                     if len(ix4) > 0: n4 = ptn_deleted_nodes[ix4[0]][1] + ptn_offset * (i+1)
                     else:            n4 = surf[10] + ptn_offset * i 
-                if grooveTire ==1: 
-                    n1 = surf[7] + ptn_offset * i 
-                    n2 = surf[8] + ptn_offset * i 
-                    n3 = surf[9] + ptn_offset * i 
-                    if surf[10] <10**7 : n4 = n1 
-                    else:                n4 = surf[10] + ptn_offset * i
             else : 
                 if len(ix1) > 0: n1 = ptn_deleted_nodes[ix1[0]][1]
                 else:            n1 = surf[7] + ptn_offset * i 
@@ -21996,15 +20238,6 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                 else: 
                     if len(ix4) > 0: n4 = ptn_deleted_nodes[ix4[0]][1] 
                     else:            n4 = surf[10] + ptn_offset * i 
-
-                if grooveTire ==1: 
-                    n1 = surf[7] 
-                    n2 = surf[8] 
-                    n3 = surf[9] + ptn_offset * i
-                    if surf[10] <10**7 :       n4 = n1 
-                    else:                      n4 = surf[10] + ptn_offset * i 
-
-                # print("%8d %9d %9d %9d %9d %9d %9d %9d %9d"%(counting_surface, n1, n2, n3, n4, i+1, 1, 1, 1))
             
             allnds.append(n1); allnds.append(n2); allnds.append(n3); allnds.append(n4)
             counting_surface += 1 
@@ -22029,14 +20262,6 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                 else: 
                     if len(ix4) > 0: n4 = ptn_deleted_nodes[ix4[0]][1] + ptn_offset * (i+1)
                     else:            n4 = surf[10] + ptn_offset * i 
-
-                if grooveTire ==1: 
-                    n1 = surf[7] + ptn_offset * i 
-                    n2 = surf[8] + ptn_offset * i 
-                    n3 = surf[9] + ptn_offset * i 
-                    if surf[10] <10**7 : n4 = n1 
-                    else:                n4 = surf[10] + ptn_offset * i
-
             else : 
                 if len(ix1) > 0: n1 = ptn_deleted_nodes[ix1[0]][1]
                 else:            n1 = surf[7] + ptn_offset * i 
@@ -22049,17 +20274,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                 else: 
                     if len(ix4) > 0: n4 = ptn_deleted_nodes[ix4[0]][1] 
                     else:            n4 = surf[10] + ptn_offset * i 
-
-                if grooveTire ==1: 
-                    n1 = surf[7] 
-                    n2 = surf[8] 
-                    n3 = surf[9] + ptn_offset * i
-                    if surf[10] <10**7 :       n4 = n1 
-                    else:                      n4 = surf[10] + ptn_offset * i 
-
-            # if (surf[0]==10**7+3450) and i ==0 : 
-            #     print ("3450: %8d %9d %9d %9d %9d %9d %9d %9d %9d"%(counting_surface, n1, n2, n3, n4, i+1, 1, 0, 1))
-            #     print (surf)
+            
             allnds.append(n1); allnds.append(n2); allnds.append(n3); allnds.append(n4)
             counting_surface += 1 
             if revPtn == False:     f.write( "%8d %9d %9d %9d %9d %9d %9d %9d %9d\n"%(counting_surface, n1, n2, n3, n4, i+1, 1, 0, 1))
@@ -22067,6 +20282,8 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                 if surf[10] >=10**7:
                     if surf[1] < 2: f.write( "%8d %9d %9d %9d %9d %9d %9d %9d %9d\n"%(counting_surface, n4, n3, n2, n1, i+1, 1, 0, 1))
                     else:           f.write( "%8d %9d %9d %9d %9d %9d %9d %9d %9d\n"%(counting_surface, n2, n1, n4, n3, i+1, 1, 0, 1))
+            # lines += "%8d %9d %9d %9d %9d %9d %9d %9d %9d\n"%(counting_surface, n1, n2, n3, n4, i+1, 1, 0, 1)
+    # line_surface = lines 
     
     t2 = time.time()
     print ("    Pattern Mesh written (Δt=%.3f)"%(t2-t0))
@@ -22130,10 +20347,6 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
     minangle =  np.min(angles) 
     delPitchAngle = np.max(angles) - minangle
     pitch1 = np.array(P1)
-    if delPitchAngle ==0:  ## in case of groove tire 
-        delPitchAngle = 2*PI/ptn_PN
-    # print("ptn_npn", ptn_npn[0])
-    # print( np.max(angles), ", ", minangle, ",", delPitchAngle)
     
     r0 = profiles[0][0]
 
@@ -22152,16 +20365,8 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
             del(profiles[-1])
         profiles[-1][1] +=0.5  
         profiles[-1][2] +=0.5 
-    TreadNo = 10**7
-    nEdge = []
-    for i, edge in enumerate(crownEdge): 
-        ix = np.where(ptn_npn[:,0]==edge[0]+TreadNo)[0][0]
-        crownEdge[i].append(ptn_npn[ix][2])  ## [9]
-        crownEdge[i].append(ptn_npn[ix][3])  ## [10]
-        ix = np.where(ptn_npn[:,0]==edge[1]+TreadNo)[0][0]
-        crownEdge[i].append(ptn_npn[ix][2])  ## [11]
-        crownEdge[i].append(ptn_npn[ix][3])  ## [12]
-    
+
+
     data = []
     for c, nid in enumerate(allnds): 
         if (c+1)%N ==0: 
@@ -22169,7 +20374,6 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
             if cnt < 10: print("%d"%(cnt*10), end=">")
             else: print("%d%%"%(cnt*10))
         nd = ptn_npn[np.searchsorted(npnids, nid)]
-
         if nid != nd[0] : 
             print ("# no found, %d != %d"%(nid, nd[0]))
             continue 
@@ -22182,107 +20386,8 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
 
         cu = Angle_3nodes(N0, N1, nd, xy=13)    # circumferential angle from vertical line at center 
         if nd[1] < 0: cu = 2*PI - cu 
-
-        if grooveTire ==1 and len(crownEdge)>0: 
         
-            nxtNode = []; preNode = []
-            tmpN = int(nd[0]-TreadNo)%int(ptn_offset)
-            crnNode = [tmpN, nd[1], abs(nd[2]), nd[3]]
-            for edge in crownEdge: 
-                if edge[0] == crnNode[0]: 
-                    nxtNode = [edge[1], 0, edge[11], edge[12]]
-                    break 
-            for edge in crownEdge: 
-                if edge[1] == crnNode[0]: 
-                    preNode = [edge[0], 0, edge[9], edge[10]]
-                    break 
-            
-
-            if len(preNode) ==0:
-                for edge in crownEdge:  
-                    nx1 = [edge[0], 0, edge[9], edge[10]]
-                    nx2 = [edge[1], 0, edge[11], edge[12]]
-                    if nx1[2]> nx2[2]:     pN = nx2; nN = nx1 
-                    else:                  pN = nx1; nN = nx2
-
-                    if pN[2] <=nd[2] and nd[2]<=nN[2]:
-                        preNode = pN
-                        break  
-
-            if len(nxtNode)==0:
-                for edge in crownEdge:  
-                    nx1 = [edge[0], 0, edge[9], edge[10]]
-                    nx2 = [edge[1], 0, edge[11], edge[12]]
-                    if nx1[2]> nx2[2]:     pN = nx2; nN = nx1 
-                    else:                  pN = nx1; nN = nx2
-
-                    if pN[2] <=nd[2] and nd[2]<=nN[2]:
-                        nxtNode = nN
-                        break 
-                
-            if len(nxtNode)==0 : print ("No found pre", nd[0], crnNode[0])
-            if len(preNode) ==0: print ("No found nxt", nd[0], crnNode[0])
-                
-            
-            cntn =0 
-            tAngle = 0 
-            tmp1 = -100; tmp2=-100
-            if len(preNode) > 0 :
-                preNode[2] = abs(preNode[2]) 
-                if crnNode[2] > preNode[2]: pN = preNode; nN = crnNode 
-                else:                       pN = crnNode; nN = preNode 
-                if  preNode[2] != crnNode[2] or preNode[3] != crnNode[3]: 
-                    cent = [0, 0, pN[2], pN[3]-1.0]
-                    # tAngle += Angle_3nodes(cent, pN, nN, xy=23)
-                    tmp1 =  Angle_3nodes(cent, pN, nN, xy=23)
-                    if tmp1 > 0 and tmp1 >=PI/2.0: 
-                        tAngle += tmp1 
-                        cntn += 1
-
-            if len(nxtNode) > 0: 
-                nxtNode[2] = abs(nxtNode[2])
-                if crnNode[2] > nxtNode[2]: pN = nxtNode; nN = crnNode 
-                else:                       pN = crnNode; nN = nxtNode 
-                if nxtNode[2] != crnNode[2] or nxtNode[3] != crnNode[3]:
-                    
-                    cent = [0, 0, pN[2], pN[3]-1.0]
-                    # tAngle += Angle_3nodes(cent, pN, nN, xy=23)
-                    tmp2 =  Angle_3nodes(cent, pN, nN, xy=23)
-                    if tmp2 > 0 and tmp2 >=PI/2.0: 
-                        tAngle += tmp2 
-                        cntn += 1
-            try: 
-                cv = tAngle / float(cntn) - PI/2.0
-                # print ("Nd %d, angle=%.1f (%.1f, %.1f), pre=%d, next=%d"%(nd[0]-TreadNo, cv*180/3.14159, tmp1*180/3.14, tmp2*180/3.14, pN[0], nN[0]))
-            except:
-                
-                if preNode[2] > nxtNode[2]: pN = nxtNode; nN = preNode 
-                else:                       pN = preNode; nN = nxtNode 
-
-                if pN[2]==nN[2] and pN[3] == nN[3]: 
-                    for edge in crownEdge:
-                        print(edge)
-                    print ("No found node", nd) 
-                    print(crnNode)
-                    print(preNode, nxtNode )
-                    sys.exit()
-
-
-                cent = [0, 0, pN[2], pN[3]-1.0]
-                cv = Angle_3nodes(cent, pN, nN, xy=23) - PI/2.0
-
-                # for edge in crownEdge:
-                #     print(edge)
-                # print ("No found node", nd) 
-                # print(crnNode)
-                # print(preNode, nxtNode )
-                # sys.exit()
-
-            pn = int((nd[0] - 10**7) / ptn_offset)
-
-        else:
-            cv = Angles[i][0] + (Angles[i][1]-Angles[i][0]) * (abs(SL)-lengths[i]) / profiles[i][1]   # ratio = (abs(SL)-lengths[i]) / profiles[i][1] 
-
+        cv = Angles[i][0] + (Angles[i][1]-Angles[i][0]) * (abs(SL)-lengths[i]) / profiles[i][1]   # ratio = (abs(SL)-lengths[i]) / profiles[i][1] 
         if nd[2] < 0: cv *= -1.0
 
         Vx = -sin(cu)
@@ -22290,8 +20395,8 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
         Vz = -cos(cu)
         MAG = sqrt(Vx**2 + Vy**2 + Vz**2) 
 
-        ix = np.where(pitch1[:,0] == float(int(nd[0]-10**7) % ptn_offset) + 10**7 ) [0][0]
         
+        ix = np.where(pitch1[:,0] == float(int(nd[0]) % ptn_offset) + 10**7 ) [0][0]
         angleratio = (pitch1[ix][4]-minangle) / delPitchAngle 
         
         f.write( "%8d %15.6e %15.6e %15.6e %15.6e %15.6e %15.6e %15.6e %15.6e %15.6e\n"%(nd[0], nd[1], nd[2], nd[3], \
@@ -22400,26 +20505,19 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
         # if i == len(profile) -1 and totalwidth == 0:    ### I erased this line.. but I don't know why this is needed. 
         #     pf[1] += 10E-3 
         #########################################################
-        if pf[0]  == 0: pf[0] =10.0
         current_R = pf[0] 
-        if current_R == 10.0: 
-            current_R *= 100.0
-        
         r = abs(pf[0])
         sum_length += pf[1]
         angle = pf[1]/r ## arc angle 
-        # print ("R=%.1f, Len=%.2f"%(r*1000, pf[1]*1000))
         if i ==0: 
             drop = r - r * cos(angle)  # drop 
             dist = r*sin(angle)        # dist from center 
             # curves.append([dist, drop, sum_length, 0, r])
-
             p_drop = drop
             p_dist  =dist
             p_angle = angle 
             p_cx = 0
-            p_cy = r
-            # print ("drop=%.2f, dist=%.2f, angle=%.3f"%(drop*1000, dist*1000, degrees(angle))) 
+            p_cy = r 
 
             if hx <= dist and totalwidth==0:  
                 theta = asin(hx/r) 
@@ -22430,33 +20528,29 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
             pre_sum = sum_length
 
         else: 
+            c = (p_drop - p_cy)/(p_dist-p_cx)   
+            d = -p_dist * c + p_drop 
+            e = d - p_drop 
 
-            cx = p_dist - (p_dist-p_cx) / profile[i-1][0]*profile[i][0] 
-            cy = p_drop - (p_drop-p_cy) / profile[i-1][0]*profile[i][0] 
-
-            # c = (p_drop - p_cy)/(p_dist-p_cx)   
-            # d = -p_dist * c + p_drop 
-            # e = d - p_drop 
-
-            # ## Ax^2 + Bx + C = 0  , 원의 중심에서 두 곡선의 교점을 지나는 직선 
-            # A = (c*c + 1)
-            # B = -2*p_dist + 2*e*c
-            # C = p_dist*p_dist + e*e - r*r 
+            ## Ax^2 + Bx + C = 0  , 원의 중심에서 두 곡선의 교점을 지나는 직선 
+            A = (c*c + 1)
+            B = -2*p_dist + 2*e*c
+            C = p_dist*p_dist + e*e - r*r 
             
-            # ## 직선과 원이 만나는 두 점을 찾음 
-            # cx1 = (-B + sqrt(B*B-4*A*C))/2/A 
-            # cx2 = (-B - sqrt(B*B-4*A*C))/2/A 
+            ## 직선과 원이 만나는 두 점을 찾음 
+            cx1 = (-B + sqrt(B*B-4*A*C))/2/A 
+            cx2 = (-B - sqrt(B*B-4*A*C))/2/A 
             
-            # if cx1 > cx2:  cx = cx2
-            # else: cx = cx1 
+            if cx1 > cx2:  cx = cx2
+            else: cx = cx1 
 
-            # cy = c * cx + d 
+            cy = c * cx + d 
             
             angle_end   = p_angle + angle 
             drop = (cy - r) + (r-r*cos(angle_end))
             dist = cx + r*sin(angle_end)
-            # print (" Center x =%.3f, y=%.3f"%(cx*1000, cy*1000))
-            # print ("## dist=%.5f, drop=%.5f"%(dist*1000, drop*1000))
+
+            # print ("## dist=%.5f, drop=%.5f"%(dist, drop))
 
             if pf[0] < 0 and pm==0 and pn ==0:
                 pm = p_dist 
@@ -22622,103 +20716,6 @@ def NormalVector(x1, x2, x3, y1, y2, y3):
 
     det = a1 * b2 - a2 * b1
     return det
-
-def iConvexHull(oNode, XY=23, **args):
-    for key, value in args.items():
-        if key == 'xy':
-            XY = int(value)
-            
-    x=int(XY/10); y = int(XY)%10
-    if isinstance(oNode, list): 
-        LNode=NODE()
-        for nd in oNode: 
-            LNode.Add(nd)
-        oNode = LNode 
-    I = len(oNode.Node)
-
-    node=NODE()
-    for i in range(I):
-        node.Add([oNode.Node[i][0], oNode.Node[i][1], oNode.Node[i][2], oNode.Node[i][3]])
-    SortedNode=NODE()
-    if len(oNode.Node) == 0:
-        return SortedNode
-        
-    min = 10000000000000.0
-    nmin = 0
-    max = -100000000000.0
-    
-    for i in range(I):
-        if node.Node[i][y] < min:
-            min = node.Node[i][y]
-            tNode = node.Node[i]
-        if node.Node[i][y] > max:
-            max = node.Node[i][y]
-            mNode = node.Node[i]
-    SortedNode.Add(tNode)
-    
-    Center = tNode
-          
-    nmax = 0
-    pangle = 0.0
-    stopangle = pi*(2 - 1.0/180.0)
-    
-    for i in range(I):
-        
-        mAngle = 10000.0
-                         
-        for j in range(I):
-            if Center[0] != node.Node[j][0]:
-                N1 = [Center[0], Center[1], Center[2], Center[3]]
-                N1[x]+= 1.0
-                N2 = node.Node[j]
-                if Center[y]<N2[y] :
-                    angle = CalculateAngleFrom3Node(N1, N2, Center, XY=XY)
-                else:
-                    angle = pi * 2 - CalculateAngleFrom3Node(N1, N2, Center, XY=XY) 
-                
-                if mAngle > angle and angle >= pangle:
-                    tCenter = N2
-                    mAngle = angle
-        
-        if SortedNode.Node[0][0] == tCenter[0]:
-            break
-        if angle > stopangle: 
-            break
-            
-        SortedNode.Add(tCenter)
-        Center = tCenter
-        pangle = mAngle
-
-    return  np.array(SortedNode.Node)
-
-def CalculateAngleFrom3Node(N1, N2, Center, XY=13, **args):
-    for key, value in args.items():
-        if key == 'xy':
-            XY = int(value)
-    
-    ix = int(XY/10)
-    iy = int(XY)%10  
-    
-    V1x = N1[ix] - Center[ix]
-    V1y = N1[iy] - Center[iy]
-    V2x = N2[ix] - Center[ix]
-    V2y = N2[iy] - Center[iy]
-    
-    L1 = sqrt(V1x*V1x + V1y*V1y)
-    L2 = sqrt(V2x*V2x + V2y*V2y)
-    
-    # print 'L1', L1, ',V1:', V1x, ',', V1y
-    # print "L2", L2, ',V2:', V2x, ',', V2y
-    try:
-        return acos(round((V1x*V2x+V1y*V2y)/(L1*L2), 10))
-    except: 
-        
-        print ("ERROR. During Calculating Angle between Nodes - a in acos(a) is over 1.0 or L1*L2 = 0")
-        print ("  Length : ", L1,',', L2)
-        print ("  Node 1 : ", N1)
-        print ("  Node 2 : ", N2)
-        print ("  Center : ", Center)
-        return 0
 
 ##########################################################################################
 # End of General Functions 
@@ -22905,204 +20902,6 @@ def Grouping_ConnectedEdges(edges, checknodes=[], npn=[], debug=0):
                 break 
             
     return groups
-
-def GrooveDetectionFromEdge(oEdge, node, OnlyTread=1, TreadNumber=10000000, **args):
-    for key, value in args.items():
-        if key == 'onlytread' or key == 'tread':
-            OnlyTread = int(value)
-        if key == 'treadno' or key == 'Treadno' or key == 'Treadstartno' or key == 'TreadStartNo':
-            TreadNumber = int(value)
-        # if key == 'offset':
-            # Offset = int(value)
-        # if key == 'step':
-            # Step = int(value)
-
-    N = len(oEdge.Edge)
-    LengthOfEdge = len(oEdge.Edge[0])
-
-    
-    # print 'oEDGE - ', oEdge.Edge[5], len(oEdge.Edge)
-    # print '        ', node.NodeByID(oEdge.Edge[5][0]), node.NodeByID(oEdge.Edge[5][1])
-    # Reverse = 0
-     # Original Edge : [Node 1, Node 2, Elset Name, Face ID, Tie No]
-    # Edge from INP(Mesh file) : Add Groove/Tread Edge Mark
-    # Data to Add : Edge Length, Groove Mark for Node 1, Groove Mark for Node 2, Tread Mark]
-    # Groove Mark : 0 - node not in Groove, 1 - node in Groove
-    # Tread Mark : 0 - Edge not on Tread, 2 - Edge on Tread
-
-    TreadElset = ['CTB', 'SUT', 'CTR', 'UTR', 'TRW']
-    TN = len(TreadElset)
-    cEdge = EDGE()
-    counting = 0
-    for i in range(N):
-        TreadID = 0
-        for j in range(TN):
-            if oEdge.Edge[i][2] == TreadElset[j]:
-                TreadID = 2
-                cEdge.Add(oEdge.Edge[i])
-                N1 = node.NodeByID(oEdge.Edge[i][0])
-                N2 = node.NodeByID(oEdge.Edge[i][1])
-                length = NodeDistance(N1, N2, xy=0)
-                cEdge.Edge[counting][-1] = length
-                cEdge.Edge[counting].append(0)
-                cEdge.Edge[counting].append(0)
-                cEdge.Edge[counting].append(TreadID)
-                counting += 1
-                break
-
-
-    CriticalAngle = 45.0   ### if there is an error to detect grooves, check this angle... 
-    N = len(cEdge.Edge)
-    cEdge.Edge[0][6] = 0
-    PA = 0.0  # Previous Angle
-    PN = 0  # Previous Node Groove ID : 0 - Not in the groove, 1 - in the groove
-    for i in range(1, N):
-        N1 = node.NodeByID(cEdge.Edge[i][0])
-        N2 = node.NodeByID(cEdge.Edge[i][1])
-        if N2[2] - N1[2] != 0: 
-            A = degrees(atan((N2[3] - N1[3]) / (N2[2] - N1[2])))
-        else: 
-            A = 90.0
-            
-        if N2[2] < N1[2]:
-            A = -A
-        cEdge.Edge[i][3] = round(A, 2)
-
-        if i == 1:
-            if A > CriticalAngle:
-                cEdge.Edge[0][6] = 1  ## To see if TBR shoulder side part
-                PN = cEdge.Edge[0][7] = 0
-                PA = A
-                continue
-            else:
-                PN = cEdge.Edge[i][7] = 0
-                PA = A
-                continue
-        else:
-            cEdge.Edge[i][6] = PN
-            if PN == 0:
-                if PA > CriticalAngle:
-                    if A > CriticalAngle:
-                        cEdge.Edge[i][6] = 1
-                        PN = cEdge.Edge[i][7] = 0
-                        PA = A
-                        continue
-                    else:  # if  (a < CriticalAngle and a > -CriticalAngle)
-                        PN = cEdge.Edge[i][7] = 0
-                        PA = A
-                        continue
-                else:
-                    if A < CriticalAngle and A > -CriticalAngle:
-                        PN = cEdge.Edge[i][7] = 0
-                        PA = A
-                        continue
-                    elif A < -CriticalAngle and abs(PA - A) > CriticalAngle:
-                        PN = cEdge.Edge[i][7] = 1
-                        PA = A
-                        continue
-                    else:  # a > CriticalAngle:
-                        PN = cEdge.Edge[i][7] = 1
-                        PA = A
-                        continue
-            else:
-                if PA > CriticalAngle:
-                    if A < CriticalAngle and A > -CriticalAngle:
-                        cEdge.Edge[i][6] = 1
-                        PN = cEdge.Edge[i][7] = 0
-                        PA = A
-                        continue
-                    else:
-                        PN = cEdge.Edge[i][7] = 1
-                        PA = A
-                        continue
-                else:
-                    PN = cEdge.Edge[i][7] = 1
-                    PA = A
-                    continue
-
-    # for val in cEdge.Edge: 
-    #     print (val)                
-                    
-    for i in range(N-1, 0, -1):
-        if (cEdge.Edge[i][6] == 0 and cEdge.Edge[i][7] == 0):
-            break
-        elif cEdge.Edge[i][6] == 1 and cEdge.Edge[i][7] == 1:
-            cEdge.Edge[i][6] = 1
-            cEdge.Edge[i][7] = 0
-        elif cEdge.Edge[i][6] == 0 and cEdge.Edge[i][7] == 1:    
-            cEdge.Edge[i][6] = 1
-            cEdge.Edge[i][7] = 0
-            break
-    
-    for i in range(N): 
-        N1 = node.NodeByID(cEdge.Edge[i][0])
-        N2 = node.NodeByID(cEdge.Edge[i][1])
-        DIST = NodeDistance(N1,N2)
-        cEdge.Edge[i][5]=DIST
-        N1 = node.NodeByID(cEdge.Edge[i][0])
-        N2 = node.NodeByID(cEdge.Edge[i][1])
-        N3 = [9999, N1[1], N1[2]+0.1, N1[3]]
-        Angle = Angle_3nodes(N3, N2, N1, xy=23)
-        cEdge.Edge[i][3]=Angle*180.0/3.141592
-
-    # sys.exit()
-    
-    return cEdge   # return Crown area
-
-def DeleteGrooveEdgeAfterGrooveDetection(cEdge, node):
-    i = 0
-    while i < len(cEdge.Edge) - 1:
-        if cEdge.Edge[i][6] == 1 and cEdge.Edge[i][7] == 1 and cEdge.Edge[i][8] == 2:
-            # print 'Deleted', cEdge.Edge[i]
-            del(cEdge.Edge[i])
-            i += -1
-        i += 1
-    N = len(cEdge.Edge)
-    for i in range(N - 1):
-        if cEdge.Edge[i][6] == 0 and cEdge.Edge[i][7] == 1 and cEdge.Edge[i][8] == 2:
-            cEdge.Edge[i][7] = 0
-            cEdge.Edge[i][1] = cEdge.Edge[i + 1][0]
-            N1 = node.NodeByID(cEdge.Edge[i][0])
-            N2 = node.NodeByID(cEdge.Edge[i][1])
-            cEdge.Edge[i][5] =NodeDistance(N1,N2)
-
-    return cEdge
-
-def CalculateRadiusOf3Points(N1, N2, N3, XY=23, R=0, **args):
-    for key, value in args.items():
-        if key == 'r':    # determine the reverse or not of the radius value 
-            R = int(value)
-        if key == 'xy':
-            XY = int(value)
-            
-    cx = int(XY / 10)
-    cy = int(XY) % 10 
-    # #################################################################################
-    # Center of the Tire 
-    # Xc = (y3-y2*y1-y2)*(x2^2-x1^2+y2^2-y1^2)   /((x2-x1)*(y3-y2)-(y2-y1)*(x3-x2))*0.5
-    # Yc = (x2-x3*x2-x1)*(x3^2-x2^2+y3^2-y2^2)   /((x2-x1)*(y3-y2)-(y2-y1)*(x3-x2))*0.5
-    # #################################################################################
-    
-    Det = (N2[cx]-N1[cx])*(N3[cy]-N2[cy])-(N2[cy]-N1[cy])*(N3[cx]-N2[cx])
-    A = N2[cx] * N2[cx] - N1[cx] * N1[cx] + N2[cy] * N2[cy] - N1[cy] * N1[cy]
-    B = N3[cx] * N3[cx] - N2[cx] * N2[cx] + N3[cy] * N3[cy] - N2[cy] * N2[cy]
-    Xc = 0.5 / Det * ( (N3[cy] - N2[cy]) * A + (N1[cy] - N2[cy]) * B  )
-    Yc = 0.5 / Det * ( (N2[cx] - N3[cx]) * A + (N2[cx] - N1[cx]) * B  )
-    
-    Radius = sqrt((Xc-N2[cx])*(Xc-N2[cx])+(Yc-N2[cy])*(Yc-N2[cy]))
-    if R == cx:
-        if Xc > N2[cx] and N2[cx] > 0.0: 
-            Radius = -Radius
-        if Xc < N2[cx] and N2[cx] < 0.0: 
-            Radius = -Radius
-    elif R ==cy: 
-        if Yc > N2[cy] and N2[cy] > 0.0: 
-            Radius = -Radius
-        if Yc < N2[cy] and N2[cy] < 0.0: 
-            Radius = -Radius
-    else:
-        pass
-    return Radius
 
 ########################################
 def AddSolidon3DPlot(ax, solid, nodes): 
@@ -23559,150 +21358,3 @@ def NodeDuplication_check(nodes)   :
         sys.exit()
     else: 
         return nodes 
-
-
-def Generate_Rotated_PTN(ptnFile, savefile): 
-    with open(ptnFile) as PN: 
-        lines = PN.readlines()
-    ProfileL =""
-    ProfileR = ""
-    nodes =[]
-    Remarks =""
-    information =""
-    PitchDif = []
-    PitchAry = []
-
-    name_UPAFT=[]
-    name_UPFWD=[]
-    name_LWAFT=[]
-
-    elements =""
-    esets = ""
-    PACmd =""
-    cmd = None 
-    for line in lines: 
-        
-        if "**" in line: 
-            Remarks += line 
-            continue 
-        if "*" in line: 
-            if "*PITCH_SCALING" in line.upper() :  
-                information +=  line 
-                continue 
-            elif "*PROFILE_SCALING" in line.upper() :  
-                information +=  line 
-                continue 
-            elif "*HALF_DIAMETER" in line.upper() :  
-                information +=  line 
-                continue 
-            elif "*CENTER_ANGLE" in line.upper() :  
-                information +=  line 
-                continue 
-            elif "*TREAD_DESIGN_WIDTH" in line.upper() :  
-                information +=  line 
-                continue 
-            elif "*GUIDELINE_TOLERANCE" in line.upper() :  
-                information +=  line 
-                continue 
-
-            elif "*PROFILE_LHS" in line.upper() :  
-                cmd = 'PL'
-                continue 
-            elif "*PROFILE_RHS" in line.upper() :  
-                cmd = 'PR'
-                continue 
-            elif "*PITCH_DEFINITION_FIRST" in line.upper() :  
-                cmd = "PD"
-                continue 
-            elif "*PITCH_ARRAY_FIRST" in line.upper() :  
-                cmd = "PA"
-                PACmd = line 
-                continue 
-            elif '*NODE' in line.upper(): 
-                cmd ="ND"
-            elif '*ELEMENT' in line.upper() and 'TYPE' in line.upper(): 
-                elements+= line 
-                cmd ="EL"
-            elif '*ELSET' in line.upper():
-                fd = 0  
-                for i, nm in enumerate(name_UPFWD): 
-                    if nm in line: 
-                        line = line.replace(nm, name_UPAFT[i]) 
-                        fd =1 
-                        break 
-                if fd ==0: 
-                    for i, nm in enumerate(name_UPAFT): 
-                        if nm in line: 
-                            line = line.replace(nm, name_UPFWD[i]) 
-                            fd =1 
-                            break 
-                esets += line 
-                cmd = "ES"
-            else: 
-                cmd = None 
-
-        else: 
-            if cmd =='PL':  ProfileL += line 
-            if cmd =='PR':  ProfileR += line 
-            if cmd == 'PD': 
-                PitchDif.append(line)
-                dt = line.split(",")
-                name_UPAFT.append(dt[6].strip())
-                name_LWAFT.append(dt[7].strip())
-                name_UPFWD.append(dt[8].strip())
-                
-            if cmd == 'PA': PitchAry.append(line)
-            if cmd == 'ND': 
-                data = line.split(",")
-                data[0] = int(data[0].strip())
-                data[1] = float(data[1].strip())
-                data[2] = float(data[2].strip())
-                data[3] = float(data[3].strip())
-                nodes.append([data[0], data[1], data[2], data[3]])
-                # print (nodes[-1])
-            if cmd == 'EL': 
-                elements+= line 
-            if cmd == 'ES': 
-                esets += line 
-
-
-    fp = open(savefile, 'w')
-
-    fp.write(information)
-    
-    fp.write("*PROFILE_LHS\n")
-    fp.write(ProfileR)
-    fp.write("*PROFILE_RHS\n")
-    fp.write(ProfileL)
-    fp.write("*PITCH_DEFINITION_FIRST\n")
-    for txt in PitchDif: 
-        fp.write(txt)
-    dt = PACmd.split(",")
-    nCmd =''
-    for d in dt: 
-        if "DIRECTION" in d.strip(): 
-            t = d.split("=")
-            if 'CW' in t[1]: 
-                d = "DIRECTION=CW"
-            else:
-                d = "DIRECTION=CCW"
-        nCmd += d.strip() +", "
-    nCmd = nCmd[:-2]+"\n"
-    fp.write(nCmd)
-
-    for txt in PitchAry: 
-        fp.write(txt)
-
-    fp.write("*NODE, SYSTEM=R\n")
-    rot =radians(180.0)
-    for nd in nodes: 
-        nnd = RotateNode(nd, angle=rot, xy=21)
-        fp.write("%10d, %13.8E, %13.8E, %13.8E\n"%(nnd[0], nnd[1], nnd[2], nnd[3]))
-
-    fp.write(elements)
-    fp.write(esets)
-
-    fp.close()
-    print ("*******************************")
-    print ("** Pattern Mesh was saved.")
-    print ("*******************************")
