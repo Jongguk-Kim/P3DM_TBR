@@ -20,14 +20,48 @@ BodyOffsetNo = 10000
 PatternOffsetNo = 10000 
 
 
+def ChaferDivide(Elements, ChaferName, Elset, Node):
+    els = []
+    for el in Elements: 
+        els.append(el[:5])
+
+    el = np.array(els)
+    nd = np.array(Node)
+
+    for eset in Elset: 
+        for cn in ChaferName: 
+            if cn == eset[0].upper(): 
+                left=[]
+                right=[]
+                left.append(cn + '_L')
+                right.append(cn + '_R')
+                # print (eset)
+                for en in range(1, len(eset)): 
+                    ix = np.where(el[:,0] == eset[en])[0][0]
+                    ixd = np.where(nd[:,0] == el[ix][1])[0][0]
+                    
+                    if nd[ixd][2] > 0: 
+                        # print ("right", nd[ixd],  el[ix])
+                        right.append(el[ix][0])
+                    else:
+                        # print ("left", nd[ixd],  el[ix])
+                        left.append(el[ix][0])
+                if len(right) > 0: 
+                    Elset.append(right)
+                    Elset.append(left)
+
+    return Elements, Elset
+
+ 
+
 class PATTERN_EXPANSION(): 
     def __init__(self, layoutmesh, patternmesh, pn, direction, No_pattern): 
         self.layoutmesh=layoutmesh
         self.patternmesh=patternmesh
         self.user_number_pitch = pn 
         self.direction = direction 
-        self.user_sector = BodySector 
-        self.PI = PI
+        self.user_sector = 240 
+        self.PI = 3.14159265358979323846
         self.Pattern_start_number = No_pattern
         self.BodyOffset  = BodyOffsetNo
         self.POFFSET = PatternOffsetNo
@@ -35,6 +69,10 @@ class PATTERN_EXPANSION():
         L_profile, R_profile, OD, TW, TDW, GD = PTN.ReadMoldProfileFromPatternMeshFile(self.patternmesh)
 
         self.layout = PTN.MESH2D(self.layoutmesh)
+        ## chafer divide 
+        ChaferName = ['CH1', 'CH2', 'CH3']
+        self.layout.Element.Element, self.layout.Elset.Elset = ChaferDivide(self.layout.Element.Element, ChaferName, self.layout.Elset.Elset, self.layout.Node.Node)
+
         self.InitialLayout = PTN.COPYLAYOUT(self.layout)
         self.pattern = PTN.PATTERN(self.patternmesh, test=0)
 
@@ -59,6 +97,10 @@ class PATTERN_EXPANSION():
                 self.pattern.diameter, self.pattern.TreadDesignWidth, self.pattern.PatternWidth, self.pattern.ModelGD, t3dm=self.layout.T3DMMODE, result=0, layoutProfile=self.layout.RightProfile)
         else: 
             self.layout.ElimateSquareTread(self.pattern.leftprofile, self.pattern.rightprofile)
+            try: M=len(self.layout.tdnodes.Node)
+            except: 
+                print ("'ERROR, Fail to delete tread (SQUARE)!!")
+                sys.exit()
 
         if self.layout.shoulderType == 'R':
             self.flattened_Tread_bottom_sorted, self.layout.GD = PTN.Unbending_layoutTread(self.layout.tdnodes, self.layout.Tread, \
@@ -67,20 +109,22 @@ class PATTERN_EXPANSION():
             self.shoulderGa = PTN.ShoulderTreadGa(self.layout.OD, self.layout.RightProfile, self.layout.R_curves, \
                 self.flattened_Tread_bottom_sorted, self.layout.TDW, shoR=self.layout.r_shocurve)
 
-        elif self.layout.shoulderType == 'S' : 
+            self.layout.TargetPatternWidth = np.max(self.flattened_Tread_bottom_sorted[:,2]) -  np.min(self.flattened_Tread_bottom_sorted[:,2]) 
+
+        elif self.layout.shoulderType == 'S'  and len(self.layout.tdnodes.Node) > 0 and self.layout.T3DMMODE ==0: 
             self.flattened_Tread_bottom_sorted,   self.layout.sideNodes=PTN.Unbending_squareLayoutTread(self.layout.tdnodes, self.layout.Tread, \
-                self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop)
+                self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop,\
+                     edgeBtm=self.layout.Edge_treadBottom)
             self.shoulderGa = 1.0
 
-            if len(self.flattened_Tread_bottom_sorted) ==0:
+            if len(self.flattened_Tread_bottom_sorted) ==0: 
                 print ("'ERROR, Layout Tread Area was not found!!")
+                sys.exit()
+            
 
         auto_pitch=self.pattern.Expansion(self.layout.OD, self.layout.TDW, self.layout.TargetPatternWidth,\
                  self.layout.GD, user_pitch_no=self.user_number_pitch, t3dm=self.layout.T3DMMODE, shoulder=self.layout.shoulderType)
-
-
         
-
         self.generation_mesh()
 
     def generation_mesh(self): 
@@ -89,7 +133,7 @@ class PATTERN_EXPANSION():
         layoutms = self.layoutmesh.split("/")[-1].split(".")[0]
         ptnms = self.patternmesh.split("/")[-1].split(".")[0]
         cwd = getcwd() 
-        savefile =  cwd +"/" + layoutms+"-"+ptnms
+        
 
         print ("# 3D Full mesh file : %s"%(layoutms+"-"+ptnms))
 
@@ -107,14 +151,14 @@ class PATTERN_EXPANSION():
                     gauge_constant_range=self.layout.TDW/2.0 - 10.0E-3
 
                 self.pattern.npn, ptn_elset=PTN.Pattern_Gauge_Adjustment_ToBody(self.flattened_Tread_bottom_sorted, self.pattern.npn, \
-                    self.pattern.freebottom, self.pattern.nps, self.layout.OD, gauge_constant_range,\
-                    self.pattern.Node_Origin, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side)
-        
+                        self.pattern.freebottom, self.pattern.nps, self.layout.OD, gauge_constant_range,\
+                        self.pattern.Node_Origin, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side)
+                
         self.ptn_gauged = PTN.COPYPTN(self.pattern)   
 
         if self.layout.shoulderType=="R" and self.layout.T3DMMODE== 0: 
-                self.pattern.npn =PTN.BendingPattern(OD=self.layout.OD, Rprofiles=self.layout.RightProfile, \
-                    Rcurves=self.layout.R_curves, Lprofiles=self.layout.LeftProfile , Lcurves=self.layout.L_curves , nodes=self.pattern.npn,  xy=23)
+            self.pattern.npn =PTN.BendingPattern(OD=self.layout.OD, Rprofiles=self.layout.RightProfile, \
+                Rcurves=self.layout.R_curves, Lprofiles=self.layout.LeftProfile , Lcurves=self.layout.L_curves , nodes=self.pattern.npn,  xy=23)
         else:
             self.pattern.npn = PTN.BendingSquarePattern(OD=self.layout.OD, profiles=self.layout.RightProfile, curves=self.layout.R_curves,\
                     nodes=self.pattern.npn, xy=23)
@@ -131,60 +175,68 @@ class PATTERN_EXPANSION():
             self.pattern.npn, self.pattern.sideBtmNode = PTN.AttatchSquarePatternSideNodes(self.layout.sideNodes, self.pattern.npn, self.pattern.Node_Origin, \
                                 self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side)
         
-        self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
+        self.ptn_bended = PTN.COPYPTN(self.pattern)      
+        if len(self.layout.Tread.Element)  : 
+            self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
 
-        if self.layout.shoulderType=="R" : 
+        if self.layout.shoulderType=="R" : #and self.layout.T3DMMODE ==0: 
             self.pattern.npn = PTN.RepositionNodesAfterShoulder(pf_ending, self.ptn_gauged.npn, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side, \
                     self.pattern.npn,  self.layout.TDW, self.layout.RightProfile, self.layout.R_curves, self.layout.L_curves,\
                     btm_surf=self.pattern.freebottom, ptn_R=self.pattern.diameter/2.0, ptn_TDW=self.pattern.TreadDesignWidth,\
                     bodynodes=self.layout.Node, bodybottom=self.nodes_layout_treadbottom, ptn_orgn=self.pattern.Node_Origin)
-            
-            if self.layout.T3DMMODE ==0: start = self.layout.TDW/2-20.0E-03
-            else:    start = 0.0
-        else: 
-            start = 0.0
 
+        # self.ptn_bended = PTN.COPYPTN(self.pattern)
         if self.layout.shoulderType=="S" and self.layout.T3DMMODE==0: 
             self.pattern.npn = PTN.ShiftShoulderNodesSquarePattern(self.pattern.npn, self.pattern.Node_Origin, self.layout.RightProfile, self.layout.R_curves,\
                     self.layout.sideNodes, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side,\
                     self.pattern.TreadDesignWidth, self.layout.TDW, self.pattern.sideBtmNode )
+        start = 0             
+        self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, \
+            bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, \
+                ptnbottom=self.pattern.freebottom, start=start, \
+                    shoulder=self.layout.shoulderType, ptnelements=self.pattern.nps)
+
         
-         
-        self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, ptnbottom=self.pattern.freebottom, start=start, shoulder=self.layout.shoulderType)
 
-        self.ptn_bended = PTN.COPYPTN(self.pattern)   
+        ## Sub Tread is  ... : subtread = False 
+        isSubTread = True
 
-        ## Sub Tread is not created ... : subtread = False 
-        if self.layout.group =="TBR": subGa_margin = 0.001 
+        if self.layout.shoulderType == 'S' :   self.layout.group ="TBR"
+        if self.layout.group =="TBR" : subGa_margin = 0.001 
         elif self.layout.group =="LTR": subGa_margin = 0.0003 
         else: subGa_margin = 0.0003
-        self.ptn_elset,self.pattern.nps, self.pattern.npn, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
-             self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, NewELMatching, NewSurfs \
-            = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
-             subtread=True, btm=1, surf_btm=self.pattern.freebottom, subGaMargin=subGa_margin, shoulder=self.layout.shoulderType, tdw=self.layout.TDW, \
-             pitchUp=self.pattern.surf_pitch_up, pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side,\
-             sidePos=self.pattern.surf_pattern_pos_side, backupSolid=self.ptn_bended)
+        
+        self.ptn_elset, self.pattern.nps, self.pattern.npn, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
+                 self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side, NewELMatching, NewSurfs\
+                 = PTN.PatternElsetDefinition(self.pattern.nps, self.pattern.npn, self.layout.Tread, self.layout.Node,\
+                 subtread=isSubTread, btm=1, surf_btm=self.pattern.freebottom, subGaMargin=subGa_margin,\
+                 shoulder=self.layout.shoulderType,  tdw=self.layout.TDW, pitchUp=self.pattern.surf_pitch_up, \
+                     pitchDown=self.pattern.surf_pitch_down, sideNeg=self.pattern.surf_pattern_neg_side, sidePos=self.pattern.surf_pattern_pos_side, backupSolid=self.ptn_bended)
 
-        if self.check_SubTread.isChecked() and len(self.pattern.SF_fulldepthgroove) and len(NewELMatching):
+        if len(self.pattern.SF_fulldepthgroove) and len(NewELMatching):
             NewELMatching = np.array(NewELMatching)
 
             for nem in NewELMatching: 
                 ix = np.where(self.pattern.Free_Surface_without_BTM[:,0]==nem[0])[0]
                 if len(ix)>0: 
                     for x in ix: 
-                        self.pattern.Free_Surface_without_BTM[x][0] = nem[1]
+                        if self.pattern.Free_Surface_without_BTM[x][1] ==2: 
+                            self.pattern.Free_Surface_without_BTM[x][0] = nem[1]
 
                 ix = np.where(self.pattern.SF_fulldepthgroove[:,0]==nem[0])[0]
                 if len(ix)>0: 
                     for x in ix: 
-                        self.pattern.SF_fulldepthgroove[x][0] = nem[1]
+                        if self.pattern.SF_fulldepthgroove[x][1] ==2: 
+                            self.pattern.SF_fulldepthgroove[x][0] = nem[1]
 
                 ix = np.where(self.pattern.PTN_AllFreeSurface[:,0]==nem[0])[0]
                 if len(ix)>0: 
                     for x in ix: 
-                        self.pattern.PTN_AllFreeSurface[x][0] = nem[1]
-            self.pattern.PTN_AllFreeSurface = np.concatenate((self.pattern.PTN_AllFreeSurface, NewSurfs), axis=0)   
+                        if self.pattern.PTN_AllFreeSurface[x][1] ==2: 
+                            self.pattern.PTN_AllFreeSurface[x][0] = nem[1]
+                            # print("GRV", self.pattern.PTN_AllFreeSurface[x][0], "Face", self.pattern.PTN_AllFreeSurface[x][1])
 
+            self.pattern.PTN_AllFreeSurface = np.concatenate((self.pattern.PTN_AllFreeSurface, NewSurfs), axis=0)   
         ###################################################################
         ## pattern direction change 
         ###################################################################
@@ -212,7 +264,6 @@ class PATTERN_EXPANSION():
             print (txt)
             if len(btmer) == 0 : 
                 ## Checking the elements of Jacobian < 0.01 
-                ## 만약 구성하는 절점이 pattern의 free surface에 있지 않다면 top 절점의 수직 아래로 강제 이동 시켜 일부 요소 수정 가능 
                 
                 free_surface_nodes= self.ptn_model.Free_Surface_without_BTM[:,7:]
 
@@ -340,24 +391,28 @@ class PATTERN_EXPANSION():
         print ("\n** Full 3D Mesh ")
         print ("** Pattern Start =%d, Offset=%d\n** Layout Start=%d, Offset=%d\n** No. of body sectors=%d\n"%(self.Pattern_start_number, POFFSET, BodyStartNo, BodyOffset, BodySector))
         
+        self.nd_deleted=[]
+        self.fullnodes=[]
+        self.fullsolids=[]
+
+        if self.direction ==1: ROTATE = True 
+        else: ROTATE = False
+
+        pitch_side = [self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side]
+        self.fullnodes, self.fullsolids, self.elset3d, self.surf_XTRD1001, self.surf_YTIE1001, self.nd_deleted, self.deletednode, \
+        XTRD_surface, YTIE_surface= PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
+            surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
+            offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , \
+                rev=ROTATE, shoulderType=self.layout.shoulderType)
+        self.XTRD_surface = XTRD_surface
+        self.YTIE_surface =  YTIE_surface
+
         if self.layout.T3DMMODE ==1 or self.layout.shoulderType == "S":   
             self.edge_body = self.layout.Element.OuterEdge(self.layout.Node)
         self.B3Dnodes, self.B3Del4, self.B3Del6, self.B3Del8, self.B3Delset, self.B3Dsurface, self.Bodysurf = \
         PTN.GenerateFullBodyMesh(self.layout.body_nodes, self.layout.Element, self.layout.Elset, \
             surfaces=self.layout.Surface, body_outer=self.edge_body, sectors=BodySector, offset=BodyOffset)
             
-        self.nd_deleted=[]
-        self.fullnodes=[]
-        self.fullsolids=[]
-
-        if self.direction == 0: reversing = False 
-        else: reversing = True 
-
-        pitch_side = [self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side]
-        self.fullnodes, self.fullsolids, self.elset3d, self.surf_XTRD1001, self.surf_YTIE1001, self.nd_deleted, self.deletednode, \
-        = PTN.GenerateFullPatternMesh(self.pattern.npn, self.pattern.nps, self.pattern.NoPitch, self.layout.OD, self.pattern.surf_pitch_up, self.pattern.surf_pitch_down, \
-            surf_free=self.pattern.PTN_AllFreeSurface, surf_btm=self.pattern.freebottom, surf_side=pitch_side, elset=self.ptn_elset, \
-            offset=POFFSET, pl=self.pattern.TargetPL, ptn_org=self.pattern.Node_Origin, ptn_pl=self.pattern.pitchlength, pd=self.pd , rev=reversing)
 
 
         isCtb=0
@@ -367,13 +422,16 @@ class PATTERN_EXPANSION():
             if eset[0] == "UTR" or eset[0] == 'SUT': isSut = 1
         namechange = [isCtb, isSut]
 
+        savefileTRD =  cwd +"/" + ptnms 
+        savefileAXI =  cwd +"/" + layoutms 
+        savefile =  cwd +"/" + layoutms +"-" + ptnms
         abq = 0 
-        PTN.Write_SMART_PatternMesh(file=savefile +".trd", nodes=self.fullnodes, elements=self.fullsolids , elsets=self.elset3d, XTRD=self.surf_XTRD1001, \
-            YTIE=self.surf_YTIE1001, ties=[], start=self.Pattern_start_number, offset=self.poffset, namechange=namechange, abaqus=abq, revPtn=reversing)#self.poffset)
-        PTN.Write_SMART_TireBodyMesh(file=savefile  + ".axi", nodes=self.B3Dnodes, el4=self.B3Del4, el6=self.B3Del6, el8=self.B3Del8, elsets=self.B3Delset, surfaces=self.B3Dsurface,\
+        PTN.Write_SMART_PatternMesh(file=savefileTRD +".trd", nodes=self.fullnodes, elements=self.fullsolids , elsets=self.elset3d, XTRD=self.surf_XTRD1001, \
+            YTIE=self.surf_YTIE1001, ties=[], start=self.Pattern_start_number, offset=self.poffset, namechange=namechange, abaqus=abq, revPtn=ROTATE)#self.poffset)
+        PTN.Write_SMART_TireBodyMesh(file=savefileAXI  + ".axi", nodes=self.B3Dnodes, el4=self.B3Del4, el6=self.B3Del6, el8=self.B3Del8, elsets=self.B3Delset, surfaces=self.B3Dsurface,\
             surf_body=self.Bodysurf, ties=self.layout.Tie, txtelset=self.layout.TxtElset, start=BodyStartNo, offset=BodyOffset, abaqus=abq)
 
-        components = PTN.SolidComponents_checking(trd=savefile +".trd", axi=savefile +".axi", return_value= 1)
+        components = PTN.SolidComponents_checking(trd=savefileTRD +".trd", axi=savefileAXI +".axi", return_value= 1)
         self.solidElset=components[0]
         self.rebarElset=components[1]
         print("")
@@ -417,69 +475,6 @@ class PATTERN_EXPANSION():
         print ("** Pattern was ROTATED.")
         print ("************************************")
 
-
-
-        # for npn in self.pattern.npn : 
-        #     npn[1] = OP_mul(npn[1], -1.0)
-        
-        # N = len(self.pattern.nps)
-
-        # for i in range(N): 
-        #     if self.pattern.nps[i][7] > 0: 
-
-        #         t1 = self.pattern.nps[i][1]; t2 = self.pattern.nps[i][2]; t3 = self.pattern.nps[i][3]; t4=self.pattern.nps[i][4]
-        #         self.pattern.nps[i][1] = t4; self.pattern.nps[i][2]= t3; self.pattern.nps[i][3] = t2; self.pattern.nps[i][4] = t1 
-
-        #         t1 = self.pattern.nps[i][5]; t2 = self.pattern.nps[i][6]; t3 = self.pattern.nps[i][7]; t4=self.pattern.nps[i][8]
-        #         self.pattern.nps[i][5] = t4; self.pattern.nps[i][6]= t3; self.pattern.nps[i][7] = t2; self.pattern.nps[i][8] = t1 
-
-        #     else: 
-
-        #         t2 = self.pattern.nps[i][2]; t3 = self.pattern.nps[i][3]
-        #         self.pattern.nps[i][2] = t3; self.pattern.nps[i][3]= t2
-
-        #         t2 = self.pattern.nps[i][5]; t3 = self.pattern.nps[i][6]
-        #         self.pattern.nps[i][5] = t3; self.pattern.nps[i][6]= t2
-        
-        # for k, sf in enumerate(self.pattern.surf_pitch_up): 
-        #     if sf[1]>2:
-        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-        #         self.pattern.surf_pitch_up[k]=sf 
-        # for k, sf in enumerate(self.pattern.surf_pitch_down):  
-        #     if sf[1]>2:
-        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-        #         self.pattern.surf_pitch_down[k]=sf 
-        # for k, sf in enumerate(self.pattern.surf_pattern_neg_side): 
-        #     if sf[1]>2:
-        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-        #         self.pattern.surf_pattern_neg_side[k]=sf 
-        # for k, sf in enumerate(self.pattern.surf_pattern_pos_side): 
-        #     if sf[1]>2:
-        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-        #         self.pattern.surf_pattern_pos_side[k]=sf 
-        # for k, sf in enumerate(self.pattern.PTN_AllFreeSurface): 
-        #     if sf[1]>2:
-        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-        #         self.pattern.PTN_AllFreeSurface[k]=sf 
-        # for k, sf in enumerate(self.pattern.freebottom): 
-        #     if sf[1]>2:
-        #         t1 = sf[7]; sf[7] = sf[8]; sf[8]=t1 
-        #         t1 = sf[9]; sf[9] = sf[10]; sf[10]=t1
-        #         self.pattern.freebottom[k]=sf 
-
-
-        # for bm in self.pattern.UpBack: 
-        #     bm[3][0] *= -1 
-        #     bm[4][0] *= -1 
-
-        
-
-
 if __name__ == "__main__": 
     if inISLM == 1: CheckExecution.getProgramTime(str(sys.argv[0]), "Start")
 
@@ -499,6 +494,7 @@ if __name__ == "__main__":
                 if line[0].lower() == 'layout' or line[0].lower() == 'l': layoutmesh=line[1].strip()
                 if line[0].lower() == 'pn' or line[0].lower() == 'n': user_number_pitch=int(line[1].strip())
                 if line[0].lower() == 'direction' or line[0].lower() == 'd': patternDirection=int(line[1].strip())
+                if line[0] == 'sns': snsFile = line[1]
     else:
         snsFile = snsFiles[0]
         ptnFiles = glob.glob(cwd+"/*.ptn")

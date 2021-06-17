@@ -18,6 +18,8 @@ import numpy as np
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
+import sys
+
 def IntersectionPointOf2Lines(L1=None, L2=None, xy=23): 
     
     # L1 = [N1, N2], L2=[N3, N4]
@@ -160,9 +162,134 @@ def PointsInOutPolyhedron():
     ax.scatter(Xs, Ys, Zs, c='gray', marker='*')
     plt.show()
 
+# def nextEdge(i, edges): 
 
+def Grouping_Edges(edges): 
+    
 
-if __name__ == "__main__": 
+    starts =[]
+    idx =[]
+    for i, e in enumerate(edges): 
+        ix = np.where(edges[:,1]==e[0])[0]
+        idx.append(0)
+        if not len(ix): 
+            starts.append(i)
+
+    group=[] 
+
+    if len(starts): 
+        
+        for i in starts: 
+            eg =[edges[i]]
+            idx[i]= 1
+            # print ("START", "[%d, %d, %d, %d],"%(eg[-1][0],eg[-1][1], eg[-1][2], eg[-1][3]))
+            ix = np.where(edges[:,0]==eg[-1][1])[0]
+            
+            cnt = 0
+            while 1: 
+                cnt +=1
+                if cnt > 30: break 
+                if len(ix) ==1 : 
+                    eg.append(edges[ix[0]])
+                    idx[ix[0]]= 1
+                    # print ("[%d, %d, %d, %d],"%(eg[-1][0],eg[-1][1], eg[-1][2], eg[-1][3]))
+                    ix = np.where(edges[:,0]==eg[-1][1])[0]
+                else: 
+                    break 
+            group.append(eg)
+
+    i = 0 
+    while idx[i] : 
+        i += 1 
+        if len(idx) == i: break 
+
+    if i < len(idx): 
+        inext = 0 
+        while idx[i] == 0: 
+            eg =[edges[i]]
+            idx[i]= 1
+            # print ("** start", "[%d, %d, %d, %d],"%(eg[-1][0],eg[-1][1], eg[-1][2], eg[-1][3]))
+            ix = np.where(edges[:,0]==eg[-1][1])[0]
+            cnt = 0
+            while 1: 
+                cnt +=1
+                if cnt > 1000: break 
+                if len(ix) ==1 :
+                    if eg[0][0] != edges[ix[0]][1]: 
+                        eg.append(edges[ix[0]])
+                        idx[ix[0]]= 1
+                        # print ("*[%d, %d, %d, %d],"%(eg[-1][0],eg[-1][1], eg[-1][2], eg[-1][3]), idx[ix[0]])
+                        ix = np.where(edges[:,0]==eg[-1][1])[0]
+                        inext = 1 
+                    else: 
+                        eg.append(edges[ix[0]])
+                        
+                        idx[ix[0]]= 1
+                        # print ("[%d, %d, %d, %d],"%(eg[-1][0],eg[-1][1], eg[-1][2], eg[-1][3]), idx[ix[0]])
+                        inext =  0 
+
+                        group.append(eg)
+
+                        i = 0 
+                        while idx[i] : 
+                            i += 1 
+                            if len(idx) == i: break
+                else: 
+                    i = ix[0]
+                    break 
+                if inext ==0: 
+                    break 
+            if i == len(idx) : 
+                break 
+
+    return group 
+
+if __name__ == "__main__":
+    dele = [[10000344, 10000137,        2, 10001712], [10000382, 10000381,        1, 10001707] ]
+    edges = [   [10000381, 10000330,        1, 10001963] ,
+                [10000330, 10000329,        1, 10001962] ,
+                [10000329, 10000328,        1, 10001708] ,
+                [10000328, 10000327,        1, 10001709] ,
+                [10000327, 10000346,       1,10001710] ,
+                [10000346, 10000345,        1, 10001711] ,
+                [10000345, 10000344,        1, 10001712] ,
+                
+                [10000137, 10000138,        3, 10001712] ,
+                [10000138, 10000139,        3, 10001711] ,
+                [10000139, 10000140,        3, 10001710] ,
+                [10000140, 10000141,        3, 10001709] ,
+                [10000141, 10000117,        3, 10001708] ,
+                [10000117, 10000118,        3, 10001962] ,
+                [10000118, 10000255,        3, 10001706] ,
+                [10000255, 10000256,        3, 10001707] ,
+                [10000256, 10000383,        4, 10001707] ,
+                [10000383, 10000382,        1, 10001707] ,
+                
+
+                [10002971, 10002920,        1, 10003917] ,
+                [10002920, 10002919,        1, 10003916] ,
+                [10002919, 10002918,        1, 10003683] ,
+                [10002918, 10002917,        1, 10003684] ,
+                [10002917, 10002936,        1, 10003685] ,
+                [10002936, 10002935,        1, 10003686] ,
+                [10002935, 10002934,        1, 10003687] ,
+                [10002934, 10002727,        2, 10003687] ,
+                [10002727, 10002728,        3, 10003687] ,
+                [10002728, 10002729,        3, 10003686] ,
+                [10002729, 10002730,        3, 10003685] ,
+                [10002730, 10002731,        3, 10003684] ,
+                [10002731, 10002707,        3, 10003683] ,
+                [10002707, 10002708,        3, 10003916] ,
+                [10002708, 10002845,        3, 10003681] ,
+                [10002845, 10002846,        3, 10003682] ,
+                [10002846, 10002973,        4, 10003682] ,
+                [10002973, 10002972,        1, 10003682]  ,
+                [10002972, 10002971,        1, 10003682]
+            ]
+    edges = np.array(edges)
+    edge = Grouping_Edges(edges)
+    print (len(edge))
+    sys.exit() 
 
     verifying = 2
 

@@ -989,8 +989,13 @@ class Ui_MainWindow(object):
                 print ("## Elements need to check ")
                 for el in errel:
                     print(int(el[0]), end=", ")
-                self.figure.plot_error(errel, nodes)
-                self.ShowingImage = '3D'
+
+                if len(errel) < 10: 
+                    self.figure.plot_error(errel, nodes)
+                    self.ShowingImage = '3D'
+                else: 
+                    print ("\n %d elements distorted"%(len(errel)))
+
 
     def exiting(self): 
         self.Initilize()
@@ -1720,8 +1725,6 @@ class Ui_MainWindow(object):
 
             # print ("*EXPANSION MODE (1=T3DM, 0=Expd)=%d"%(self.layout.T3DMMODE))
             
-            
-            
             if self.layout.shoulderType == 'R':
                 self.layout.EliminateTread(self.layoutmesh, self.patternmesh, self.pattern.leftprofile, self.pattern.rightprofile,\
                     self.pattern.diameter, self.pattern.TreadDesignWidth, self.pattern.PatternWidth, self.pattern.ModelGD, t3dm=self.layout.T3DMMODE, result=0, layoutProfile=self.layout.RightProfile)
@@ -1742,7 +1745,7 @@ class Ui_MainWindow(object):
 
             elif self.layout.shoulderType == 'S'  and len(self.layout.tdnodes.Node) > 0 and self.layout.T3DMMODE ==0: 
                 self.flattened_Tread_bottom_sorted,   self.layout.sideNodes=PTN.Unbending_squareLayoutTread(self.layout.tdnodes, self.layout.Tread, \
-                    self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop)
+                    self.layout.LeftProfile, self.layout.RightProfile, self.layout.OD, self.layout.R_curves, shoDrop=self.layout.shoulderDrop , edgeBtm=self.layout.Edge_treadBottom)
                 self.shoulderGa = 1.0
 
                 if len(self.flattened_Tread_bottom_sorted) ==0: return 0
@@ -1855,7 +1858,7 @@ class Ui_MainWindow(object):
                 # if self.radio_TOS.isChecked(): overtype = "TOS"
                 if self.checkBox_overType.isChecked(): overtype = "TOS"
                 else:  overtype = "SOT"
-                self.B3Dnodes, self.fullnodes, P0_TOP, P0_contactFree, bodyElements_class= \
+                self.B3Dnodes, self.fullnodes, P0_TOP, P0_contactFree, bodyElements_class, Edge_XTRD= \
                     PTN.LayoutAlone3DModelGeneration(savefile[:-4], self.layout.Node, self.layout.Element, self.layout.Elset, \
                         self.layout.Surface, sectors=self.user_sector, offset=BodyOffset,\
                         abaqus=abq, mesh=self.layoutmesh, materialDir=self.materialDir, \
@@ -1868,6 +1871,8 @@ class Ui_MainWindow(object):
                 # self.message.setText(line)
                 self.check_Direction.setEnabled(True)
                 self.Update_ISLM_Material()
+                self.figure.plot(layout=self.layout, show='layout', add2d=self.layout.TieError, xtrd=Edge_XTRD) 
+                self.ShowingImage = 'layout'
                 if self.check_FricView.isChecked() == True: 
                     PI = 3.14159265358979323846
                     self.edge_body = bodyElements_class.OuterEdge(self.layout.Node)
@@ -2198,18 +2203,20 @@ class Ui_MainWindow(object):
             # self.ptn_bended = PTN.COPYPTN(self.pattern)
             if self.layout.T3DMMODE == 1: 
                 self.pattern.npn = PTN.NodesOnSolids(self.pattern.npn, self.pattern.nps)
-            self.ptn_bended = PTN.COPYPTN(self.pattern)
+
+            # self.ptn_bended = PTN.COPYPTN(self.pattern)  ## TEST Bending saving 
             if self.layout.shoulderType=="R"  : 
                 self.pattern.npn, self.edge_body, self.pd, pf_ending = PTN.Adjust_PatternBottomSideNodes(self.layout.Node, self.layout.Element, \
                     self.layout.Tread, self.pattern.npn, self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side,\
                     self.pattern.Node_Origin, self.pattern.freebottom, TDW=self.layout.TDW, t3dm=self.layout.T3DMMODE)
 
             elif self.layout.shoulderType=="S" and self.layout.T3DMMODE == 0:
-                self.pattern.npn, self.pattern.sideBtmNode = PTN.AttatchSquarePatternSideNodes(self.layout.sideNodes, self.pattern.npn, self.pattern.Node_Origin, \
-                                    self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side)
-            self.ptn_bended = PTN.COPYPTN(self.pattern)
-            # if self.layout.T3DMMODE ==0 : or self.check_FricView.isChecked() == True : 
-            #     self.check_FricView.setDisabled(True)
+                self.pattern.npn, self.pattern.sideBtmNode = PTN.AttatchSquarePatternSideNodes(
+                    self.layout.sideNodes, self.pattern.npn, self.pattern.Node_Origin, \
+                    self.pattern.surf_pattern_neg_side, self.pattern.surf_pattern_pos_side)
+
+            self.ptn_bended = PTN.COPYPTN(self.pattern)  ## After bended... 
+
             if len(self.layout.Tread.Element)  : 
                 self.nodes_layout_treadbottom = PTN.Get_layout_treadbottom(self.flattened_Tread_bottom_sorted, np.array(self.InitialLayout.Node.Node))
             if self.layout.shoulderType=="R" : #and self.layout.T3DMMODE ==0: 
@@ -2218,11 +2225,13 @@ class Ui_MainWindow(object):
                         btm_surf=self.pattern.freebottom, ptn_R=self.pattern.diameter/2.0, ptn_TDW=self.pattern.TreadDesignWidth,\
                         bodynodes=self.layout.Node, bodybottom=self.nodes_layout_treadbottom, ptn_orgn=self.pattern.Node_Origin)
 
-            # self.ptn_bended = PTN.COPYPTN(self.pattern)
-            if self.layout.shoulderType=="S" and self.layout.T3DMMODE==0: 
+            
+            if self.layout.shoulderType=="S" and self.layout.T3DMMODE==0: ## why it doesnot have gauged pattern nodes??????????????????????
                 self.pattern.npn = PTN.ShiftShoulderNodesSquarePattern(self.pattern.npn, self.pattern.Node_Origin, self.layout.RightProfile, self.layout.R_curves,\
                         self.layout.sideNodes, self.pattern.surf_pattern_pos_side, self.pattern.surf_pattern_neg_side,\
                         self.pattern.TreadDesignWidth, self.layout.TDW, self.pattern.sideBtmNode )
+            
+            
             start = 0             
             self.pattern.npn = PTN.AttatchBottomNodesToBody(bodynodes=self.layout.Node, \
                 bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, \
@@ -3703,7 +3712,7 @@ class myCanvas(FigureCanvas):
 
         return A[0]
 
-    def plot(self, layout=[], pattern=[], show='layout', layoutNo=0, search=[], flattened_tread=[], ptn_elset=[], bended=1, add2d=[]): 
+    def plot(self, layout=[], pattern=[], show='layout', layoutNo=0, search=[], flattened_tread=[], ptn_elset=[], bended=1, add2d=[], xtrd=None): 
         ## add2d >> only 2d layout element number(s)
         self.Plot3D = 0 
         for pt in self.texts: 
@@ -3826,6 +3835,12 @@ class myCanvas(FigureCanvas):
                 nx = flattened_tread[:,x]
                 ny = flattened_tread[:,y] + 50E-03
                 plt.scatter(nx, ny, c='lightgray', marker='o', edgecolor=None, s=1.0)
+
+            if not isinstance(xtrd, type(None)) : 
+                for i, edge in enumerate(xtrd) : 
+                    ix = np.where(npn[:,0]==edge[0])[0][0]; n1= npn[ix]
+                    ix = np.where(npn[:,0]==edge[1])[0][0]; n2= npn[ix]
+                    plt.plot ([n1[x], n2[x]], [n1[y], n2[y]], linewidth=0.5, color='green', ls='--')
 
 
             rx = npn[:,x]; ry = npn[:,y]
@@ -4169,14 +4184,14 @@ class myCanvas(FigureCanvas):
             
 
         # Get rid of the panes
-        self.ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-        self.ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-        self.ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        self.ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        self.ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        self.ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 
         # Get rid of the spines
-        self.ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
-        self.ax.w_yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
-        self.ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        self.ax.xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        self.ax.yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        self.ax.zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
 
         # Get rid of the ticks
         # self.ax.set_xticks([]) 
@@ -4264,6 +4279,22 @@ class myCanvas(FigureCanvas):
 
             self.ax.add_patch(polygon)
             if number == 1: self.ax.text((n1[x]+n2[x]+n3[x])/3, (n1[y]+n2[y]+n3[y])/3.0 +shift , str(int(sf[0]-10**7)), size=textsize, color=textcolor)
+
+        # edge_line_color = 'red'
+        # edge_line_width = 0.5 
+        # EdgeBoundary = SurfaceBoundary(sfup) 
+        # for edge in EdgeBoundary: 
+        #     ix = np.where(nodes[:,0] == edge[0])[0][0]; n1 = nodes[ix]
+        #     ix = np.where(nodes[:,0] == edge[1])[0][0]; n2 = nodes[ix]
+        #     polygon = plt.Polygon([[n1[x], n1[y]], [n2[x], n2[y]]], color=edge_line_color, alpha=1.0, lw=edge_line_width, ec=edge_line_color)
+        #     self.ax.add_patch(polygon)
+
+        # EdgeBoundary = SurfaceBoundary(sfdown) 
+        # for edge in EdgeBoundary: 
+        #     ix = np.where(nodes[:,0] == edge[0])[0][0]; n1 = nodes[ix]
+        #     ix = np.where(nodes[:,0] == edge[1])[0][0]; n2 = nodes[ix]
+        #     polygon = plt.Polygon([[n1[x], n1[y]], [n2[x], n2[y]]], color=edge_line_color, alpha=1.0, lw=edge_line_width, ec=edge_line_color)
+        #     self.ax.add_patch(polygon)
 
         px= np.array(px); py = np.array(py)
         minx = np.min(px); maxx = np.max(px)
