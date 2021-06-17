@@ -9304,8 +9304,14 @@ class PATTERN:
         ## adjust the position of the nodes on main groove bottoms : trying.. 
         ##  self.GrvUpNode.append([nds[ixn], nds[ixm]])
         ## self.MainGrvEdgeGroup 
-
-        if len(self.GrvUpNode): 
+        btmsolid = []
+        for sf in self.freebottom:
+            ix = np.where(self.nps[:,0] == sf[0])[0][0]
+            btmsolid.append(self.nps[ix])
+            
+        print ("** Bottom Solid Shape Check ")
+        errel, _, _,_ = Jacobian_check(self.npn, np.array(btmsolid))
+        if len(self.GrvUpNode) and len(errel): 
 
             grvn=[]
             for sf in self.freebottom: 
