@@ -668,9 +668,9 @@ class Ui_MainWindow(object):
         self.btn_generation.setDisabled(True)
         self.searchsolid = []
 
-        self._stdout = StdoutRedirect()
-        self._stdout.start()
-        self._stdout.printOccur.connect(lambda x : self._append_text(x))
+        # self._stdout = StdoutRedirect()
+        # self._stdout.start()
+        # self._stdout.printOccur.connect(lambda x : self._append_text(x))
 
         self.P3DMLayout = 0 
         self.P3DMPattern = 0  
@@ -1357,6 +1357,8 @@ class Ui_MainWindow(object):
 
         self.check_T3DM.setEnabled(True)
         self.checkBox_SurfNo.setChecked(False)
+
+        self.stop = False 
         
 
         try: 
@@ -1434,6 +1436,9 @@ class Ui_MainWindow(object):
             S = self.removal_tread()
             if S == 0: return
             self.expansion_ptn()
+
+            if self.stop: 
+                return 
 
             self.generation_mesh()
             self.btn_layoutmesh.setDisabled(True)
@@ -1790,6 +1795,10 @@ class Ui_MainWindow(object):
 
             auto_pitch=self.pattern.Expansion(self.layout.OD, self.layout.TDW, self.layout.TargetPatternWidth,\
                  self.layout.GD, user_pitch_no=self.user_number_pitch, t3dm=self.layout.T3DMMODE, shoulder=self.layout.shoulderType)
+            
+            if not auto_pitch:
+                self.stop = True 
+                return 
 
             self.input_pitch_no.setText(str(auto_pitch))
             self.patternexpanded = 1 

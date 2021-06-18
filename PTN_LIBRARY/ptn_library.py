@@ -20,7 +20,9 @@ except:
     parkmiko = 0 
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
-   
+
+from PTN_LIBRARY.ptn_plotting import plot_Edges 
+
 def timer(func): 
     def wrapper(*args, **kwargs): 
         start = time.time()
@@ -9300,6 +9302,7 @@ class PATTERN:
                 
             if len(kerfedges) > 0: 
                 self.KeepKerfGaugeConstant(kerfedges=kerfedges, groovebottomsurf=surf_allgroovebtm, surfaces=surfaces, alledges=Edges, orgn_node=NodeOrigin, debug=0, surface_kerf=self.KerfsideSurface)
+        self.PTN_AllFreeSurface = np.vstack((self.freetop, self.freebottom,  self.totalsurfaces))
         
         ## adjust the position of the nodes on main groove bottoms : trying.. 
         ##  self.GrvUpNode.append([nds[ixn], nds[ixm]])
@@ -9311,6 +9314,13 @@ class PATTERN:
             
         print ("** Bottom Solid Shape Check ")
         errel, _, _,_ = Jacobian_check(self.npn, np.array(btmsolid))
+
+        debugmode = True 
+        if debugmode: 
+            errel=[1]
+            print ("###############################")
+            print ("debug mode*********************")
+
         if len(self.GrvUpNode) and len(errel): 
 
             grvn=[]
@@ -9379,6 +9389,7 @@ class PATTERN:
                     if not len(idx): continue 
                     # if wmn >= NodeOrigin[x][2] or wmx <= NodeOrigin[x][2]: continue 
                     if IsPointInPolygon([NodeOrigin[x][1], NodeOrigin[x][2]], poly): 
+                        points=[]
                         mid=[]; cmid=[]
                         for i, p in enumerate(Polygon):  
                             if abs(p[0][2] - p[1][2]) > 0.0001: 
@@ -9400,15 +9411,26 @@ class PATTERN:
                             if not isinstance(up, type(None)) : 
                                 if NodeOrigin[x][1] >= down[1] and NodeOrigin[x][1] <= up[1]:
                                     m = (up[2]+down[2])/2
-                                    if abs(m - NodeOrigin[x][2]) < width: 
+                                    if abs(m - NodeOrigin[x][2]) < width and abs(NodeOrigin[x][2] - up[2]) > 0.0001 and abs(NodeOrigin[x][0] - down[0]) > 0.0001 : 
                                         mid.append(m )
                                         cmid.append((cPolygon[i][0][2]+cPolygon[i][1][2])/2 )
+                                        
+                                        if debugmode: 
+                                            points.append(up)
+                                            points.append(down)
 
                         # if self.npn[x][0]-10**7 == 12673 or self.npn[x][0] -10**7== 12662 or self.npn[x][0] -10**7== 12659 or self.npn[x][0]-10**7 == 12672: 
                         #     print ("%d: %d"%(self.npn[x][0]-10**7, len(mid)), mid)
                         # if len(mid) > 2: 
                         #     print ("%d: %d"%(self.npn[x][0]-10**7, len(mid)), mid)
                         # if len(mid) > 2: print ("** %.6f*******************************"%(width))
+                        if debugmode: 
+                            if len(mid) > 2: 
+                                for p in points: 
+                                    print("ps %d, %.6f, %.6f"%(p[0], p[2]*1000, p[1]*1000))
+                                print("** %d, %.6f, %.6f"%(NodeOrigin[x][0], NodeOrigin[x][2]*1000, NodeOrigin[x][1]*1000))
+                                plot_Edges(edges=grp, nodes=NodeOrigin, points=np.array(points),point=NodeOrigin[x], xy=21, multi=1000, pt_print=True)
+                                return None 
 
                         i = 0 
                         while i < len(mid): 
@@ -9461,7 +9483,7 @@ class PATTERN:
 
         #########################################################################
 
-        self.PTN_AllFreeSurface = np.vstack((self.freetop, self.freebottom,  self.totalsurfaces))
+        
         
         if self.shoulderType =="S": 
             halfTDW =  self.TargetTDW/2.0
