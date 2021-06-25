@@ -1,6 +1,9 @@
 
 P3DM Version History
 
+2021.06.23
+1. Improve the logic to adjust the groove bottom node position when there is/are distorted elements in the bottom after scaled 
+
 2021.06.16
 1. Modified the logic for Constant ga. kerf (TBR AH33)
 2. Modified the logic for collecting the nodes on side surface to contact them to upper side profile (TBR DL11)

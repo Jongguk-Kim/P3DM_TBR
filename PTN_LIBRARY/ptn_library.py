@@ -21,7 +21,6 @@ except:
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
-from PTN_LIBRARY.ptn_plotting import plot_Edges 
 
 def timer(func): 
     def wrapper(*args, **kwargs): 
@@ -3443,22 +3442,61 @@ class MESH2D:
                 word = list(line.split(":"))[1].strip()
                 print ("Pattern: %s"%(word))
         if self.GD>0: print ("Tread Design Width : %.2f\nGroove Depth: %.2f"%(self.TDW*1000, self.GD*1000))
+
+        
+            
         dropDiff = 0
         if isSTL == 1: 
             dropDiff = self.CheckTBR_STL_Tangential(self.shoulderDrop, self.RightProfile)
+            # print (" drop differecne %.1f"%(dropDiff*1000))
         if dropDiff != 0 : 
-            if dropDiff > 0: r = -0.5 
+            if dropDiff > 0: r = -0.5
             else: r = 0.5
-            self.LeftProfile, self.RightProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
-                 dropDiff, r=r, halfOD=self.OD/2.0)
-            print ("* A curve is added to Tread curves")
+
+            # LProfile, RProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
+            #         dropDiff, r=r, halfOD=self.OD/2.0)
+
+            addCurvLength=1.0
+            while addCurvLength > 0.01: 
+                if self.RightProfile[-2][0] < 0: 
+                    del(self.RightProfile[-2])
+                
+                print ("****************************")
+                print ("Drop diff", dropDiff, "sho.drop", self.shoulderDrop)
+                
+                # print (" Add Curve R=%.6f"%(r))
+                
+
+                LProfile, RProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
+                    dropDiff, r=r, halfOD=self.OD/2.0, debug=True)
+                addCurvLength = LProfile[-2][1]
+                # print ("Add curve", LProfile[-2])
+                # print ("****************************")
+                r *=0.5
+            
+            
+            self.LeftProfile= LProfile; self.RightProfile = RProfile
+
+            dropDiff = self.CheckTBR_STL_Tangential(self.shoulderDrop, self.RightProfile)
+            print (" drop differecne %.1f"%(dropDiff*1000))
+
+            print ("* A curve (R=%.1f, L=%.1f)is added."%(r*1000, addCurvLength*1000))
             for pf, pf1 in zip(self.LeftProfile, self.RightProfile): 
                 if pf[0] <10.0: 
                     print ("  R=%6.1f/%6.1f, Length=%.2f/%.2f"%(pf[0]*1000, pf1[0]*1000, pf[1]*1000, pf1[1]*1000))
                 else: 
                     print ("  R=  Line/  Line, Length=%.2f/%.2f"%(pf[1]*1000, pf1[1]*1000))
             print("")
-            
+        
+        apf=[]
+        print ("%.2f, %.2f"%(0, (self.OD/2.0)*1000))
+        for pf in self.LeftProfile: 
+            apf.append(pf)
+            L, Ds, Dp = self.TD_Arc_length_calculator(apf, totalwidth=1)
+            # print (apf)
+            print ("%.2f, %.2f, drop=%.2f"%(Ds*1000, (self.OD/2.0-Dp)*1000, Dp*1000))
+
+        sys.exit()
         ## Preprocessing CUTE INP  ###################################################################################
         ## 
         
@@ -3633,12 +3671,14 @@ class MESH2D:
         print ("* Profile Shoulder Drop =%.2f\n  Tangential Sho.Drop=%.2f, Drop shift=%.2f"%(shoDrop*1000, drop*1000, (shoDrop-drop)*1000))
         return round(drop - shoDrop, 5)
 
-    def AddAdditionalRadiusForShoDrop(self, profile, shiftDrop, r=-0.5, halfOD=0.0): 
+    def AddAdditionalRadiusForShoDrop(self, profile, shiftDrop, r=-0.5, halfOD=0.0, debug=False): 
+
+
         if profile[-1][0] < 0: 
             del(profile[-1])
         _, tx, drop = TD_Arc_length_calculator(profile, totalwidth=1)
         ty = halfOD - drop 
-        # print ("Profile End x=%.2f, drop=%.2f"%(tx*1000, drop*1000))
+        if debug: print ("Profile End x=%.2f, drop=%.2f"%(tx*1000, drop*1000))
 
         
         if profile[-1][0] >=10.0:
@@ -3646,9 +3686,85 @@ class MESH2D:
             del(profile[-1])
         _, sx, drop = TD_Arc_length_calculator(profile, totalwidth=1)
         sy = halfOD - drop 
-        # print ("Profile line start x=%.2f, drop=%.2f"%(sx*1000, drop*1000))
+        if debug:  print ("Profile line start x=%.2f, drop=%.2f"%(sx*1000, drop*1000))
+
+        print (profile)
+
+        if len(profile) > 1: 
+            tprofile = []
+            for t in profile: 
+                tprofile.append(t)
+            del(tprofile[-1])
+            _, dist, drop = TD_Arc_length_calculator(tprofile, totalwidth=1)
+            dtx = dist; dty = halfOD - drop
+            n1 = [0, 0, dtx, dty]; n2 = [0, 0, sx, sy] 
+            centers = Circle_Center_with_2_nodes_radius(tprofile[-1][0], n1, n2, xy=23)
+            
+            if centers[0][2]  > centers[1][2]: 
+                x0 = centers[1][2]
+                y0 = cneters[1][3]
+            else: 
+                x0 = centers[0][2]
+                y0 = cneters[0][3]
+        else: 
+            n1 = [0, 0, 0, halfOD]; n2 = [0, 0, sx, sy] 
+            centers = Circle_Center_with_2_nodes_radius(profile[-1][0], n1, n2, xy=23)
+
+            x0=0 
+            y0 = halfOD - profile[-1][0] 
+
+        dX = tx - sx
+        dY = ty - sy 
+        dL  = sqrt(dX*dX + dY*dY)
+        dA = asin(shiftDrop/dL ) - atan(dY/dX)
+        # dA = asin(dX/sqrt(dX*dX + dY*dY)) + acos(shiftDrop/sqrt(dX*dX+dY*dY))
+        print (' line rotate angle, %f'%(degrees(dA)))
+        print (' dx=%.2f, dy=%.2f'%(dX*1000, dY*1000))
 
 
+        lx = sx + cos(dA) * dX - sin(dA) * dY 
+        ly = sy + sin(dA) * dX + cos(dA) * dY 
+        
+
+        d= 2.618e-03; R = profile[-1][0]
+        xi = (sx - x0)*cos(d/R)  - (sy-y0)*sin(d/R) + x0
+        yi = (sx - x0)*sin(d/R)  + (sy-y0)*cos(d/R) + y0 
+
+        A0 = (yi-y0) / (xi-x0)
+        D  = -A0*x0 + y0
+
+        a = (ly-sy) / (lx-sx)
+        b = -1 
+        c = -a * sx + sy 
+
+        K = (a**2 + b**2) *(A0**2+1) - (a**2+b**2 * A0**2  + 2*a*b*A0) 
+        L = (a**2 + b**2 ) * (-2*xi - 2*yi*A0 + 2*A0*D) - 2*(b*D + c) * (a+A0*b)
+        M = (a**2 + b**2) *(xi**2 + (D-yi)**2) - (b*D+c)**2
+        print ('K', K)
+        print ('L', L)
+        print ('M', M)
+        cx1 = (-L + sqrt(L*L - 4* K*M))/2/K 
+        cx2 = (-L - sqrt(L*L - 4* K*M))/2/K 
+        cy1 = A0 *(cx1-x0) + y0 
+        cy2 = A0 *(cx2-x0) + y0 
+
+
+        print ("circle center")
+        print ("%.2f, %.2f"%(cx1*1000, cy1*1000))
+        print ("%.2f, %.2f"%(cx2*1000, cy2*1000))  ## 59.389, 474.072 
+
+        print (" td points", "Prev R=%.1f, cut back=%.1f"%(R*1000, d*1000))
+        print (" cut back angle = %.2f"%(degrees(-d/R)))
+        
+        print ("x0, y0, %.2f, %.2f"%(x0*1000, y0*1000))
+        print ("sx, sy, %.2f, %.2f"%(sx*1000, sy*1000))
+        print ("xi, yi, %.2f, %.2f"%(xi*1000, yi*1000))
+        print ("lx, ly, %.2f, %.2f"%(lx*1000, ly*1000))
+
+        
+
+
+        sys.exit()
         tAng = atan((ty-sy)/(tx-sx)) ## tangential line의 기울기 
         sAng = atan((ty+shiftDrop-sy)/(tx-sx)) ## straight line의 기울기 
         DiffAng = sAng - tAng 
@@ -3657,20 +3773,22 @@ class MESH2D:
         dx = cos(DiffAng) * (tx-sx) - sin(DiffAng) * (ty-sy)
         dy = sin(DiffAng) * (tx-sx) + cos(DiffAng) * (ty-sy)
 
-        # print("drop from end = %.2f, from R=%.2f (=%.2f)"%(dy*1000, (halfOD-sy-dy)*1000, shiftDrop*1000))
+        if debug:  print("drop from end = %.2f, from R=%.2f (=%.2f)"%(dy*1000, (halfOD-sy-dy)*1000, shiftDrop*1000))
 
         ## straight line 방정식 :  y - sy = dy/dx (x-sx) >> y = dy/dx * x - sx *dy/dx + sy >> y=ax+b 
         a = dy/dx 
         b = -sx * a + sy 
         
-        # print(" shift x=%.3f, y=%.3f inclination=%.3f, angle=%.2f"%(dx*1000, dy*1000, a, degrees(atan(a))))
+        if debug:  print(" shift x=%.3f, y=%.3f inclination=%.3f, angle=%.2f"%(dx*1000, dy*1000, a, degrees(atan(a))))
         
 
-        ## 이 직선이 앞 곡선의 r 만큼 큰 원과 (m, n)에서 만남 
+        ## 이 m=, n)에서 만남 
         ## 앞 곡선의 원의 중심 (p, q)
+        if debug:  print ("** Curve Points ")
         pe = [0, 0, 0, halfOD]
         tmp=[]
         for pf in profile:
+            if debug:  print ("%.2f, %.2f, %.2f"%(pe[1]*1000, pe[2]*1000, pe[3]*1000))
             tmp.append(pf)
             start = pe
             _, dst, drop = self.TD_Arc_length_calculator(tmp, h_dist=0, totalwidth=1)
@@ -3679,7 +3797,7 @@ class MESH2D:
             if abs(centers[0][3]) > abs(centers[1][3]):    center = centers[1]
             else:                                          center = centers[0] 
             pe = end 
-        
+        if debug:  print ("%.2f, %.2f, %.2f"%(pe[1]*1000, pe[2]*1000, pe[3]*1000))
         p = center[2]; q = center[3]
 
 
@@ -3705,34 +3823,36 @@ class MESH2D:
         if r < 0: 
             m = (-B + sqrt(B*B - A*C))/A 
             n = a * m + c 
-            # print (" m=%.5f, n=%.5f, sx=%.5f, sy=%.5f"%(m, n, sx, sy))
+            if debug:  print (" m=%.5f, n=%.5f, sx=%.5f, sy=%.5f"%(m, n, sx, sy))
             vP =[0, 0, p, q+1.0]
         else:
             m = (-B - sqrt(B*B - A*C))/A 
             n = a * m + c 
-            # print (" m=%.5f, n=%.5f, sx=%.5f, sy=%.5f"%(m, n, sx, sy))
+            if debug:  print (" m=%.5f, n=%.5f, sx=%.5f, sy=%.5f"%(m, n, sx, sy))
             vP =[0, 0, p, q+1.0]
 
         sA = Angle_3nodes(vP, center, [0, 0, m, n])
         eA = Angle_3nodes(vP, center, [0, 0, sx, sy])
         delLc = profile[-1][0] * abs(eA-sA) ## 앞 curve 삭제 길이 
-        # print ("Curve Del=%.3f, Angle end =%.2f, start=%2f"%(delLc*1000, degrees(eA), degrees(sA)))
+        if debug:  print ("Curve Del=%.3f, Angle end =%.2f, start=%2f"%(delLc*1000, degrees(eA), degrees(sA)))
 
         ix = (m + a*n - a*b) / (a*a +1)
         iy = a * ix + b 
 
         delLl = sqrt((ix-sx)**2 + (iy-sy)**2) ## 직선의 삭제 길이 
-        # print("intersec x=%f, %f"%(ix, iy))
-        # print ("line Del=%.3f"%(delLl*1000))
+        if debug:  
+            print("intersec x=%f, %f"%(ix, iy))
+            print ("line Del=%.3f"%(delLl*1000))
 
         profile[-1][1] -= delLc 
         profile.append([r, delLc + delLl])
         strline[1] -= delLl 
         profile.append(strline)
-        # print ("STR", strline)
+        if debug:  
+            print ("STR", strline)
 
-        # for pf in profile:
-        #     print (pf)
+            for pf in profile:
+                print (pf)
         return profile, profile, r 
 
 
@@ -8171,6 +8291,11 @@ class PATTERN:
                       
                     # print ("groove lateral width =%.6f"%(sqrt( (nds[ixn][1]-nds[ixm][1])**2 + (nds[ixn][2]-nds[ixm][2])**2 )    ))
                 
+
+                # from PTN_LIBRARY.ptn_plotting import plot_Edges 
+                # for edges in self.MainGrvEdgeGroup: 
+                #     plot_Edges(edges=edges, edgepoint=True, surfaces=self.SF_fulldepthgroove, nodes=self.npn, xy=21, multi=1000, pt_print=False)
+                # return None 
             ## failed to search nodes on groove bottom 
             #########################################################
                 
@@ -9312,17 +9437,16 @@ class PATTERN:
             ix = np.where(self.nps[:,0] == sf[0])[0][0]
             btmsolid.append(self.nps[ix])
             
-        print ("** Bottom Solid Shape Check ")
+        print ("\n** Checking bottom Elements")
         errel, _, _,_ = Jacobian_check(self.npn, np.array(btmsolid))
 
-        debugmode = True 
+        debugmode = False  
         if debugmode: 
             errel=[1]
             print ("###############################")
             print ("debug mode*********************")
 
         if len(self.GrvUpNode) and len(errel): 
-
             grvn=[]
             for sf in self.freebottom: 
                 ix = np.where(self.nps[:,0]==sf[0])[0][0]
@@ -9332,18 +9456,6 @@ class PATTERN:
             grvn = grvn.flatten()
             grvn = np.unique(grvn)
             if grvn[0] ==0: grvn = np.delete(grvn, 0)
-
-            # for grv in self.GrvUpNode:
-            #     ix = np.where(NodeOrigin[:,0]==grv[0][0])[0][0]; pn1 = NodeOrigin[ix]
-            #     ix = np.where(NodeOrigin[:,0]==grv[1][0])[0][0]; pn2 = NodeOrigin[ix]
-            #     prvLength = sqrt( (pn1[1]-pn2[1])**2 + (pn1[2]-pn2[2])**2 )
-            #     print ("## groove lateral width =%.2fmm"%(prvLength*1000  ))
-            #     ix = np.where(self.npn[:,0]==grv[0][0])[0][0]; n1 = self.npn[ix]
-            #     ix = np.where(self.npn[:,0]==grv[1][0])[0][0]; n2 = self.npn[ix]
-            #     crtLength = sqrt( (n1[1]-n2[1])**2 + (n1[2]-n2[2])**2 )
-            #     print ("   scaled lateral width =%.2fmm"%(crtLength*1000  ))
-            #     grvWidthRatio = crtLength/prvLength 
-            #     break 
         
             for grp in self.MainGrvEdgeGroup: 
                 cPolygon =[]; Polygon=[]; poly=[]
@@ -9367,17 +9479,15 @@ class PATTERN:
 
                 if width > 0.03: continue 
 
-                ## check groove width ration 
+                ## check groove width ratio 
                 for grv in self.GrvUpNode:
                     ixg = np.where(NodeOrigin[:,0]==grv[0][0])[0][0]; pn1 = NodeOrigin[ixg]
                     ixg = np.where(NodeOrigin[:,0]==grv[1][0])[0][0]; pn2 = NodeOrigin[ixg]
                     if (wmn<=pn1[2] and pn1[2] <=wmx) or (wmn<=pn2[2] and pn2[2] <=wmx):
                         prvLength = sqrt( (pn1[1]-pn2[1])**2 + (pn1[2]-pn2[2])**2 )
-                        # print ("## groove lateral width =%.2fmm"%(prvLength*1000  ))
                         ixg = np.where(self.npn[:,0]==grv[0][0])[0][0]; n1 = self.npn[ixg]
                         ixg = np.where(self.npn[:,0]==grv[1][0])[0][0]; n2 = self.npn[ixg]
                         crtLength = sqrt( (n1[1]-n2[1])**2 + (n1[2]-n2[2])**2 )
-                        # print ("   scaled lateral width =%.2fmm"%(crtLength*1000  ))
                         grvWidthRatio = crtLength/prvLength 
                         print ("## Grv width =%.2f -> %.2fmm (%.2f)"%(prvLength*1000, crtLength*1000, grvWidthRatio))
                         break 
@@ -9388,103 +9498,103 @@ class PATTERN:
                     idx = np.where(grvn == NodeOrigin[x][0])[0]
                     if not len(idx): continue 
                     # if wmn >= NodeOrigin[x][2] or wmx <= NodeOrigin[x][2]: continue 
+
                     if IsPointInPolygon([NodeOrigin[x][1], NodeOrigin[x][2]], poly): 
                         points=[]
-                        mid=[]; cmid=[]
+                        up=None; down=None
+                        midu=[]; cmidu=[]; midd=[]; cmidd=[]
                         for i, p in enumerate(Polygon):  
-                            if abs(p[0][2] - p[1][2]) > 0.0001: 
-                                if abs(p[0][1] - p[1][1]) / abs(p[0][2] - p[1][2]) > 1.0: ## over 45 degree  
-                                    if p[0][1] > p[1][1] : 
-                                        up = p[0]; down=p[1]
-                                    else: 
-                                        up = p[1]; down=p[0]
-                                else: 
-                                    up=None; down=None 
-                            elif abs(p[0][1] - p[1][1]) > 0.001: 
+
+                            if abs(p[0][1] - p[1][1]) > 0.0001: 
                                 if p[0][1] > p[1][1] : 
                                     up = p[0]; down=p[1]
                                 else: 
                                     up = p[1]; down=p[0]
-                            else: 
-                                up=None; down=None 
 
-                            if not isinstance(up, type(None)) : 
-                                if NodeOrigin[x][1] >= down[1] and NodeOrigin[x][1] <= up[1]:
+                            if not isinstance(up, type(None)) :  # self.pitchlength
+                                if NodeOrigin[x][0] -10**7 == 12673: 
+                                    # print (" %d, up (%5d, %6.2f, %6.2f,), down(%5d, %6.2f, %6.2f,)"%(NodeOrigin[x][0] -10**7, up[0]-10**7, up[2]*1000, up[1]*1000, down[0]-10**7, down[2]*1000, down[1]*1000))
+                                    points.append(up)
+                                    points.append(down)
+                                if (NodeOrigin[x][1] >= down[1] and NodeOrigin[x][1] <= up[1]) or\
+                                     (NodeOrigin[x][1] >= down[1] + self.pitchlength and NodeOrigin[x][1] <= up[1] + self.pitchlength) or \
+                                     (NodeOrigin[x][1] >= down[1] - self.pitchlength and NodeOrigin[x][1] <= up[1] - self.pitchlength) :
                                     m = (up[2]+down[2])/2
                                     if abs(m - NodeOrigin[x][2]) < width and abs(NodeOrigin[x][2] - up[2]) > 0.0001 and abs(NodeOrigin[x][0] - down[0]) > 0.0001 : 
-                                        mid.append(m )
-                                        cmid.append((cPolygon[i][0][2]+cPolygon[i][1][2])/2 )
+                                        if m - NodeOrigin[x][2] > 0: 
+                                            midu.append(m )
+                                            cmidu.append((cPolygon[i][0][2]+cPolygon[i][1][2])/2 )
+                                        else:
+                                            midd.append(m )
+                                            cmidd.append((cPolygon[i][0][2]+cPolygon[i][1][2])/2 )
                                         
-                                        if debugmode: 
-                                            points.append(up)
-                                            points.append(down)
+                                        # if debugmode: 
+                                        #     # points.append(up)
+                                        #     # points.append(down)
+                                        #     print ("***********************")
+                            # else:
+                            #     if NodeOrigin[x][0] -10**7 == 12673:  print ("NO UP/DOWN", p)
 
-                        # if self.npn[x][0]-10**7 == 12673 or self.npn[x][0] -10**7== 12662 or self.npn[x][0] -10**7== 12659 or self.npn[x][0]-10**7 == 12672: 
-                        #     print ("%d: %d"%(self.npn[x][0]-10**7, len(mid)), mid)
-                        # if len(mid) > 2: 
-                        #     print ("%d: %d"%(self.npn[x][0]-10**7, len(mid)), mid)
-                        # if len(mid) > 2: print ("** %.6f*******************************"%(width))
+                        mid =[]; cmid=[]
+                        if len(midd) > 1: 
+                            mn = min (midd)
+                            for i, m in enumerate(midd):
+                                if mn == m: 
+                                    mid.append(m)
+                                    cmid.append(cmidd[i])
+                                    break 
+                        else: 
+                            if len(midd)>0: 
+                                mid.append(midd[0])
+                                cmid.append(cmidd[0] )
+                        if len(midu) > 1: 
+                            mn = min (midu) 
+                            for i, m in enumerate(midu):
+                                if mn == m: 
+                                    mid.append(m)
+                                    cmid.append(cmidu[i])
+                                    break 
+                        else: 
+                            if len(midu) > 0: 
+                                mid.append(midu[0])
+                                cmid.append(cmidu[0] )
+
+
                         if debugmode: 
-                            if len(mid) > 2: 
+                            if len(mid) > 2:# or NodeOrigin[x][0] -10**7 == 12673: 
+                                from PTN_LIBRARY.ptn_plotting import plot_Edges 
                                 for p in points: 
                                     print("ps %d, %.6f, %.6f"%(p[0], p[2]*1000, p[1]*1000))
                                 print("** %d, %.6f, %.6f"%(NodeOrigin[x][0], NodeOrigin[x][2]*1000, NodeOrigin[x][1]*1000))
-                                plot_Edges(edges=grp, nodes=NodeOrigin, points=np.array(points),point=NodeOrigin[x], xy=21, multi=1000, pt_print=True)
+                                plot_Edges(edges=self.MainGrvEdgeGroup, nodes=NodeOrigin, points=np.array(points), surfaces=None , point=NodeOrigin[x], xy=21, multi=1000, pt_print=False)
                                 return None 
 
-                        i = 0 
-                        while i < len(mid): 
-                            if abs(NodeOrigin[x][2]-mid[i]) > width or abs(NodeOrigin[x][2]-mid[i]) < 0.001: 
-                                del(mid[i])
-                                del(cmid[i])
-                                continue 
-
-                            i+=1
-
-                        # while len(mid) > 2: 
-                        #     dst=[]
-                        #     for md in mid: 
-                        #         dst.append(abs(NodeOrigin[x][2]-md)) 
-                        #     max_d = max(dst)
-                        #     # print ("%d: %d"%(self.npn[x][0]-10**7, len(dst)), dst, end=" > ")
-
-                        #     for i, d in enumerate(dst): 
-                        #         if d == max_d: 
-                        #             del(mid[i])
-                        #             del(cmid[i])
-                        #             break 
-                        #     del(dst[i])
-                        #     # print (dst)
-
                         if len(mid) > 1: 
-                            mx = max(mid); mn = min(mid)
+                            
+                            if mid[0] > mid[1]: 
+                                mx = mid[0]
+                                mn = mid[1]
+                            else: 
+                                mx = mid[1]
+                                mn = mid[0]
                             p_ratio = (NodeOrigin[x][2] - mn) / (mx-mn)
-                            if mx-mn > 0.05 or p_ratio < 0.0: continue 
 
                             cmx = max(cmid); cmn = min(cmid) 
                             target = p_ratio * (cmx-cmn) + cmn 
 
                             grvWidthRatio = (cmx-cmn) / (mx-mn)
-                            if abs(target - self.npn[x][2]) < crtLength or abs(target - self.npn[x][2]) < prvLength:
-                                self.npn[x][2] = target 
+                            # if abs(target - self.npn[x][2]) < crtLength or abs(target - self.npn[x][2]) < prvLength:
+                            self.npn[x][2] = target 
 
                         elif len(mid): 
                             target = cmid[0] + (NodeOrigin[x][2]-mid[0]) * grvWidthRatio
-                            if abs(target - self.npn[x][2]) < crtLength or abs(target - self.npn[x][2]) < prvLength:
-                                self.npn[x][2] = target 
-
-                        # if self.npn[x][0]-10**7 == 12673 or self.npn[x][0] -10**7== 12662 or self.npn[x][0] -10**7== 12659 or self.npn[x][0]-10**7 == 12672: 
-                        #     print ("***********************************")
-                        #     print ("Initial: %5d, %6.1f, %6.1f"%(self.npn[x][0]-10**7, self.npn[x][1]*1000, self.npn[x][2]*1000))
-                        #     print (" Target: %5d, %6.1f, %6.1f"%(self.npn[x][0]-10**7, self.npn[x][1]*1000, target*1000))
-                        
-
+                            # if abs(target - self.npn[x][2]) < crtLength or abs(target - self.npn[x][2]) < prvLength:
+                            self.npn[x][2] = target 
+                        # else: 
+                        #     print (" fail to adjust", self.npn[x])
             print ("* Postion of Main Grv nodes was adjusted.")    
-
         #########################################################################
 
-        
-        
         if self.shoulderType =="S": 
             halfTDW =  self.TargetTDW/2.0
         else: 
@@ -9525,7 +9635,6 @@ class PATTERN:
 
         return self.NoPitch
     
-
     ## Method developed in September 2020 
     # @timer 
     def Top_Bottom_FreeSurfacesFromAllSurfaces_01(self, allSurface, npn, radius=0.0, margin=1.0E-03): 
@@ -21250,7 +21359,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                     else: tL = l - subTd_marginGa
                     vec1[1] = round(n1[1]+vec1[1]*tL, digit); vec1[2] = round(n1[2]+vec1[2]*tL, digit); vec1[3] = round(n1[3]+vec1[3]*tL, digit)
                 newN.append(vec1)
-                if vec1[3]-n1[3] > (n5[3]-n1[3]): print (" n1z=%.3f, midZ=%.3f(%5.3f), n5z=%.3f(%5.3f)"%(n1[3]*1000, vec1[3]*1000, (vec1[3]-n1[3])*1000, n5[3]*1000, (n5[3]-n1[3])*1000))
+                # if vec1[3]-n1[3] > (n5[3]-n1[3]): print (" n1z=%.3f, midZ=%.3f(%5.3f), n5z=%.3f(%5.3f)"%(n1[3]*1000, vec1[3]*1000, (vec1[3]-n1[3])*1000, n5[3]*1000, (n5[3]-n1[3])*1000))
 
                 nCnt += 1
                 l2 = sqrt(( n6[1]-n2[1])**2+(n6[2]-n2[2])**2+( n6[3]-n2[3])**2)
@@ -21264,7 +21373,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                     else: tL = l - subTd_marginGa
                     vec2[1] = round(n2[1]+vec2[1]*tL, digit); vec2[2] = round(n2[2]+vec2[2]*tL, digit); vec2[3] = round(n2[3]+vec2[3]*tL, digit)
                 newN.append(vec2)
-                if vec2[3]-n2[3] > (n6[3]-n2[3]): print (" n2z=%.3f, midZ=%.3f(%5.3f), n6z=%.3f(%5.3f)"%(n2[3]*1000, vec2[3]*1000, (vec2[3]-n2[3])*1000, n6[3]*1000, (n6[3]-n2[3])*1000))
+                # if vec2[3]-n2[3] > (n6[3]-n2[3]): print (" n2z=%.3f, midZ=%.3f(%5.3f), n6z=%.3f(%5.3f)"%(n2[3]*1000, vec2[3]*1000, (vec2[3]-n2[3])*1000, n6[3]*1000, (n6[3]-n2[3])*1000))
 
                 nCnt += 1
                 l3 = sqrt(( n7[1]-n3[1])**2+(n7[2]-n3[2])**2+(n7[3]-n3[3])**2)
@@ -21278,7 +21387,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                     else: tL = l - subTd_marginGa
                     vec3[1] = round(n3[1]+vec3[1]*tL, digit); vec3[2] = round(n3[2]+vec3[2]*tL, digit); vec3[3] = round(n3[3]+vec3[3]*tL, digit)
                 newN.append(vec3)
-                if vec3[3]-n3[3] > (n7[3]-n3[3]): print (" n3z=%.3f, midZ=%.3f(%5.3f), n7z=%.3f(%5.3f)"%(n3[3]*1000, vec3[3]*1000, (vec3[3]-n3[3])*1000, n3[3]*1000, (n7[3]-n3[3])*1000))
+                # if vec3[3]-n3[3] > (n7[3]-n3[3]): print (" n3z=%.3f, midZ=%.3f(%5.3f), n7z=%.3f(%5.3f)"%(n3[3]*1000, vec3[3]*1000, (vec3[3]-n3[3])*1000, n3[3]*1000, (n7[3]-n3[3])*1000))
 
                 nCnt += 1
                 l4 = sqrt(( n8[1]-n4[1])**2+(n8[2]-n4[2])**2+(n8[3]-n4[3])**2)
@@ -21292,7 +21401,7 @@ def PatternElsetDefinition(ptn_solid, ptn_node, layout_tread, layout_node, subtr
                     else: tL = l - subTd_marginGa
                     vec4[1] = round(n4[1]+vec4[1]*tL, digit); vec4[2] = round(n4[2]+vec4[2]*tL, digit); vec4[3] = round(n4[3]+vec4[3]*tL, digit)
                 newN.append(vec4)
-                if vec4[3]-n4[3] > (n8[3]-n4[3]): print (" n4z=%.3f, midZ=%.3f(%5.3f), n8z=%.3f(%5.3f)"%(n4[3]*1000, vec4[3]*1000, (vec4[3]-n4[3])*1000, n8[3]*1000, (n8[3]-n4[3])*1000))
+                # if vec4[3]-n4[3] > (n8[3]-n4[3]): print (" n4z=%.3f, midZ=%.3f(%5.3f), n8z=%.3f(%5.3f)"%(n4[3]*1000, vec4[3]*1000, (vec4[3]-n4[3])*1000, n8[3]*1000, (n8[3]-n4[3])*1000))
             else:
 
                 subGa = SubTreadCenterGa(up, down, position=(n1[2]+n2[2]+n3[2])/3.0)
@@ -22691,6 +22800,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
 def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0): 
     ## halfOD : for     square shoulder profile, to calculate the center of the circle with negative radius
 
+    
     hx  = abs(h_dist)
 
     # curves = []

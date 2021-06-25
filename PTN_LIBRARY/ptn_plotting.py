@@ -8,7 +8,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 import numpy as np 
 
 
-def plot_Edges(edges=None, nodes=None, surfaces=None, points=None, point=None, figure=None, clear=True, xy=23, multi=1.0, pt_print=False ): 
+def plot_Edges(edges=None, edgepoint=False, nodes=None, surfaces=None, points=None, point=None, ifigure=None, clear=True, xy=23, multi=1.0, pt_print=False ): 
     
     x = int(xy/10); y=int(xy%10)
 
@@ -20,21 +20,26 @@ def plot_Edges(edges=None, nodes=None, surfaces=None, points=None, point=None, f
 
     border = 0.05
 
-    figure = plt.figure()
+    t_figure = plt.figure()
     if clear : 
-        figure.clear()
+        t_figure.clear()
 
-    ax = figure.add_subplot(111)
-    ax.axis('equal')
+    t_ax = t_figure.add_subplot(111)
+    t_ax.axis('equal')
     xs =[]; ys=[]
     if not isinstance(edges, type(None)):
         for edge in edges: 
             ix = np.where(nodes[:,0]==edge[0])[0][0]; n1=nodes[ix]
             ix = np.where(nodes[:,0]==edge[1])[0][0]; n2=nodes[ix]
-            polygon = plt.Polygon([[n1[x], n1[y]], [n2[x], n2[y]]], color='red', alpha=0.8, lw=0.5, ec='red')
-            ax.add_patch(polygon)
+            # polygon = plt.Polygon([[n1[x], n1[y]], [n2[x], n2[y]]], color='red', alpha=0.8, lw=1.0)
+            # t_ax.add_patch(polygon)
+            
             xs.append(n1[x]); ys.append(n1[y])
             xs.append(n2[x]); ys.append(n2[y])
+        plt.plot(xs, ys, color='red', marker='o')
+        if edgepoint: 
+            plt.scatter(xs, ys, c='black', marker='+', edgecolor=None, s=4.0)
+
 
     xs=np.array(xs); ys=np.array(ys)
 
@@ -69,11 +74,11 @@ def plot_Edges(edges=None, nodes=None, surfaces=None, points=None, point=None, f
             if sf[10] > 0: 
                 ix = np.where(nodes[:,0]==sf[10])[0][0]; n4=nodes[ix]
                 polygon = plt.Polygon([[n1[x], n1[y]], [n2[x], n2[y]], [n3[x], n3[y]], [n4[x], n4[y]]], \
-                    color='lightblue', alpha=0.4, lw=1.0, ec='blue')
+                    color='lightblue', alpha=0.4, lw=0.5, ec='blue')
             else: 
                 polygon = plt.Polygon([[n1[x], n1[y]], [n2[x], n2[y]], [n3[x], n3[y]] ], \
-                    color='lightblue', alpha=0.4, lw=1.0, ec='blue')
-            ax.add_patch(polygon)
+                    color='lightblue', alpha=0.4, lw=0.5, ec='blue')
+            t_ax.add_patch(polygon)
             xss.append(n1[x]); yss.append(n1[y])
             xss.append(n2[x]); yss.append(n2[y])
 
