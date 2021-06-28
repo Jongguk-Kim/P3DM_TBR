@@ -3673,23 +3673,22 @@ class MESH2D:
 
     def AddAdditionalRadiusForShoDrop(self, profile, shiftDrop, r=-0.5, halfOD=0.0, debug=False): 
 
+        
 
         if profile[-1][0] < 0: 
             del(profile[-1])
         _, tx, drop = TD_Arc_length_calculator(profile, totalwidth=1)
         ty = halfOD - drop 
         if debug: print ("Profile End x=%.2f, drop=%.2f"%(tx*1000, drop*1000))
-
-        
+        STL = profile[-1]
         if profile[-1][0] >=10.0:
             strline = profile[-1] 
             del(profile[-1])
-        _, sx, drop = TD_Arc_length_calculator(profile, totalwidth=1)
-        sy = halfOD - drop 
-        if debug:  print ("Profile line start x=%.2f, drop=%.2f"%(sx*1000, drop*1000))
+        _, xs, drop = TD_Arc_length_calculator(profile, totalwidth=1)
+        ys = halfOD - drop 
+        if debug:  print ("Profile line start x=%.2f, drop=%.2f"%(xs*1000, drop*1000))
 
-        print (profile)
-
+        
         if len(profile) > 1: 
             tprofile = []
             for t in profile: 
@@ -3697,7 +3696,7 @@ class MESH2D:
             del(tprofile[-1])
             _, dist, drop = TD_Arc_length_calculator(tprofile, totalwidth=1)
             dtx = dist; dty = halfOD - drop
-            n1 = [0, 0, dtx, dty]; n2 = [0, 0, sx, sy] 
+            n1 = [0, 0, dtx, dty]; n2 = [0, 0, xs, ys] 
             centers = Circle_Center_with_2_nodes_radius(tprofile[-1][0], n1, n2, xy=23)
             
             if centers[0][2]  > centers[1][2]: 
@@ -3707,63 +3706,112 @@ class MESH2D:
                 x0 = centers[0][2]
                 y0 = cneters[0][3]
         else: 
-            n1 = [0, 0, 0, halfOD]; n2 = [0, 0, sx, sy] 
+            n1 = [0, 0, 0, halfOD]; n2 = [0, 0, xs, ys] 
             centers = Circle_Center_with_2_nodes_radius(profile[-1][0], n1, n2, xy=23)
 
             x0=0 
             y0 = halfOD - profile[-1][0] 
 
-        dX = tx - sx
-        dY = ty - sy 
-        dL  = sqrt(dX*dX + dY*dY)
-        dA = asin(shiftDrop/dL ) - atan(dY/dX)
+        w = tx - xs
+        h = ty - ys 
+        initA = atan(h/w)
+        rotedA = asin((h + shiftDrop)/ STL[1]) 
+        dA = rotedA - initA 
         # dA = asin(dX/sqrt(dX*dX + dY*dY)) + acos(shiftDrop/sqrt(dX*dX+dY*dY))
-        print (' line rotate angle, %f'%(degrees(dA)))
-        print (' dx=%.2f, dy=%.2f'%(dX*1000, dY*1000))
+        print (profile)
+        print (" STL", STL)
+        print (" tangential supposed , x=117.714, 515.528, actual cal %.3f, %.3f, drop=%.3f, ok"%(tx*1000, ty*1000, drop*1000))
+        print (" line w=%.2f, h=%.2f, ok, dropshift=%.2f, line Length=%.1f"%(w*1000, h*1000, shiftDrop*1000, STL[1]*1000))
+        print (' line rotate angle, %f, (6.155 deg)'%(degrees(rotedA-initA)))
+        print (' init A=%.2f, roted=%.2f'%(degrees(initA), degrees(rotedA)))
+        
+        print ("ortated L h1=%.2f, angle=%.2f"%((shiftDrop+h)*1000, degrees(rotedA)))
 
-
-        lx = sx + cos(dA) * dX - sin(dA) * dY 
-        ly = sy + sin(dA) * dX + cos(dA) * dY 
+        xl = xs + cos(dA) * w - sin(dA) * h 
+        yl = ys + sin(dA) * w + cos(dA) * h 
         
 
         d= 2.618e-03; R = profile[-1][0]
-        xi = (sx - x0)*cos(d/R)  - (sy-y0)*sin(d/R) + x0
-        yi = (sx - x0)*sin(d/R)  + (sy-y0)*cos(d/R) + y0 
+        x2 = (xs - x0)*cos(d/R)  - (ys-y0)*sin(d/R) + x0
+        y2 = (xs - x0)*sin(d/R)  + (ys-y0)*cos(d/R) + y0 
 
-        A0 = (yi-y0) / (xi-x0)
-        D  = -A0*x0 + y0
-
-        a = (ly-sy) / (lx-sx)
+        a = (yl-ys)/(xl-xs)
         b = -1 
-        c = -a * sx + sy 
+        c = -a * xs + ys 
 
-        K = (a**2 + b**2) *(A0**2+1) - (a**2+b**2 * A0**2  + 2*a*b*A0) 
-        L = (a**2 + b**2 ) * (-2*xi - 2*yi*A0 + 2*A0*D) - 2*(b*D + c) * (a+A0*b)
-        M = (a**2 + b**2) *(xi**2 + (D-yi)**2) - (b*D+c)**2
-        print ('K', K)
-        print ('L', L)
-        print ('M', M)
-        cx1 = (-L + sqrt(L*L - 4* K*M))/2/K 
-        cx2 = (-L - sqrt(L*L - 4* K*M))/2/K 
-        cy1 = A0 *(cx1-x0) + y0 
-        cy2 = A0 *(cx2-x0) + y0 
+        A0 = (y2-y0)/(x2-x0)
+        c0 = -A0 * x0 + y0 
+
+        #############################################################################
+
+        ## |a*xc + b* yc + c|^2 = (a^2 + b^2) * { (x2-xc)^2 + (y2-yc)^2 }
+        ## yc = A0*xc + c0 
+
+        ## a*xc + b(A0*xc + c0) + c = (a + A0*b)xc + b + c0 = A * xc + D 
+        ## -> (A * xc + D)^2 = A^2 * xc^2 + D^2 + 2*D*A *xc     --- (1)
+        ## (x2-xc)^2 + (y2-yc)^2 = x2^2 + xc^2 -2*x2*xc + (A0*xc + c0 - y2)^2
+        ##                       =  x2^2 + xc^2 -2*x2*xc + A0^2*xc^2 + E^2 + 2*E*A0*xc   --(2)
+        ## (a^2 + b^2) * {x2^2 + xc^2 -2*x2*xc + A0^2*xc^2 + E^2 + 2*E*A0*xc}
+
+        ## (1) == (2)
+
+        ##  {(a^2 + b^2) * (A0^2 +1) - A^2 }* xc^2 
+        ## +  {-2*(a^2 + b^2) * x2 + 2*E*A0*(a^2 + b^2) - 2*D*A } xc 
+        ## + x2^2 + E^2 - D^2 
+
+        A = a + A0*b 
+        D = b * c0 + c
+        E = c0 - y2 
+
+        
+        K = (a**2 + b**2) * (A0**2 +1) - A**2
+        L = 2*(a**2 + b**2) * (-x2 + A*E) - 2*D*A
+        M = (a**2 + b**2) * (x2**2 + E**2) - D**2 
+
+        xc1 = (-L + sqrt(L**2 - 4*K*M))/(2*K)
+        xc2 = (-L - sqrt(L**2 - 4*K*M))/(2*K)
+        yc1 = A0 * (xc1 - x0) + y0
+        yc2 = A0 * (xc2 - x0) + y0
+        ##############################################################################
 
 
         print ("circle center")
-        print ("%.2f, %.2f"%(cx1*1000, cy1*1000))
-        print ("%.2f, %.2f"%(cx2*1000, cy2*1000))  ## 59.389, 474.072 
+        print ("%.2f, %.2f"%(xc1*1000, yc1*1000))
+        print ("%.2f, %.2f, ng, (59.389, 474.092, R=46.417, line cutback =2.536mm)"%(xc2*1000, yc2*1000))  ## 59.389, 474.072 
+        
+        # xc2 = 59.389e-3; yc2=474.092e-3 ## if xc=59.389, yc=474.092
+        dist = (a*xc2+b*yc2+c) / sqrt(a**2+b**2)
+        print (" distance from line =%.2f"%(dist*1000))
+        cal_ys = -a/b*xs - c /b
+        print (" verifing ys=%.3f (%.3f)"%(cal_ys*1000, ys*1000))
+        print (" Verifying 2 ")
+        xc=x2
+        cal_ys = A0*xc + c0
+        print (" verifing ys=%.3f (%.3f)"%(cal_ys*1000, y2*1000))
+        print (" A0=%.6f, c0=%.6f"%(A0, c0))
+        print ("****************************************")
 
         print (" td points", "Prev R=%.1f, cut back=%.1f"%(R*1000, d*1000))
         print (" cut back angle = %.2f"%(degrees(-d/R)))
         
-        print ("x0, y0, %.2f, %.2f"%(x0*1000, y0*1000))
-        print ("sx, sy, %.2f, %.2f"%(sx*1000, sy*1000))
-        print ("xi, yi, %.2f, %.2f"%(xi*1000, yi*1000))
-        print ("lx, ly, %.2f, %.2f"%(lx*1000, ly*1000))
+        print ("x0, y0, %.2f, %.2f, ok"%(x0*1000, y0*1000))
+        print ("xs, ts, %.2f, %.2f, ok"%(xs*1000, ys*1000))
+        print ("x2, y2, %.2f, %.2f, ok, (63.307, 520.323)"%(x2*1000, y2*1000))
+        print ("xl, yl, %.3f, %.3f, ng, (116.925, 510.0), drop=%.2f"%(xl*1000, yl*1000, (halfOD-yl)*1000))
 
-        
+        # xx = [x0, xs, x2, xl]
+        # yy = [y0, ys, y2, yl]
 
+        # plt.scatter(xx, yy)
 
+        # xx = [xc1, xc2]
+        # yy = [yc1, yc2]
+
+        # plt.scatter(xx,yy)
+
+        # plt.show()
+
+        # return 
         sys.exit()
         tAng = atan((ty-sy)/(tx-sx)) ## tangential line의 기울기 
         sAng = atan((ty+shiftDrop-sy)/(tx-sx)) ## straight line의 기울기 
