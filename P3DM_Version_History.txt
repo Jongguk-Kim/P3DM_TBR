@@ -1,6 +1,9 @@
 
 P3DM Version History
 
+2021.03.29 
+1. fixing bug the logic to add a supplementary curve to tread profile with Straight line on tread in TBR 
+
 2021.06.23
 1. Improve the logic to adjust the groove bottom node position when there is/are distorted elements in the bottom after scaled 
 

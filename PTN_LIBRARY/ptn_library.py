@@ -3447,56 +3447,42 @@ class MESH2D:
             
         dropDiff = 0
         if isSTL == 1: 
+            if self.RightProfile[-1][0] < 0: 
+                del(self.RightProfile[-1])
+                del(self.LeftProfile[-1])
+                # self.RightProfile[-1][0] = 100.0
+                # self.LeftProfile[-1][0] = 100.0
             dropDiff = self.CheckTBR_STL_Tangential(self.shoulderDrop, self.RightProfile)
-            # print (" drop differecne %.1f"%(dropDiff*1000))
+            # print ("## drop differecne %.1f"%(dropDiff*1000))
         if dropDiff != 0 : 
             if dropDiff > 0: r = -0.5
             else: r = 0.5
-
-            # LProfile, RProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
-            #         dropDiff, r=r, halfOD=self.OD/2.0)
-
-            addCurvLength=1.0
-            while addCurvLength > 0.01: 
-                if self.RightProfile[-2][0] < 0: 
-                    del(self.RightProfile[-2])
-                
-                print ("****************************")
-                print ("Drop diff", dropDiff, "sho.drop", self.shoulderDrop)
-                
-                # print (" Add Curve R=%.6f"%(r))
-                
-
-                LProfile, RProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
-                    dropDiff, r=r, halfOD=self.OD/2.0, debug=True)
-                addCurvLength = LProfile[-2][1]
-                # print ("Add curve", LProfile[-2])
-                # print ("****************************")
-                r *=0.5
-            
-            
-            self.LeftProfile= LProfile; self.RightProfile = RProfile
-
+            # print (">>>>>>>>>>>>", self.RightProfile)
+            self.LeftProfile, self.RightProfile, r= self.AddAdditionalRadiusForShoDrop(self.RightProfile,\
+                    dropDiff, r=r, halfOD=self.OD/2.0)
+            # print (">>>>>>df>>>>>>", self.RightProfile)
+            # print ("\n##########Calculate drop difference")
             dropDiff = self.CheckTBR_STL_Tangential(self.shoulderDrop, self.RightProfile)
-            print (" drop differecne %.1f"%(dropDiff*1000))
-
-            print ("* A curve (R=%.1f, L=%.1f)is added."%(r*1000, addCurvLength*1000))
-            for pf, pf1 in zip(self.LeftProfile, self.RightProfile): 
-                if pf[0] <10.0: 
-                    print ("  R=%6.1f/%6.1f, Length=%.2f/%.2f"%(pf[0]*1000, pf1[0]*1000, pf[1]*1000, pf1[1]*1000))
-                else: 
-                    print ("  R=  Line/  Line, Length=%.2f/%.2f"%(pf[1]*1000, pf1[1]*1000))
-            print("")
+            # print ("#### drop differecne %.3f"%(dropDiff*1000))
+            # print (">>>>>>>sasf>>>>>", self.RightProfile)
+            # end_dist, end_drop = TD_Arc_endPoints(self.RightProfile)
+            # print (">>>>>>>ass>>>>>", self.RightProfile)
+        for pf, pf1 in zip(self.LeftProfile, self.RightProfile): 
+            if pf[0] <10.0: 
+                print ("  R=%6.1f/%6.1f, Length=%.2f/%.2f"%(pf[0]*1000, pf1[0]*1000, pf[1]*1000, pf1[1]*1000))
+            else: 
+                print ("  R=  Line/  Line, Length=%.2f/%.2f"%(pf[1]*1000, pf1[1]*1000))
+        print("")
         
-        apf=[]
-        print ("%.2f, %.2f"%(0, (self.OD/2.0)*1000))
-        for pf in self.LeftProfile: 
-            apf.append(pf)
-            L, Ds, Dp = self.TD_Arc_length_calculator(apf, totalwidth=1)
-            # print (apf)
-            print ("%.2f, %.2f, drop=%.2f"%(Ds*1000, (self.OD/2.0-Dp)*1000, Dp*1000))
+        # apf=[]
+        # print ("%.2f, %.2f"%(0, (self.OD/2.0)*1000))
+        # for pf in self.LeftProfile: 
+        #     apf.append(pf)
+        #     L, Ds, Dp = self.TD_Arc_length_calculator(apf, totalwidth=1)
+        #     # print (apf)
+        #     print ("%.2f, %.2f, drop=%.2f"%(Ds*1000, (self.OD/2.0-Dp)*1000, Dp*1000))
 
-        sys.exit()
+        # sys.exit()
         ## Preprocessing CUTE INP  ###################################################################################
         ## 
         
@@ -3652,6 +3638,8 @@ class MESH2D:
         # print ("############################################")
     def __del__(self): 
         pass 
+
+    
     def CheckTBR_STL_Tangential(self, shoDrop, profile): 
         
         if shoDrop ==0: 
@@ -3673,13 +3661,12 @@ class MESH2D:
 
     def AddAdditionalRadiusForShoDrop(self, profile, shiftDrop, r=-0.5, halfOD=0.0, debug=False): 
 
-        
-
         if profile[-1][0] < 0: 
             del(profile[-1])
         _, tx, drop = TD_Arc_length_calculator(profile, totalwidth=1)
         ty = halfOD - drop 
         if debug: print ("Profile End x=%.2f, drop=%.2f"%(tx*1000, drop*1000))
+        profile[-1][0] *= 1000.0
         STL = profile[-1]
         if profile[-1][0] >=10.0:
             strline = profile[-1] 
@@ -3701,10 +3688,10 @@ class MESH2D:
             
             if centers[0][2]  > centers[1][2]: 
                 x0 = centers[1][2]
-                y0 = cneters[1][3]
+                y0 = centers[1][3]
             else: 
                 x0 = centers[0][2]
-                y0 = cneters[0][3]
+                y0 = centers[0][3]
         else: 
             n1 = [0, 0, 0, halfOD]; n2 = [0, 0, xs, ys] 
             centers = Circle_Center_with_2_nodes_radius(profile[-1][0], n1, n2, xy=23)
@@ -3718,14 +3705,14 @@ class MESH2D:
         rotedA = asin((h + shiftDrop)/ STL[1]) 
         dA = rotedA - initA 
         # dA = asin(dX/sqrt(dX*dX + dY*dY)) + acos(shiftDrop/sqrt(dX*dX+dY*dY))
-        print (profile)
-        print (" STL", STL)
-        print (" tangential supposed , x=117.714, 515.528, actual cal %.3f, %.3f, drop=%.3f, ok"%(tx*1000, ty*1000, drop*1000))
-        print (" line w=%.2f, h=%.2f, ok, dropshift=%.2f, line Length=%.1f"%(w*1000, h*1000, shiftDrop*1000, STL[1]*1000))
-        print (' line rotate angle, %f, (6.155 deg)'%(degrees(rotedA-initA)))
-        print (' init A=%.2f, roted=%.2f'%(degrees(initA), degrees(rotedA)))
-        
-        print ("ortated L h1=%.2f, angle=%.2f"%((shiftDrop+h)*1000, degrees(rotedA)))
+        if debug: 
+            print (" STL", STL)
+            print (" tangential supposed , x=117.714, 515.528, actual cal %.3f, %.3f, drop=%.3f, ok"%(tx*1000, ty*1000, drop*1000))
+            print (" line w=%.2f, h=%.2f, ok, dropshift=%.2f, line Length=%.1f"%(w*1000, h*1000, shiftDrop*1000, STL[1]*1000))
+            print (' line rotate angle, %f, (6.155 deg)'%(degrees(rotedA-initA)))
+            print (' init A=%.2f, roted=%.2f'%(degrees(initA), degrees(rotedA)))
+            
+            print ("ortated L h1=%.2f, angle=%.2f"%((shiftDrop+h)*1000, degrees(rotedA)))
 
         xl = xs + cos(dA) * w - sin(dA) * h 
         yl = ys + sin(dA) * w + cos(dA) * h 
@@ -3742,31 +3729,14 @@ class MESH2D:
         A0 = (y2-y0)/(x2-x0)
         c0 = -A0 * x0 + y0 
 
-        #############################################################################
-
-        ## |a*xc + b* yc + c|^2 = (a^2 + b^2) * { (x2-xc)^2 + (y2-yc)^2 }
-        ## yc = A0*xc + c0 
-
-        ## a*xc + b(A0*xc + c0) + c = (a + A0*b)xc + b + c0 = A * xc + D 
-        ## -> (A * xc + D)^2 = A^2 * xc^2 + D^2 + 2*D*A *xc     --- (1)
-        ## (x2-xc)^2 + (y2-yc)^2 = x2^2 + xc^2 -2*x2*xc + (A0*xc + c0 - y2)^2
-        ##                       =  x2^2 + xc^2 -2*x2*xc + A0^2*xc^2 + E^2 + 2*E*A0*xc   --(2)
-        ## (a^2 + b^2) * {x2^2 + xc^2 -2*x2*xc + A0^2*xc^2 + E^2 + 2*E*A0*xc}
-
-        ## (1) == (2)
-
-        ##  {(a^2 + b^2) * (A0^2 +1) - A^2 }* xc^2 
-        ## +  {-2*(a^2 + b^2) * x2 + 2*E*A0*(a^2 + b^2) - 2*D*A } xc 
-        ## + x2^2 + E^2 - D^2 
-
         A = a + A0*b 
         D = b * c0 + c
         E = c0 - y2 
 
         
-        K = (a**2 + b**2) * (A0**2 +1) - A**2
-        L = 2*(a**2 + b**2) * (-x2 + A*E) - 2*D*A
-        M = (a**2 + b**2) * (x2**2 + E**2) - D**2 
+        K =  A**2 / (a**2 + b**2) -1 -A0**2 
+        L = 2*A*D/(a**2+b**2) + 2*x2 - 2*A0* E
+        M = D**2 / (a**2 + b**2) - x2**2 -E**2 
 
         xc1 = (-L + sqrt(L**2 - 4*K*M))/(2*K)
         xc2 = (-L - sqrt(L**2 - 4*K*M))/(2*K)
@@ -3775,132 +3745,49 @@ class MESH2D:
         ##############################################################################
 
 
-        print ("circle center")
-        print ("%.2f, %.2f"%(xc1*1000, yc1*1000))
-        print ("%.2f, %.2f, ng, (59.389, 474.092, R=46.417, line cutback =2.536mm)"%(xc2*1000, yc2*1000))  ## 59.389, 474.072 
+        
         
         # xc2 = 59.389e-3; yc2=474.092e-3 ## if xc=59.389, yc=474.092
-        dist = (a*xc2+b*yc2+c) / sqrt(a**2+b**2)
-        print (" distance from line =%.2f"%(dist*1000))
-        cal_ys = -a/b*xs - c /b
-        print (" verifing ys=%.3f (%.3f)"%(cal_ys*1000, ys*1000))
-        print (" Verifying 2 ")
-        xc=x2
-        cal_ys = A0*xc + c0
-        print (" verifing ys=%.3f (%.3f)"%(cal_ys*1000, y2*1000))
-        print (" A0=%.6f, c0=%.6f"%(A0, c0))
-        print ("****************************************")
+        if debug: 
+            print (" td points", "Prev R=%.1f, cut back=%.1f"%(R*1000, d*1000))
+            print (" cut back angle = %.2f"%(degrees(-d/R)))
+            
+            print ("x0, y0, %.2f, %.2f, ok"%(x0*1000, y0*1000))
+            print ("xs, ts, %.2f, %.2f, ok"%(xs*1000, ys*1000))
+            print ("x2, y2, %.2f, %.2f, ok, (63.307, 520.323)"%(x2*1000, y2*1000))
+            print ("xl, yl, %.3f, %.3f, ng, (116.925, 510.0), drop=%.2f"%(xl*1000, yl*1000, (halfOD-yl)*1000))
 
-        print (" td points", "Prev R=%.1f, cut back=%.1f"%(R*1000, d*1000))
-        print (" cut back angle = %.2f"%(degrees(-d/R)))
-        
-        print ("x0, y0, %.2f, %.2f, ok"%(x0*1000, y0*1000))
-        print ("xs, ts, %.2f, %.2f, ok"%(xs*1000, ys*1000))
-        print ("x2, y2, %.2f, %.2f, ok, (63.307, 520.323)"%(x2*1000, y2*1000))
-        print ("xl, yl, %.3f, %.3f, ng, (116.925, 510.0), drop=%.2f"%(xl*1000, yl*1000, (halfOD-yl)*1000))
-
-        # xx = [x0, xs, x2, xl]
-        # yy = [y0, ys, y2, yl]
-
-        # plt.scatter(xx, yy)
-
-        # xx = [xc1, xc2]
-        # yy = [yc1, yc2]
-
-        # plt.scatter(xx,yy)
-
-        # plt.show()
-
-        # return 
-        sys.exit()
-        tAng = atan((ty-sy)/(tx-sx)) ## tangential line의 기울기 
-        sAng = atan((ty+shiftDrop-sy)/(tx-sx)) ## straight line의 기울기 
-        DiffAng = sAng - tAng 
-
-        ## (sx,sy) 점을 중심으로 회전 이동위치 (sx,sy를 원점으로 가정)
-        dx = cos(DiffAng) * (tx-sx) - sin(DiffAng) * (ty-sy)
-        dy = sin(DiffAng) * (tx-sx) + cos(DiffAng) * (ty-sy)
-
-        if debug:  print("drop from end = %.2f, from R=%.2f (=%.2f)"%(dy*1000, (halfOD-sy-dy)*1000, shiftDrop*1000))
-
-        ## straight line 방정식 :  y - sy = dy/dx (x-sx) >> y = dy/dx * x - sx *dy/dx + sy >> y=ax+b 
-        a = dy/dx 
-        b = -sx * a + sy 
-        
-        if debug:  print(" shift x=%.3f, y=%.3f inclination=%.3f, angle=%.2f"%(dx*1000, dy*1000, a, degrees(atan(a))))
-        
-
-        ## 이 m=, n)에서 만남 
-        ## 앞 곡선의 원의 중심 (p, q)
-        if debug:  print ("** Curve Points ")
-        pe = [0, 0, 0, halfOD]
-        tmp=[]
-        for pf in profile:
-            if debug:  print ("%.2f, %.2f, %.2f"%(pe[1]*1000, pe[2]*1000, pe[3]*1000))
-            tmp.append(pf)
-            start = pe
-            _, dst, drop = self.TD_Arc_length_calculator(tmp, h_dist=0, totalwidth=1)
-            end = [0, 0, dst, halfOD - drop] 
-            centers = Circle_Center_with_2_nodes_radius(pf[0], start, end)
-            if abs(centers[0][3]) > abs(centers[1][3]):    center = centers[1]
-            else:                                          center = centers[0] 
-            pe = end 
-        if debug:  print ("%.2f, %.2f, %.2f"%(pe[1]*1000, pe[2]*1000, pe[3]*1000))
-        p = center[2]; q = center[3]
-
-
-        if r> 0:  r = profile[-1][0] * 0.25
-       
-
-        ## r 만큼 평행이동한 직선 방정식 : y = ax + c 
-        c = b  - r / cos(atan(a))  ## r < 0 이므로 -r 
-        # print (" r=%.2f, b=%.3f, c=%.3f, c-b=%.4f"%(r*1000, b*1000, c*1000, (c-b)*1000))
-
-        ## (p,q), (m,n) 거리 = pf[0] +- r 
-        ## r < 0: (m-p)^2 + (n-q)^2 = (R+abs(r))^2 
-        ## r > 0: (m-p)^2 + (n-q)^2 = (R-abs(r))^2 
-
-        A = (a*a+1)
-        B = a * c - a * q - p 
-        if r < 0: 
-            C = c*c - 2*c*q + q*q + p*p - (profile[-1][0]+abs(r))**2 
+        if shiftDrop < 0: 
+            if yc1 < y2: 
+                xc = xc1; yc = yc1 
+            else: 
+                xc = xc2; yc = yc2 
         else: 
-            C = c*c - 2*c*q + q*q + p*p - (profile[-1][0]-abs(r))**2 
+            if yc1 < y2: 
+                xc = xc2; yc = yc2 
+            else: 
+                xc = xc1; yc = yc1
+        if debug: 
+            print ("circle center")
+            print ("%.2f, %.2f"%(xc1*1000, yc1*1000))
+            print ("%.2f, %.2f"%(xc2*1000, yc2*1000))  ## 59.389, 474.072 
+            print (">>  %.2f, %.2f"%(xc*1000, yc*1000)) 
+
+        dist, p1 = DistanceFromLineToNode2D([0, 0, xc, yc], [[0, 0, tx, ty], [0, 0, xs, ys]], xy=23)
+        
+
+        lineReducing = sqrt((p1[2]-xs)**2 + (p1[3]-ys)**2) 
+        if shiftDrop > 0: 
+            dist *= -1
+        if debug: print (" Radius =%.2f, line cut=%.2f"%(dist*1000, lineReducing*1000))
 
         
-        if r < 0: 
-            m = (-B + sqrt(B*B - A*C))/A 
-            n = a * m + c 
-            if debug:  print (" m=%.5f, n=%.5f, sx=%.5f, sy=%.5f"%(m, n, sx, sy))
-            vP =[0, 0, p, q+1.0]
-        else:
-            m = (-B - sqrt(B*B - A*C))/A 
-            n = a * m + c 
-            if debug:  print (" m=%.5f, n=%.5f, sx=%.5f, sy=%.5f"%(m, n, sx, sy))
-            vP =[0, 0, p, q+1.0]
+        profile[-1][1] -= d 
+        profile.append([dist, d + lineReducing])
+        profile.append([100, STL[1]-lineReducing])
 
-        sA = Angle_3nodes(vP, center, [0, 0, m, n])
-        eA = Angle_3nodes(vP, center, [0, 0, sx, sy])
-        delLc = profile[-1][0] * abs(eA-sA) ## 앞 curve 삭제 길이 
-        if debug:  print ("Curve Del=%.3f, Angle end =%.2f, start=%2f"%(delLc*1000, degrees(eA), degrees(sA)))
+        if debug: print (profile)
 
-        ix = (m + a*n - a*b) / (a*a +1)
-        iy = a * ix + b 
-
-        delLl = sqrt((ix-sx)**2 + (iy-sy)**2) ## 직선의 삭제 길이 
-        if debug:  
-            print("intersec x=%f, %f"%(ix, iy))
-            print ("line Del=%.3f"%(delLl*1000))
-
-        profile[-1][1] -= delLc 
-        profile.append([r, delLc + delLl])
-        strline[1] -= delLl 
-        profile.append(strline)
-        if debug:  
-            print ("STR", strline)
-
-            for pf in profile:
-                print (pf)
         return profile, profile, r 
 
 
@@ -13369,7 +13256,7 @@ class PATTERN:
                     Nf3 = [nedge0[0], nedge0[4], nedge0[5], nedge0[6]]   ## Model Node 3
                     Nf4 = [nedge0[1], nedge0[7], nedge0[8], nedge0[9]]   ## Model Node 4
 
-                    # def DistanceFromLineToNode2D(N0, nodes=[], xy=12):
+                    #  DistanceFromLineToNode2D(N0, nodes=[], xy=12):
                     df3, _ = DistanceFromLineToNode2D(Nf3,[Nf1, Nf2], xy=12)
                     df4, _ = DistanceFromLineToNode2D(Nf4,[Nf1, Nf2], xy=12)  
                     htf3 = round(Nf2[3]-Nf3[3], e_digit)
@@ -22844,10 +22731,63 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
     ## Coordinate Y, Accumulated Wear 01, Accumulated Wear 01, R position of Nodes..
 
     #############################################################
+def TD_Arc_endPoints(profile): 
+    quit()
+    ## wrong logic to use 
+    negR = 0 
+    sumAngle = 0
+    negSumAngle = 0 
+    for i, pf in enumerate(profile): 
+        print ('%d'%(i), pf, end=' > ')
+        if i ==0: 
+            xc = 0
+            yc = pf[0]
+            sumAngle += pf[1]/pf[0]
+            xe = xc + pf[0] * sin(sumAngle)
+            ye = yc - pf[0] * cos(sumAngle)
+            angle = sumAngle
+            delA = pf[1]/pf[0]
+        else: 
+            if pf[0] < 0: 
+                negR = 1 
+                firstNegR = 1 
+            if negR ==0 : 
+                xc = (1-pf[0]/profile[i-1][0])*(xe-xc) + xc 
+                yc = (1-pf[0]/profile[i-1][0])*(ye-yc) + yc 
 
-def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0): 
+                sumAngle += pf[1]/pf[0]
+                xe = xc + pf[0] * sin(sumAngle)
+                ye = yc - pf[0] * cos(sumAngle)
+                angle = sumAngle
+                delA =  pf[1]/pf[0]
+            else: 
+                print (negR)
+                print (" temp ye-yc", ye-yc, " temp xe-xc", xe-xc)
+                print (" xc=%.3f, pf[0]=%.1f, prev pf[0]=%.1f, xe=%.2f, xc=%.2f"%(xc*1000, pf[0]*1000, profile[i-1][0]*1000, xe*1000, xc*1000))
+                if firstNegR : 
+                    xc = xe + abs(pf[0]/profile[i-1][0]) * (xe-xc)
+                    yc = ye + abs(pf[0]/profile[i-1][0]) * (ye-yc) 
+                    firstNegR = 0 
+                else: 
+                    xc = -abs(pf[0]/profile[i-1][0])*(xe-xc) + xc 
+                    yc = -abs(pf[0]/profile[i-1][0])*(ye-yc) + yc 
+
+                negSumAngle += abs(pf[1]/pf[0])
+                xe = xc - abs(pf[0]) * cos(PI/2 - sumAngle + negSumAngle)
+                ye = yc + abs(pf[0]) * sin(PI/2 - sumAngle + negSumAngle)
+                angle = PI/2 - sumAngle + negSumAngle
+                delA =  abs(pf[1]/pf[0])
+                print (" r=%.1f, l=%.2f"%(pf[0]*1000, pf[1]*1000))
+        print (" center : %.3f, %.3f, end : %.3f, %.3f, angle=%.8f(del A=%.8f)\n"%(xc*1000, yc*1000, xe*1000, ye*1000, degrees(angle), degrees(delA)))
+        
+
+    return xe, ye 
+
+
+def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0, debug=False): 
     ## halfOD : for     square shoulder profile, to calculate the center of the circle with negative radius
-
+    # debug=True
+    if debug: print ("\n Tread Arc calculator ")
     
     hx  = abs(h_dist)
 
@@ -22872,14 +22812,15 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
         #     pf[1] += 10E-3 
         #########################################################
         if pf[0]  == 0: pf[0] =10.0
+        if pf[0] == 10.0: 
+            pf[0] *= 10.0
         current_R = pf[0] 
-        if current_R == 10.0: 
-            current_R *= 100.0
-        
+
         r = abs(pf[0])
         sum_length += pf[1]
         angle = pf[1]/r ## arc angle 
-        # print ("R=%.1f, Len=%.2f"%(r*1000, pf[1]*1000))
+        if debug: print ("R=%.3f, Len=%.3f, angle=%.3f"%(r*1000, pf[1]*1000, degrees(angle)))
+        # print ("angle radian %.6f, degrees =%.6f"%(angle, angle*180.0/PI))
         if i ==0: 
             drop = r - r * cos(angle)  # drop 
             dist = r*sin(angle)        # dist from center 
@@ -22890,7 +22831,7 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
             p_angle = angle 
             p_cx = 0
             p_cy = r
-            # print ("drop=%.2f, dist=%.2f, angle=%.3f"%(drop*1000, dist*1000, degrees(angle))) 
+            if debug: print ("%d, drop=%.2f, dist=%.2f, angle=%.3f"%(i, drop*1000, dist*1000, degrees(angle))) 
 
             if hx <= dist and totalwidth==0:  
                 theta = asin(hx/r) 
@@ -22901,33 +22842,15 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
             pre_sum = sum_length
 
         else: 
+            cx = p_dist - (p_dist-p_cx) / abs(profile[i-1][0])*abs(profile[i][0] )
+            cy = p_drop - (p_drop-p_cy) / abs(profile[i-1][0])*abs(profile[i][0] )
 
-            cx = p_dist - (p_dist-p_cx) / profile[i-1][0]*profile[i][0] 
-            cy = p_drop - (p_drop-p_cy) / profile[i-1][0]*profile[i][0] 
-
-            # c = (p_drop - p_cy)/(p_dist-p_cx)   
-            # d = -p_dist * c + p_drop 
-            # e = d - p_drop 
-
-            # ## Ax^2 + Bx + C = 0  , 원의 중심에서 두 곡선의 교점을 지나는 직선 
-            # A = (c*c + 1)
-            # B = -2*p_dist + 2*e*c
-            # C = p_dist*p_dist + e*e - r*r 
-            
-            # ## 직선과 원이 만나는 두 점을 찾음 
-            # cx1 = (-B + sqrt(B*B-4*A*C))/2/A 
-            # cx2 = (-B - sqrt(B*B-4*A*C))/2/A 
-            
-            # if cx1 > cx2:  cx = cx2
-            # else: cx = cx1 
-
-            # cy = c * cx + d 
             
             angle_end   = p_angle + angle 
-            drop = (cy - r) + (r-r*cos(angle_end))
+            drop = cy -r*cos(angle_end)
             dist = cx + r*sin(angle_end)
             # print (" Center x =%.3f, y=%.3f"%(cx*1000, cy*1000))
-            # print ("## dist=%.5f, drop=%.5f"%(dist*1000, drop*1000))
+            if debug:  print ("## %d, dist=%.5f, drop=%.5f, angle=%.3f"%(i, dist*1000, drop*1000, degrees(angle)))
 
             if pf[0] < 0 and pm==0 and pn ==0:
                 pm = p_dist 
@@ -22937,6 +22860,7 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
             ## Drop과 dist 양을 계산할 수 있다...
             if negR ==1: 
                 if tangentLineCreated ==0: 
+                    tangentLineCreated = 1 
                     ## 이전 곡선의 끝점에서 시작하는 접선 구함 
 
                     p_end =[p_dist, p_drop]
@@ -22947,17 +22871,21 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0):
                     rA = ra 
                     rB = -1.0
                     rC = -ra * p_end[0] + p_end[1]
-                    tangentLineCreated = 1 
+                    
 
                 ## 대칭점 (px+qy+r=0 직선)
                 ## (a,b) -> (m,n)
                 ## m = (-ap^2 - 2bpq - 2pr + aq^2) / (p^2+q^2)
                 ## n = (-bq^2 - 2apq - 2qr + bp^2 ) / (p^2 +q^2)
 
-                m = ( -dist*rA**2 -2*drop* rA * rB - 2*rA *rC + dist*rB**2) / (rA**2 + rB**2)
-                n = ( -drop*rB**2 -2*dist* rA * rB - 2*rB *rC + drop*rA**2) / (rA**2 + rB**2)
+                # m = ( -dist*rA**2 -2*drop* rA * rB - 2*rA *rC + dist*rB**2) / (rA**2 + rB**2)
+                # n = ( -drop*rB**2 -2*dist* rA * rB - 2*rB *rC + drop*rA**2) / (rA**2 + rB**2)
 
-                # print ("%.5f, %.5f, dist, %.5f, drop, %.5f"%(dist, drop, m, n))
+                # print (">> initial %.5f, %.5f -> dist, %.5f, drop, %.5f"%(dist*1000, drop*1000, m*1000, n*1000))
+
+                m = dist - 2*ra*(ra*dist - drop + rC) / (ra*ra + 1)
+                n = drop - 2*rB*(ra*dist - drop + rC) / (ra*ra + 1)
+                # print ("      TEMP dist, %.5f, drop, %.5f"%(x1*1000, y1*1000))
 
                 if i == len(profile)- 1  : 
                     dist = m
@@ -23247,6 +23175,7 @@ def CalculateAngleFrom3Node(N1, N2, Center, XY=13, **args):
         print ("  Node 2 : ", N2)
         print ("  Center : ", Center)
         return 0
+
 
 ##########################################################################################
 # End of General Functions 
