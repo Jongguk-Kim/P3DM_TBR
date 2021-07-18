@@ -21,7 +21,6 @@ except:
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
-
 def timer(func): 
     def wrapper(*args, **kwargs): 
         start = time.time()
@@ -30,11 +29,6 @@ def timer(func):
         print (" Time: %.2f"%(total))
         return rv 
     return wrapper 
-
-
-# import PTN_LIBRARY.ptn_library as PTN 
-
-PI = 3.14159265358979323846
 
 TireRubberComponents = [
     # 'BEAD_R', 'BEAD_L', # 'BD1' ,  Bead
@@ -421,8 +415,6 @@ class ELSET:
                 break
         if exist == 0:
             self.Elset.append([name, n])
-
-
 class SURFACE:
     # surf_: [node_id, face_id, No_nodes, 1.0(free_sf), center coord_1, center coord_2, center coord_3, n1, n2, n3, n4]
     def __init__(self): 
@@ -1767,7 +1759,7 @@ def LayoutAlone3DModelGeneration(fname, nodes, elements, elset, surfaces, mesh="
 
     body_TieMaster, body_TieSlave, body_outer, body_centerNodes, body_FreeEdges, body_allEdges, TieError = TieSurface(body.Element, Node_body.Node)
 
-    delta =  2*PI / float(sectors)
+    delta =  2*pi / float(sectors)
 
     body2d="Temp_body.inp"
     Temporary_2dMeshWriting(body2d, Node_body,body, elset, surfaces, body_outer, body_TieMaster, body_TieSlave, tread=0, tie_add=Tie_Body)
@@ -2378,7 +2370,7 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
                 if "ES" in code: 
                     Area = Area_steel_cord(structure)
                 else: 
-                    Area = PI * dia**2 / 4.0 
+                    Area = pi * dia**2 / 4.0 
 
                 toping_density = rf*10.0 / ga /1000
                 cord_density =  cf / 100.0 / Area / 39.37 / EPI
@@ -2399,7 +2391,7 @@ def Equivalent_density_calculation(cute_mesh, filename="", sns=""):
             
 
             # f.write("%6s, %8s, %.5f, %.5f, %.5e, %.5f, %.5f, %.5f, %.3f, %.3f, %.3e\n"%(\
-            #         name, code, toping_density, cord_density, line_density, topping_real_density, rf, cf, wt * cf/(cf+rf), wt * rf/(cf+rf), Area))
+            #        name, code, toping_density, cord_density, line_density, topping_real_density, rf, cf, wt * cf/(cf+rf), wt * rf/(cf+rf), Area))
             
             if cf + rf == 0.0: 
                 mat_cords.append([name, code, topping_real_density, cord_density, line_density, 0.0, Area, topping, ga])
@@ -2528,7 +2520,7 @@ def Area_steel_cord(cord, wrapping_dia=0.15e-3):
             nWire += w1 * w2 
             if dia > 0: 
                 # print ("   >> ", layer, " Area Cal : dia=%.3f cord N=%d"%(dia*1000, nWire))
-                area += nWire * dia**2* PI/4.0
+                area += nWire * dia**2* pi/4.0
                 nWire = 0 
         else: 
             if "(" in layer: 
@@ -2540,10 +2532,10 @@ def Area_steel_cord(cord, wrapping_dia=0.15e-3):
                 dia = 0 
             if dia > 0: 
                 # print ("   >> ", layer, " Area Cal : dia=%.3f cord N=%d"%(dia*1000, nWire))
-                area += nWire * dia**2* PI/4.0
+                area += nWire * dia**2* pi/4.0
                 nWire = 0 
     if wrp ==1: 
-        area += wrapping_dia**2* PI/4.0 
+        area += wrapping_dia**2* pi/4.0 
     
     # print ("Area=%.3e"%(area)) 
     return area
@@ -2566,7 +2558,7 @@ def SmartMaterialInput(axi="", trd="", layout="", elset=[], node=[], element=[],
          PCIPress="", bdw=0, pattern=0): 
 
     equ_Density = 1 
-    
+    carcassGa = 1.0
 
     name_solids, name_cords = SolidComponents_checking(axi=axi, trd=trd, return_value=1)
 
@@ -3212,7 +3204,6 @@ def WriteCordList(cordfile):
     cfile.close()
     return cordsList
 
-
 def MeshFileInformation(filename, sectors=1): 
     """
     ## 
@@ -3352,7 +3343,6 @@ def MeshFileInformation(filename, sectors=1):
     print ("\n## Mesh file checking done!!\n")
 class MESH2D: 
     def __init__(self, filename):
-        self.PI = 3.14159265358979323846
         self.OD=0.0   ## ** 
         self.GD=0.0   ## ** 
         self.TDW=0.0  ## ** 
@@ -3463,10 +3453,9 @@ class MESH2D:
             # print (">>>>>>df>>>>>>", self.RightProfile)
             # print ("\n##########Calculate drop difference")
             dropDiff = self.CheckTBR_STL_Tangential(self.shoulderDrop, self.RightProfile)
-            # print ("#### drop differecne %.3f"%(dropDiff*1000))
+            if dropDiff > 0.5E-3: 
+                print ("#### drop differecne %.3f"%(dropDiff*1000))
             # print (">>>>>>>sasf>>>>>", self.RightProfile)
-            # end_dist, end_drop = TD_Arc_endPoints(self.RightProfile)
-            # print (">>>>>>>ass>>>>>", self.RightProfile)
         for pf, pf1 in zip(self.LeftProfile, self.RightProfile): 
             if pf[0] <10.0: 
                 print ("  R=%6.1f/%6.1f, Length=%.2f/%.2f"%(pf[0]*1000, pf1[0]*1000, pf[1]*1000, pf1[1]*1000))
@@ -3653,10 +3642,10 @@ class MESH2D:
         
         _, _, drop = TD_Arc_length_calculator(profile, totalwidth=1)
         if round(shoDrop, 4) == round(drop, 4): 
-            print ("** Shoulder Drop =%.2fmm"%(shoDrop*1000))
+            # print ("** Shoulder Drop =%.2fmm"%(shoDrop*1000))
             return 0 
         
-        print ("* Profile Shoulder Drop =%.2f\n  Tangential Sho.Drop=%.2f, Drop shift=%.2f"%(shoDrop*1000, drop*1000, (shoDrop-drop)*1000))
+        print ("* Profile Shoulder Drop =%.2f\n  Tangential Sho.Drop=%.2f(shift=%.2f)"%(shoDrop*1000, drop*1000, (shoDrop-drop)*1000))
         return round(drop - shoDrop, 5)
 
     def AddAdditionalRadiusForShoDrop(self, profile, shiftDrop, r=-0.5, halfOD=0.0, debug=False): 
@@ -3705,6 +3694,7 @@ class MESH2D:
         rotedA = asin((h + shiftDrop)/ STL[1]) 
         dA = rotedA - initA 
         # dA = asin(dX/sqrt(dX*dX + dY*dY)) + acos(shiftDrop/sqrt(dX*dX+dY*dY))
+        # debug=True
         if debug: 
             print (" STL", STL)
             print (" tangential supposed , x=117.714, 515.528, actual cal %.3f, %.3f, drop=%.3f, ok"%(tx*1000, ty*1000, drop*1000))
@@ -3716,7 +3706,6 @@ class MESH2D:
 
         xl = xs + cos(dA) * w - sin(dA) * h 
         yl = ys + sin(dA) * w + cos(dA) * h 
-        
 
         d= 2.618e-03; R = profile[-1][0]
         x2 = (xs - x0)*cos(d/R)  - (ys-y0)*sin(d/R) + x0
@@ -3743,11 +3732,9 @@ class MESH2D:
         yc1 = A0 * (xc1 - x0) + y0
         yc2 = A0 * (xc2 - x0) + y0
         ##############################################################################
-
-
-        
         
         # xc2 = 59.389e-3; yc2=474.092e-3 ## if xc=59.389, yc=474.092
+        # debug=True            
         if debug: 
             print (" td points", "Prev R=%.1f, cut back=%.1f"%(R*1000, d*1000))
             print (" cut back angle = %.2f"%(degrees(-d/R)))
@@ -3773,21 +3760,66 @@ class MESH2D:
             print ("%.2f, %.2f"%(xc2*1000, yc2*1000))  ## 59.389, 474.072 
             print (">>  %.2f, %.2f"%(xc*1000, yc*1000)) 
 
-        dist, p1 = DistanceFromLineToNode2D([0, 0, xc, yc], [[0, 0, tx, ty], [0, 0, xs, ys]], xy=23)
+        dist, p1 = DistanceFromLineToNode2D([0, 0, xc, yc], [[0, 0, xl, yl], [0, 0, xs, ys]], xy=23)
         
 
         lineReducing = sqrt((p1[2]-xs)**2 + (p1[3]-ys)**2) 
         if shiftDrop > 0: 
             dist *= -1
-        if debug: print (" Radius =%.2f, line cut=%.2f"%(dist*1000, lineReducing*1000))
-
         
+        if debug: 
+            print (" Radius =%.2f, line cut=%.2f"%(dist*1000, lineReducing*1000))
+            print (" shift drop, %.3f"%(shiftDrop*1000))
+
+        pc=[0, 0, xc, yc]
+        pe=[0, 0, x2, y2]
+
+        bA = abs(Angle_3nodes(n1=p1, n2=pc, n3=pe, xy=0))
+        dL = dist*bA
+        
+        if debug: 
+            print (" Radius =%.2f, line cut=%.2f"%(dist*1000, lineReducing*1000))
+            print (" curve length=%.3f, angle=%.2f"%(dL*1000, degrees(bA)))
         profile[-1][1] -= d 
-        profile.append([dist, d + lineReducing])
+        profile.append([dist, abs(dL)])
         profile.append([100, STL[1]-lineReducing])
 
-        if debug: print (profile)
+        if debug: 
+            print (profile)
+            print(sqrt((p1[2]-x2)**2 + (p1[3]-y2)**2)*1000)
+            print(sqrt((x2-xc)**2 + (y2-yc)**2)*1000)
+            print(sqrt((p1[2]-xc)**2 + (p1[3]-yc)**2)*1000)
+            print(p1)
 
+            print ("shoulder drop =%.3f"%((halfOD-yl)*1000))
+            # figure, ax = plt.subplots()
+            
+            # plt.plot([xs*1000, x2*1000, xc*1000, xs*1000, p1[2]*1000, xl*1000], 
+            #         [ys*1000, y2*1000, yc*1000, ys*1000, p1[3]*1000, yl*1000])
+            plt.axis('equal')
+
+            plt.plot([0, 150], [halfOD*1000, halfOD*1000])
+            
+            theta = np.linspace(0.0*np.pi, 0.1*np.pi, 100)
+            radius = profile[0][0]
+            a = (radius * np.cos(theta)+halfOD - radius)*1000
+            b = (radius * np.sin(theta) )*1000
+            plt.plot(b, a)
+
+            theta = np.linspace(0.*np.pi, 2*np.pi, 360)
+            radius = dist 
+            a = (radius * np.cos(theta) + yc)*1000
+            b = (radius * np.sin(theta) + xc)*1000
+            plt.plot(b, a)
+
+            plt.plot([xs*1000, xl*1000], [ys*1000, yl*1000])
+            plt.plot([x2*1000, p1[2]*1000], [y2*1000, p1[3]*1000])
+            plt.plot([xc*1000, p1[2]*1000], [yc*1000, p1[3]*1000])
+            plt.plot([xc*1000, x2*1000], [yc*1000, y2*1000])
+            
+            # circl=plt.Circle((xc, yc), dist,fill=False)
+            # ax.add_artist(circl)
+            plt.show()                                               
         return profile, profile, r 
 
 
@@ -3981,8 +4013,8 @@ class MESH2D:
                     self.Deco_start = start 
                     self.Deco_end = end 
             
-            self.Shoulder_Neg_Angle = Angle_3nodes(tmpDeco_curves[0][2], tLsho[0], tLsho[2]) + self.PI / 36.0
-            self.Shoulder_Pos_Angle = Angle_3nodes(tmpDeco_curves[1][2], tRsho[0], tRsho[2]) + self.PI / 36.0
+            self.Shoulder_Neg_Angle = Angle_3nodes(tmpDeco_curves[0][2], tLsho[0], tLsho[2]) + pi / 36.0
+            self.Shoulder_Pos_Angle = Angle_3nodes(tmpDeco_curves[1][2], tRsho[0], tRsho[2]) + pi / 36.0
 
             # print ("* Tilting angle Left=%.2f, Right=%.2f"%(degrees(self.Shoulder_Neg_Angle), degrees(self.Shoulder_Pos_Angle)))
             # print ("  Curve radius=%.2f"%(self.r_shocurve*1000))
@@ -6374,7 +6406,6 @@ class MESH2D:
         ##############################################################
         return NEL, NELSET, Deleted
     def TD_Arc_length_calculator(self, profile, h_dist=0, totalwidth=0): 
-        #  def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0): 
         if totalwidth == 1: 
             length, dist, drop = TD_Arc_length_calculator(profile, h_dist=h_dist, totalwidth=totalwidth, msh_return=0)
             return length, dist, drop 
@@ -7772,12 +7803,11 @@ class COPYPTN:
         self.Free_Surface_without_BTM = class_ptn.Free_Surface_without_BTM
         self.SF_fulldepthgroove = class_ptn.SF_fulldepthgroove
         self.SF_subgroove = class_ptn.SF_subgroove
-        self.beforeside = np.array(class_ptn.beforeside)
+        self.surf_HiddenGrv = class_ptn.surf_HiddenGrv
     def __del__(self): 
         pass 
 class PATTERN:
     def __init__(self, filename,  test=0, start_number=10000000):
-        self.PI = 3.14159265358979323846
         self.GlobalXY=21
         self.Node=[]   ## float : Id, x, y, z
         # self.npn=[]          ## ** 
@@ -7786,6 +7816,7 @@ class PATTERN:
         self.Beam=[];         self.UpFront=[];         self.UpBack=[];         self.LowBack=[];         self.Center=[]
 
         self.GrooveCenter=[]
+        self.TranslatedNode=[]
         
         self.Surface=[]
         self.leftprofile =[]
@@ -7801,8 +7832,8 @@ class PATTERN:
         self.diameter = 0.0 
         self.upFrontMaxY = 0.0
 
-        self.Nstart = 10_000_000
-        self.Estart = 10_000_000
+        self.Nstart = 10**7
+        self.Estart = 10**7
         self.profilescaling = 0.001
         self.pitchscaling = 0.001
 
@@ -8147,8 +8178,11 @@ class PATTERN:
             # t0 = time.time()
             self.SF_subgrooveside = []
             self.KerfsideSurface = []
+            self.surf_HiddenGrv =[]
+            self.hiddenGrvMatchingTopSurfaces=[]
 
             self.SF_fulldepthgrooveside, self.SF_subgroove, self.uncheckedfree = self.Groove_side(self.uncheckedfree, self.SF_fulldepthgroove, self.SF_subgroove, self.freetop, self.npn, full_depth=1, shoulderType=self.shoulderType)
+
             if len(self.SF_subgroove) > 0: 
                 self.SF_subgrooveside, self.KerfsideSurface = self.Groove_side(free=self.uncheckedfree, main_bottom=self.SF_subgroove, top_surf=self.freetop, npn=self.npn, full_depth=0, shoulderType=self.shoulderType)
             else: 
@@ -8169,6 +8203,10 @@ class PATTERN:
                         self.KerfsideSurface = np.delete(self.KerfsideSurface, i, axis =0)
                         continue 
                     i += 1 
+
+                self.surf_HiddenGrv, self.hiddenGrvMatchingTopSurfaces = self.searchingHiddenGrv(surf_top=self.freetop, surf_kerf=self.KerfsideSurface)
+                if len(self.surf_HiddenGrv): 
+                    print ("* Pattern with Hidden Groove")
 
             if self.errorcode !=0: 
                 detail = "ERROR! during Pitch side surface detecting."
@@ -8383,6 +8421,224 @@ class PATTERN:
 
     def __del__(self): 
         pass 
+
+    # @timer 
+    def searchingHiddenGrv(self, surf_top=None, surf_kerf=None): 
+        """
+        Top edge에서 kerf edge를 삭제 
+        top edge에서 kerf의 절점이 있으면 Hidden grv가 아니므로 삭제 
+        top edge들 끼리 거리를 비교해서 kerf ga의 거리 안에 있어야 Hidden grv로 인식할 수 있음 
+
+        """
+
+        edge_topSurf = Edge_SurfaceBoundary(surf_top)
+        allnodes = surf_kerf[:,7:]
+        allnodes = allnodes.reshape(-1)
+        nodesOnkerf = np.unique(allnodes)
+        if nodesOnkerf[0] == 0 : nodesOnkerf = np.delete(nodesOnkerf, 0)
+
+        i =0 
+        while i < len(edge_topSurf): 
+            idx1 = np.where(nodesOnkerf == edge_topSurf[i][0])[0]
+            idx2 = np.where(nodesOnkerf == edge_topSurf[i][1])[0]
+            if len(idx1) or len(idx2): 
+                del(edge_topSurf[i])
+                continue 
+            i += 1
+
+        reTop = []
+        for e in edge_topSurf: 
+            ix = np.where(self.npn[:,0]==e[0])[0][0]; n1=self.npn[ix]
+            ix = np.where(self.npn[:,0]==e[1])[0][0]; n2=self.npn[ix]
+            reTop.append([n1, n2, e[3]])
+        
+        edgeTopSurfs =[]
+        distmargin = 3.0e-3
+        gapmargin=1.5E-3
+        matchingSurfs=[]
+        for i, e1 in enumerate(reTop): 
+            for j, e2 in enumerate(reTop): 
+                if i==j: continue 
+                if e1[0][0] == e2[0][0] or e1[0][0] == e2[1][0] or e1[1][0] == e2[0][0] or e1[1][0] == e2[1][0]: continue 
+                L1 = sqrt( (e1[0][1]-e2[0][1])**2 + (e1[0][2]-e2[0][2])**2 )
+                L2 = sqrt( (e1[0][1]-e2[1][1])**2 + (e1[0][2]-e2[1][2])**2 )
+                if L1 > distmargin and L2 > distmargin: continue 
+                L3 = sqrt( (e1[1][1]-e2[0][1])**2 + (e1[1][2]-e2[0][2])**2 )
+                L4 = sqrt( (e1[1][1]-e2[1][1])**2 + (e1[1][2]-e2[1][2])**2 )
+                if L3 > distmargin and L3 > distmargin: continue 
+                
+                v1 = NormalVector_plane(e1[0], e1[1], e2[0])
+                v2 = NormalVector_plane(e1[0], e1[1], e2[1])
+                if v1[3] * v2[3] < 0: continue 
+                v1 = NormalVector_plane(e2[0], e2[1], e1[0])
+                v2 = NormalVector_plane(e2[0], e2[1], e1[1])
+                if v1[3] * v2[3] < 0: continue
+
+                d1 = DistanceFromLineToNode2D(e1[0], [e2[0], e2[1]], xy=12, onlydist=1)
+                d2 = DistanceFromLineToNode2D(e1[1], [e2[0], e2[1]], xy=12, onlydist=1)
+
+                if abs(d1-d2) < 0.0002 and d1 < gapmargin and d1 > 0.0001: 
+                    ix1 = np.where(surf_top[:,7:]==e1[0][0])[0]
+                    ix2 = np.where(surf_top[:,7:]==e1[1][0])[0]
+                    sfi = np.intersect1d(ix1, ix2)[0]
+                    edgeTopSurfs.append(surf_top[sfi])
+
+                    ix1 = np.where(surf_top[:,7:]==e2[0][0])[0]
+                    ix2 = np.where(surf_top[:,7:]==e2[1][0])[0]
+                    sfj = np.intersect1d(ix1, ix2)[0]
+                    matchingSurfs.append([[surf_top[sfi], e1[0][0], e1[1][0]], [surf_top[sfj], e2[0][0], e2[1][0]]])
+                    break 
+        i =0
+        while i < len(edgeTopSurfs): 
+            j = i+1
+            while j < len(edgeTopSurfs): 
+                if edgeTopSurfs[i][0] == edgeTopSurfs[j][0] and edgeTopSurfs[i][1] and edgeTopSurfs[j][1]: 
+                    del(edgeTopSurfs[j])
+                    del(matchingSurfs[j])
+                    continue 
+                j += 1
+            i += 1 
+        
+        i = 0 
+        while i < len(matchingSurfs): 
+            j = i + 1
+            while j < len(matchingSurfs): 
+                if matchingSurfs[i][0][0][0] == matchingSurfs[j][0][0][0] or matchingSurfs[i][0][0][0] == matchingSurfs[j][1][0][0]: 
+                    del (matchingSurfs[j])
+                    break 
+                j += 1
+            i += 1
+        
+        # print ("* Hidden Grv surfs(%d) exist."%(len(matchingSurfs)))
+
+        # edgeTopSurfs=[]
+        # for e in matchingSurfs: 
+        #     edgeTopSurfs.append(e[0][0])
+
+        return np.array(edgeTopSurfs), np.array(matchingSurfs)
+    
+    # @timer 
+    def HiddenGrv_KerfGaugeConstance(self, matchingSurface, surf_grvSide=None, orgn=None): 
+        ## origin node: orgn
+        # tfile = open('kerfgauge.tmp', 'w')
+        movingnodes =[] 
+        for surf in matchingSurface: 
+            crtSf1 = surf[0][0]; crtSf2 = surf[1][0]
+            sf1n1 = surf[0][1]; sf1n2 = surf[0][2]
+            sf2n1 = surf[1][1]; sf2n2 = surf[1][2]
+
+            # if crtSf1[0] -10**7 == 14820 or crtSf1[0] -10**7 == 14639:# or crtSf1[0] -10**7 == 14636 or crtSf1[0] -10**7 == 11801:   
+            #     plotting=True 
+            #     tfile.write("**********************************\n")
+            #     tfile.write(" SF %d-%d\n"%(crtSf1[0] -10**7, crtSf2[0] -10**7))
+            #     tfile.write("**********************************\n")
+            # else: plotting = False 
+            xs =[]; ys=[]; xcs=[]; ycs=[]; x1s=[]; y1s=[]
+
+            cnt = 0 
+            tmp =[]
+            while 1: 
+                ix1 = np.where(orgn[:,0]==sf1n1)[0][0]; n1=orgn[ix1]
+                ix2 = np.where(orgn[:,0]==sf1n2)[0][0]; n2=orgn[ix2]
+                ix3 = np.where(orgn[:,0]==sf2n1)[0][0]; n3=orgn[ix3]
+                ix4 = np.where(orgn[:,0]==sf2n2)[0][0]; n4=orgn[ix4]
+
+
+                # L1 = sqrt((n1[1]-n3[1])**2 + (n1[2]-n3[2])**2)
+                # L2 = sqrt((n1[1]-n4[1])**2 + (n1[2]-n4[2])**2)
+                # if L1 < L2: 
+                #     n1 = orgn[ix2]; n2=orgn[ix1]
+                #     tx = ix1;    ix1 = ix2;      ix2 = tx 
+
+                m1_1=(n1[1] + n4[1])/2.0; m1_2=(n1[2] + n4[2])/2.0
+                m2_1=(n2[1] + n3[1])/2.0; m2_2=(n2[2] + n3[2])/2.0
+                
+                cp1 = [0, m1_1, m1_2, 0]; cp2 = [0, m2_1, m2_2, 0]
+                initDist = DistanceFromLineToNode2D(n1, [cp1, cp2], xy=12, onlydist=1)
+
+                xs.append(n1[2]); xs.append(n2[2]); x1s.append(n3[2]); x1s.append(n4[2])
+                ys.append(n1[1]); ys.append(n2[1]); y1s.append(n3[1]); y1s.append(n4[1])
+                xcs.append(cp1[2]); ycs.append(cp1[1])
+                xcs.append(cp2[2]); ycs.append(cp2[1])
+
+                if initDist > 0.0008 or initDist < 0.0001: 
+                    # tfile.write(" Init dist=%.3f, sf %d, %d\n\n"%(initDist*1000, crtSf1[0]-10**7, crtSf2[0]-10**7))
+                    for t in tmp: 
+                        movingnodes.append(t)
+                    break 
+
+                N1 = self.npn[ix1]; N2=self.npn[ix2]; N3=self.npn[ix3]; N4=self.npn[ix4]
+                        
+                M1_1=(N1[1] + N4[1])/2.0; M1_2=(N1[2] + N4[2])/2.0
+                M2_1=(N2[1] + N3[1])/2.0; M2_2=(N2[2] + N3[2])/2.0
+                CP1 = [0, M1_1, M1_2, 0]; CP2 = [0, M2_1, M2_2, 0]
+                crntDist1 = DistanceFromLineToNode2D(N1, [CP1, CP2], xy=12, onlydist=1)
+                Ratio1 = crntDist1 / initDist
+                crntDist2 = DistanceFromLineToNode2D(N2, [CP1, CP2], xy=12, onlydist=1)
+                Ratio2 = crntDist2 / initDist
+                # tfile.write(" GAuge Ratio %.2f, %.2f, cD=%.2f, %.2f, iD=%.2f, Sf %d, %d\n"%(Ratio1, Ratio2, crntDist1*1000, crntDist2*1000, initDist*1000, crtSf1[0]-10**7, crtSf2[0]-10**7))
+
+                v1 = [0, N1[1]-CP1[1], N1[2]-CP1[2], 0]
+                v2 = [0, N2[1]-CP2[1], N2[2]-CP2[2], 0]
+                v3 = [0, N3[1]-CP2[1], N3[2]-CP2[2], 0]
+                v4 = [0, N4[1]-CP1[1], N4[2]-CP1[2], 0]
+
+                tmp.append([ix1, CP1[1] + v1[1]/Ratio1, CP1[2] + v1[2]/Ratio1])
+                tmp.append([ix2, CP2[1] + v2[1]/Ratio2, CP2[2] + v2[2]/Ratio2])
+                tmp.append([ix3, CP2[1] + v3[1]/Ratio2, CP2[2] + v3[2]/Ratio2])
+                tmp.append([ix4, CP1[1] + v4[1]/Ratio1, CP1[2] + v4[2]/Ratio1])
+
+                
+                ix1 = np.where(surf_grvSide[:,7:]==sf1n1)[0]
+                ix2 = np.where(surf_grvSide[:,7:]==sf1n2)[0]
+                ix = np.intersect1d(ix1, ix2)
+                if len(ix) ==1: 
+                    crtSf1 = surf_grvSide[ix[0]]
+                elif len(ix) ==2: 
+                    if surf_grvSide[ix[0]][0] == crtSf1[0] and  surf_grvSide[ix[0]][0] == crtSf1[1]: 
+                        crtSf1 = surf_grvSide[ix[1]]
+                    else: 
+                        crtSf1 = surf_grvSide[ix[0]]
+                else: 
+                    break 
+                
+                ix1 = np.where(surf_grvSide[:,7:]==sf2n1)[0]
+                ix2 = np.where(surf_grvSide[:,7:]==sf2n2)[0]
+                ix = np.intersect1d(ix1, ix2)
+                if len(ix) ==1: 
+                    crtSf2 = surf_grvSide[ix[0]]
+                elif len(ix) ==2: 
+                    if surf_grvSide[ix[0]][0] == crtSf2[0] and  surf_grvSide[ix[0]][0] == crtSf2[1]: 
+                        crtSf2 = surf_grvSide[ix[1]]
+                    else: 
+                        crtSf2 = surf_grvSide[ix[0]]
+                else : 
+                    break 
+
+                lefts1 = OtherNodes_InSurface_faceorder(crtSf1, [sf1n1, sf1n2])   
+                lefts2 = OtherNodes_InSurface_faceorder(crtSf2, [sf2n1, sf2n2])  
+
+                if len(lefts1) != 2 or len(lefts2) != 2: 
+                    break 
+
+                sf1n1 = lefts1[0][0]; sf1n2=lefts1[1][0]
+                sf2n1 = lefts2[0][0]; sf2n2=lefts2[1][0]
+
+                cnt += 1
+                if cnt > 20: 
+                    break 
+
+        #     if plotting: 
+        #         fig1, ax1 = plt.subplots()
+        #         ax1.plot(xs, ys)
+        #         ax1.plot(x1s, y1s)
+        #         ax1.plot(xcs, ycs)
+        #         plt.show()
+
+        # tfile.close()
+        for n in movingnodes: 
+            self.npn[n[0]][1] = n[1]; self.npn[n[0]][2] = n[2] 
+
     def ReadGeneralPattern(self, filename): 
         self.Estart = 10_000_000
         self.Nstart = 10_000_000
@@ -8869,23 +9125,32 @@ class PATTERN:
                         if p[1] == solidname: 
                             if len(p) == 6: 
                                 p.append(temp)
+                                # print (" solidname : ", solidname, temp)
                             else: 
                                 for t in temp: 
                                     p[-1].append(t)
+                            # print (p)
 
-                if cmd == 'SOL': 
+                if cmd == 'SOL':
+                    temp = [] 
                     data = line.split(",")
                     for d in data: 
                         d = d.strip()
                         if d!="": 
-                            d = int(d)
+                            temp.append(int(d)+self.Estart)
+                    
                     for p in self.pitch: 
-                        if p[1] == solidname: 
+                        
+                        if p[1] == solidname:
                             if len(p) == 6: 
-                                p.append(data)
+                                p.append(temp)
+                            #     # p.append(data)
+                            #     # print (" solidname", solidname, data)
                             else: 
-                                for t in data: 
-                                    p[-1].append(t.strip())
+                                for t in temp: 
+                                    p[-1].append(t)
+
+                            # print (p)
 
 
         if len(self.Node) > 10_0000: 
@@ -8974,6 +9239,8 @@ class PATTERN:
                             ix = np.where(nps[:,0]==p)[0][0]
                             P1.append(nps[ix])
                         except:
+                        #     ix = np.where(nps[:,0]==p)[0][0]
+                        #     P1.append(nps[ix])
                             continue 
                     P1Solid = pitch[1]
                     P1BCen = pitch[2]
@@ -9060,8 +9327,11 @@ class PATTERN:
             print ("* Pitch Shift to combine = %.3fmm"%(shift*1000))
             print ("* Solid Elset : %s, %s"%(UpSolid, DownSolid))
             # print (" UP", UpCen, UpUpAft, UpLwAft, UpUpFwd)
-
-            idx = np.where(up[:,9] ==6)[0]
+            try: 
+                idx = np.where(up[:,9] ==6)[0]
+            except: 
+                print (up)
+                sys.exit()
             sol6 = up[idx]
             idx = np.where(up[:,9] ==8)[0]
             sol8 = up[idx]
@@ -9362,6 +9632,13 @@ class PATTERN:
                 
             if len(kerfedges) > 0: 
                 self.KeepKerfGaugeConstant(kerfedges=kerfedges, groovebottomsurf=surf_allgroovebtm, surfaces=surfaces, alledges=Edges, orgn_node=NodeOrigin, debug=0, surface_kerf=self.KerfsideSurface)
+        
+            if len(self.hiddenGrvMatchingTopSurfaces):  ## matchingSurfs.append([[surf_top[sfi], e1[0][0], e1[1][0]], [surf_top[sfj], e2[0][0], e2[1][0]]])
+                # sf_grvSide = np.vstack((self.SF_fulldepthgrooveside, self.SF_subgrooveside))
+                
+                self.HiddenGrv_KerfGaugeConstance(self.hiddenGrvMatchingTopSurfaces, surf_grvSide=self.SF_subgrooveside, orgn=NodeOrigin)
+
+
         self.PTN_AllFreeSurface = np.vstack((self.freetop, self.freebottom,  self.totalsurfaces))
         
         ## adjust the position of the nodes on main groove bottoms : trying.. 
@@ -9570,6 +9847,7 @@ class PATTERN:
 
         return self.NoPitch
     
+
     ## Method developed in September 2020 
     # @timer 
     def Top_Bottom_FreeSurfacesFromAllSurfaces_01(self, allSurface, npn, radius=0.0, margin=1.0E-03): 
@@ -12212,10 +12490,10 @@ class PATTERN:
             if TargetTDW ==0: TargetTDW = ModelTDW 
 
             RecommendedPL = TargetTDW / ModelTDW * ModelPL
-            PN = TargetOD * self.PI / RecommendedPL
+            PN = TargetOD * pi / RecommendedPL
             NoPitch = round(PN, 0)
             try: 
-                self.TargetPL = TargetOD * self.PI / NoPitch
+                self.TargetPL = TargetOD * pi / NoPitch
             except: 
                 print ("No_Pitch=%d, PN=%.3f, TargetTDW=%.3f, ModelTDW=%.3f, ModelPL=%.3f, Recommend PL=%.3f"%(NoPitch, PN, TargetTDW*1000, ModelTDW*1000, ModelPL*1000, RecommendedPL*1000))
                 print (" ERROR No Pitch=%d"%(NoPitch))
@@ -12223,7 +12501,7 @@ class PATTERN:
             PitchLengthInfo = "* No. of Pitches= %.4f -> %d\n* Pitch Length=%.3f (Model=%.3f)"%(PN, NoPitch,  self.TargetPL*1000, ModelPL*1000)
             # PitchLengthInfo = "** Auto-Calculated the Number of Pitches= %.4f -> %d, Pitch Length=%.3f (Model=%.3f)"%(PN, NoPitch,  self.TargetPL*1000, ModelPL*1000)
         else: 
-            self.TargetPL = TargetOD * self.PI / NoPitch
+            self.TargetPL = TargetOD * pi / NoPitch
             PitchLengthInfo = "* No. of Pitches=%d\n* Pitch Length=%.3f (Model=%.3f)"%(NoPitch, self.TargetPL*1000, ModelPL*1000)
             # PitchLengthInfo = "** User Input the number of Pitches=%d, Pitch Length=%.3f  (Model=%.3f)"%(NoPitch, self.TargetPL*1000, ModelPL*1000)
 
@@ -12449,10 +12727,10 @@ class PATTERN:
             if TargetTDW ==0: TargetTDW = ModelTDW 
 
             RecommendedPL = TargetTDW / ModelTDW * ModelPL
-            PN = TargetOD * self.PI / RecommendedPL
+            PN = TargetOD * pi / RecommendedPL
             NoPitch = round(PN, 0)
             try: 
-                self.TargetPL = TargetOD * self.PI / NoPitch
+                self.TargetPL = TargetOD * pi / NoPitch
             except: 
                 print ("No_Pitch=%d, PN=%.3f, TargetTDW=%.3f, ModelTDW=%.3f, ModelPL=%.3f, Recommend PL=%.3f"%(NoPitch, PN, TargetTDW*1000, ModelTDW*1000, ModelPL*1000, RecommendedPL*1000))
                 print (" ERROR No Pitch=%d"%(NoPitch))
@@ -12460,7 +12738,7 @@ class PATTERN:
             PitchLengthInfo = "* No. of Pitches= %.4f -> %d\n* Pitch Length=%.3f (Model=%.3f)"%(PN, NoPitch,  self.TargetPL*1000, ModelPL*1000)
             # PitchLengthInfo = "** Auto-Calculated the Number of Pitches= %.4f -> %d, Pitch Length=%.3f (Model=%.3f)"%(PN, NoPitch,  self.TargetPL*1000, ModelPL*1000)
         else: 
-            self.TargetPL = TargetOD * self.PI / NoPitch
+            self.TargetPL = TargetOD * pi / NoPitch
             PitchLengthInfo = "* No. of Pitches=%d\n* Pitch Length=%.3f (Model=%.3f)"%(NoPitch, self.TargetPL*1000, ModelPL*1000)
             # PitchLengthInfo = "** User Input the number of Pitches=%d, Pitch Length=%.3f  (Model=%.3f)"%(NoPitch, self.TargetPL*1000, ModelPL*1000)
         
@@ -13156,14 +13434,92 @@ class PATTERN:
 
         NodeTranslated = []
         BottomEdgeNodes=[]
-        # rz = self.TargetGD / self.ModelGD
-        rx = self.TargetTW / self.TreadDesignWidth
-        ry = self.TargetPL / self.pitchlength
+
+        
 
         # self.Image(edge0=edges, file=Pattern.name+"-BLOCK_EDGE________", eeid=1)
         # sys.exit()
+
+        ########################################################
+        ## Groove side Angle Margin not to keep its angle 
+        ## 2021.07.09 
+        ########################################################
+        grvbtmWidth = []; grvWidthRatios=[]
+        if len(self.GrvUpNode): 
+            for grp in self.MainGrvEdgeGroup: 
+                cPolygon =[]; Polygon=[]; poly=[]
+                for i, g in enumerate(grp): 
+                    ix = np.where(orgn[:,0]==g[0])[0][0]
+                    p1 = ix 
+                    if i==0: 
+                        poly.append([orgn[ix][1], orgn[ix][2]])
+                    ix = np.where(orgn[:,0]==g[1])[0][0]
+                    poly.append([orgn[ix][1], orgn[ix][2]])
+                    p2 = ix 
+                    cPolygon.append([self.npn[p1], self.npn[p2]])  ## current configuration polygon 
+                    Polygon.append([orgn[p1],orgn[p2]])
+
+                poly = np.array(poly)
+                wmn = np.min(poly[:,1]); wmx = np.max(poly[:,1])
+                ix1 = np.where(orgn[:,2]>wmn)[0]
+                ix2 = np.where(orgn[:,2]<wmx)[0]
+                ix = np.intersect1d(ix1, ix2)
+                width = wmx - wmn
+
+                if width > 0.03: continue 
+
+                ## check groove width ratio 
+                for grv in self.GrvUpNode:
+                    ixg = np.where(orgn[:,0]==grv[0][0])[0][0]; pn1 = orgn[ixg]
+                    ixg = np.where(orgn[:,0]==grv[1][0])[0][0]; pn2 = orgn[ixg]
+                    if (wmn<=pn1[2] and pn1[2] <=wmx) or (wmn<=pn2[2] and pn2[2] <=wmx):
+                        prvLength = sqrt( (pn1[1]-pn2[1])**2 + (pn1[2]-pn2[2])**2 )
+                        ixg = np.where(self.npn[:,0]==grv[0][0])[0][0]; n1 = self.npn[ixg]
+                        ixg = np.where(self.npn[:,0]==grv[1][0])[0][0]; n2 = self.npn[ixg]
+                        crtLength = sqrt( (n1[1]-n2[1])**2 + (n1[2]-n2[2])**2 )
+                        grvWidthRatios.append(crtLength / prvLength)
+                        # print (" Min Grv Btm Width=%.2f(%.1f)"%(crtLength*1000, crtLength / prvLength)) 
+                        grvbtmWidth.append(crtLength)
+                        break 
+            minGrvWidth = min(grvbtmWidth)
+            minRrvRatio = min(grvWidthRatios)
+    
         ShowN1= 2262; ShowN2= 0
-        groove_angle_margin = 25.0 
+
+        rz = self.TargetGD / self.ModelGD
+        rx = self.TargetTDW / self.TreadDesignWidth
+        ry = self.TargetPL / self.pitchlength
+
+        ang1 = 25.0; ang2 = 15.0
+        if len(grvbtmWidth) : 
+            residual_Width = 0.3e-3 
+            rad_ang = atan((residual_Width - minGrvWidth  ) / (rx*self.ModelGD - self.TargetGD) )
+            groove_angle_margin = abs(degrees(rad_ang))
+            print ("## Calculated Grv-Side Adj. Angle Margin\n  ->  %.2fdeg(MinW=%.1fmm)"%(groove_angle_margin, minGrvWidth*1000))
+            if groove_angle_margin < ang2: 
+                groove_angle_margin = ang2
+            if groove_angle_margin > ang1: 
+                groove_angle_margin = ang1
+
+            ## Initial : 0, scaled : 1
+            ## Grv width : L, grv btm width : w and d = L -w 
+            ## groove ht : h 
+            ## width scale ratio : rx 
+
+            ## w1 = L1 - h1/ho * d0 > residual_Width 
+            ## w1 = rx*L0 - h1/ho * tan(ang) * h0 > residual_Width   ( L0 = d0 + w0 = h0*tan(ang) + w0)
+            ##    = rx * (h0 * tan(ang) + w0) - h1 * tan(ang) > residual_Width
+            ##    = (rx*h0 - h1) * tan(ang) + rx*w0  > residual_Width
+            ## >> (rx*h0 - h1) * tan(ang) > residual_Width - rx*w0 (=w1)
+            ## >> tan(ang) > (residual_Width - w1) / (rx*ho - h1) 
+            
+            
+        else: 
+            groove_angle_margin = ang1 
+        ########################################################
+        # groove_angle_margin = 17.5
+        print ("* Groove side Adj. angle margin: %.1fdeg"%(groove_angle_margin))
+
         e_digit=5
         surf_ht_margin = 1.0E-04
         n3d=0; n4d=0
@@ -13198,7 +13554,6 @@ class PATTERN:
             # else: 
             #     debugmode =0
             ###################################################################################
-            
             while counting <20: 
                 counting +=1
                 tedge = self.FindContactingEdge(cedge, alledges)
@@ -13717,8 +14072,13 @@ class PATTERN:
                 ## initial Angle 
                 AO3 = degrees(atan((d03)/(h03)))
                 AO4 = degrees(atan((d04)/(h04)))
+
+                # if round(AO3,0) != round(AO4,0) and (AO3 >groove_angle_margin or AO4 > groove_angle_margin): 
+                #     print (" dif Angle=%.1f, %.1f"%(AO3, AO4), edge[3])
+                # if  edge[3] -10**7 == 3321: 
+                #     print ("* dif Angle=%.1f, %.1f"%(AO3, AO4), edge[3])
                 
-                if AO3 >groove_angle_margin or AO4 > groove_angle_margin :  ## if groove angle is too big
+                if (AO3 >groove_angle_margin or AO4 > groove_angle_margin) : ## transient angle  angle  # ( round(AO3,0) != round(AO4,0) and counting > 2) :  ## if groove angle is too big
                     BottomEdgeNodes.append([tedge[3], tedge[0], tedge[1], [N1[0], N1[1], N1[2], N1[3]], [N2[0], N2[1], N2[2], N2[3]]])
                     indxs1 = np.where(maingroovebottomedge[:,0] == tedge[0])[0]
                     indxs2 = np.where(maingroovebottomedge[:,1] == tedge[1])[0]
@@ -13859,7 +14219,6 @@ class PATTERN:
                         print ('      v3x=%7.3f, v3y=%7.3f, v4x=%7.3f, v4y=%7.3f'%(v3x*1000, v3y*1000, v4x*1000, v4y*1000))
                         print ("      Target Dist 3=%7.3f, 4=%7.3f, Model Dist 3=%7.3f, 4=%7.3f"%(TargetDist3*1000, TargetDist4*1000, d3*1000, d4*1000))
                         print ("                                          Del dist 3=%7.3f, 4=%7.3f"%((TargetDist3-d3)*1000, (TargetDist4-d4)*1000))
-                    # debugmode = 0
 
                         if N3[0]-1000_0000== NOID or N4[0]-1000_0000== NOID:
                             if N3[0]-1000_0000== NOID:    print (" Node %d, N3"%(NOID))
@@ -14417,7 +14776,7 @@ class PATTERN:
                 b = [B02, B01, B04, B03]
 
 
-                angle = abs(self.PI-self.SurfaceAngle_AxisZ(b))   ## initial Angle 
+                angle = abs(pi-self.SurfaceAngle_AxisZ(b))   ## initial Angle 
                 angle = degrees(angle)
                 temp = self.SurfaceAngle_AxisZ(b)
                 tep = degrees(temp)
@@ -14490,10 +14849,10 @@ class PATTERN:
             ## in this case, we don't need to re-position the nodes 
             # print("3")
             trans=self.MoveNodesBetween2Nodes(N00=orgn[indx[0]], NN0=orgn[indx[N]], N01=self.npn[indx[0]], NN1=self.npn[indx[N]], orgn=orgn, indexes=indx)
-
+            
             iN = len(indx)
+
             if N > 1: 
-                
                 for i in range(1, iN-1): 
                     self.npn[indx[i]][1] = trans[i-1][1]
                     self.npn[indx[i]][2] = trans[i-1][2]
@@ -14915,7 +15274,6 @@ class PATTERN:
 
         return np.array(trans0), np.array(trans1)
     def SurfaceAngle_AxisZ(self, MA, screen=0): 
-        PI = self.PI
         planes=[]
         if screen==1: 
             
@@ -15001,7 +15359,7 @@ class PATTERN:
             print ("  Normal X-Y Plane: %.3f, %.3f, %.3f"%(vb[0]*1000, vb[1]*1000, vb[2]*1000))
             ShowPlanes(planes)
 
-        return angle + PI/2.0
+        return angle + pi/2.0
     def Grouping_ConnectedEdges(self, edges, checknodes=[], debug=0): 
         return Grouping_ConnectedEdges(edges,checknodes=checknodes, npn=self.npn, debug=debug )
 
@@ -16164,7 +16522,7 @@ class PATTERN:
                                 ang13 = Angle_3nodes (self.npn[ix4], self.npn[ix3], LefN14,  xy=12)  - 1.5707963
                             ## 21.06.09 #################### ## 
                             
-                            # if od[3][0] -10**7 == 2416 or od[3][0] -10**7 == 2384 or od[4][0] -10**7 == 2416 or od[4][0] -10**7 == 2384: 
+                            # if od[3][0] -10**7 == 3101 or od[3][0] -10**7 == 3113 or od[3][0] -10**7 == 3106: # or od[4][0] -10**7 == 2384: 
                             #     print ("Kerf Btm Node=%d,%d"%(refo[0][0], refo[1][0]))
                             #     print ("NODE %d, %d"%(od[3][0] -10**7, od[4][0] -10**7))
                             #     print ("%.3f, %.3f, , %.3f, %.3f, 3"%(od[3][1]*1000, od[3][2]*1000, self.npn[ix3][1]*1000, self.npn[ix3][2]*1000))  
@@ -16190,10 +16548,12 @@ class PATTERN:
                                     ## 21.06.09 Modified  to Fix the movement of the nodes on kerf ## 
                                     # self.npn[ix3][1] =  topN13[1] + V13[0]  * slope13 * (topN13[3] - self.npn[ix3][3])  
                                     # self.npn[ix3][2] =  topN13[2] + V13[1]  * slope13 * (topN13[3] - self.npn[ix3][3]) 
+                                    # if od[3][0] -10**7 == 3101 or od[3][0] -10**7 == 3113 or od[3][0] -10**7 == 3106:
+                                    #     print (" node %d"%(od[3][0]))
+                                    #     print (" Top from X=%.3f, y=%.3f"%(V13[0]  * slope13 * (topN13[3] - self.npn[ix3][3])*1000, V13[1]  * slope13 * (topN13[3] - self.npn[ix3][3])*1000))
                                     node_moved.append([self.npn[ix3][0], topN13[1] + V13[0]  * slope13 * (topN13[3] - self.npn[ix3][3])  , topN13[2] + V13[1]  * slope13 * (topN13[3] - self.npn[ix3][3]) ])
                                     ## 21.06.09 ######################################################
                                     reDo += 1 
-
                             if reDo ==1 and Nsurf > cnt -1: 
                                 for k in range(cnt-2, 1, -1): 
                                     idx = np.where(self.npn[:,0]==ndn[k][2][0])[0][0]; ni = self.npn[idx]
@@ -16209,6 +16569,10 @@ class PATTERN:
                                         ## 21.06.09 Modified  to Fix the movement of the nodes on kerf ## 
                                         # self.npn[idx][1] = ni[1] + vec[0] * (nj[3]-ni[3])  * slope0
                                         # self.npn[idx][2] = ni[2] + vec[1] * (nj[3]-ni[3])  * slope0
+                                        # if od[3][0] -10**7 == 3101 or od[3][0] -10**7 == 3113 or od[3][0] -10**7 == 3106:
+                                        #     print (" node %d"%(od[3][0]))
+                                        #     print (" Top from X=%.3f, y=%.3f"%( vec[0] * (nj[3]-ni[3])  * slope0*1000, vec[1] * (nj[3]-ni[3])  * slope0*1000))
+            
                                         node_moved.append([self.npn[idx][0], ni[1] + vec[0] * (nj[3]-ni[3])  * slope0,  ni[2] + vec[1] * (nj[3]-ni[3])  * slope0])
                                         ## 21.06.09 ######################################################
                                 reDo += 1 
@@ -16229,7 +16593,8 @@ class PATTERN:
                         if od[4][1] - LefN04[1] !=0 or od[4][2] - LefN04[2] !=0 : 
                             ang04 = Angle_3nodes (od[3], od[4], LefN04, xy=12) - 1.5707963
                             ang14 = Angle_3nodes (self.npn[ix3], self.npn[ix4], LefN14,  xy=12)  - 1.5707963
-
+                            # if od[3][0] -10**7 == 3101: 
+                            #         print ( " 3101")
                             ## 21.06.09 Added to Fix the movement of the nodes on kerf ## 
                             if ang04 * ang14 < 0.0   :
                                 # a04= ang04; a14=ang14
@@ -16238,7 +16603,7 @@ class PATTERN:
 
                             ## 21.06.09 ######################################################
 
-                            # if od[3][0] -10**7 == 2416 or od[3][0] -10**7 == 2384 or od[4][0] -10**7 == 2416 or od[4][0] -10**7 == 2384: 
+                            # if od[3][0] -10**7 == 3101 or od[3][0] -10**7 == 3113 or od[3][0] -10**7 == 3106:
                             #     print ("** Kerf Btm Node=%d,%d"%(refo[0][0], refo[1][0]))
                             #     print ("** NODE %d, %d"%(od[3][0] -10**7, od[4][0] -10**7))
                             #     print ("%.3f, %.3f, , %.3f, %.3f, 3"%(od[3][1]*1000, od[3][2]*1000, self.npn[ix3][1]*1000, self.npn[ix3][2]*1000))  
@@ -16253,8 +16618,6 @@ class PATTERN:
                                 ix = np.where(self.npn[:,0]==nd[4][0])[0][0]
 
                                 d14 = sqrt (  (topN14[1] - self.npn[ix4][1])**2 + (topN14[2] - self.npn[ix4][2])**2 )
-                                # if od[3][0] -10**7 == 2416 or od[3][0] -10**7 == 2384 or od[4][0] -10**7 == 2416 or od[4][0] -10**7 == 2384: 
-                                #     print ("%d, d14=%.2f"%(self.npn[ix4][0]-10**7, d14*1000))
 
                                 if d14 > 0.0001: 
                                     V14 = [(self.npn[ix4][1] - topN14[1])/d14, (self.npn[ix4][2] - topN14[2])/d14]  ## vector from top to bottom 
@@ -16271,34 +16634,36 @@ class PATTERN:
                                     # print ("Recalculating&& ", self.npn[ix4][0])
 
                             if reDo ==1 and Nsurf > cnt -1: 
-                                    
-                                    for k in range(cnt-2, -1, -1): 
-                                        idx = np.where(self.npn[:,0]==ndn[k][1][0])[0][0]; ni = self.npn[idx]
-                                        idx = np.where(self.npn[:,0]==ndn[k][4][0])[0][0]; nj = self.npn[idx]
-                                        slope1 = sqrt((nj[1]-ni[1])**2 + (nj[2]-ni[2])**2)
+                                for k in range(cnt-2, -1, -1): 
+                                    idx = np.where(self.npn[:,0]==ndn[k][1][0])[0][0]; ni = self.npn[idx]
+                                    idx = np.where(self.npn[:,0]==ndn[k][4][0])[0][0]; nj = self.npn[idx]
+                                    slope1 = sqrt((nj[1]-ni[1])**2 + (nj[2]-ni[2])**2)
 
-                                        di0 =  sqrt((ndo[k][4][1]-ndo[k][1][1])**2 + (ndo[k][4][2]-ndo[k][1][2])**2) 
-                                        if di0 > 0.0001: 
-                                            
-                                            slope0 = di0 / (ndo[k][4][3]-ndo[k][1][3])
+                                    di0 =  sqrt((ndo[k][4][1]-ndo[k][1][1])**2 + (ndo[k][4][2]-ndo[k][1][2])**2) 
+                                    if di0 > 0.0001: 
+                                        
+                                        slope0 = di0 / (ndo[k][4][3]-ndo[k][1][3])
 
-                                            vec = [(ndo[k][4][1]-ndo[k][1][1]) / di0  , (ndo[k][4][2]-ndo[k][1][2]) / di0]
-                                            
-                                            ## 21.06.09 Modified  to Fix the movement of the nodes on kerf ## 
-                                            # self.npn[idx][1] = ni[1] + vec[0] * (nj[3]-ni[3]) * slope0
-                                            # self.npn[idx][2] = ni[2] + vec[1] * (nj[3]-ni[3]) * slope0
-                                            # print ("Recalculating (*(*(", self.npn[idx][0])
-                                            node_moved.append([self.npn[idx][0], ni[1] + vec[0] * (nj[3]-ni[3]) * slope0,  ni[2] + vec[1] * (nj[3]-ni[3]) * slope0])
-                                            ## 21.06.09 ######################################################
+                                        vec = [(ndo[k][4][1]-ndo[k][1][1]) / di0  , (ndo[k][4][2]-ndo[k][1][2]) / di0]
+                                        
+                                        ## 21.06.09 Modified  to Fix the movement of the nodes on kerf ## 
+                                        # self.npn[idx][1] = ni[1] + vec[0] * (nj[3]-ni[3]) * slope0
+                                        # self.npn[idx][2] = ni[2] + vec[1] * (nj[3]-ni[3]) * slope0
+                                        # print ("Recalculating (*(*(", self.npn[idx][0])
+                                        # if od[3][0] -10**7 == 3101 or od[3][0] -10**7 == 3113 or od[3][0] -10**7 == 3106:
+                                        #     print ("%d, d14=%.2f"%(self.npn[ix4][0]-10**7, d14*1000))
+                                        node_moved.append([self.npn[idx][0], ni[1] + vec[0] * (nj[3]-ni[3]) * slope0,  ni[2] + vec[1] * (nj[3]-ni[3]) * slope0])
+                                        ## 21.06.09 ######################################################
 
-                                    reDo += 1 
-                                    # print ("Recalculating ))) ", ndn[k][1][0], ndn[k][4][0])
+                                reDo += 1 
+                                # print ("Recalculating ))) ", ndn[k][1][0], ndn[k][4][0])
 
                     relocated.append(self.npn[ix][0])
 
                     ## 21.06.09 Added to Fix the movement of the nodes on kerf ## 
                     for nd in node_moved: 
                         ix = np.where(self.npn[:,0] == nd[0])[0][0]
+
                         self.npn[ix][1] = nd[1]
                         self.npn[ix][2] = nd[2]
                     ## 21.06.09 ######################################################
@@ -16428,16 +16793,17 @@ class PATTERN:
                     teln.append(j)
                     break 
         if len(teln) == 0: 
-            print ("Cannot find the next Surface which has next edge")
-            print ("Current edge", cedge[0]-10**7, cedge[1]-10**7, "in Surf", cedge[3]-10**7)
-            print ("Current Ref ", redge[0]-10**7, redge[1]-10**7, "in Surf", redge[3]-10**7)
+            
+            print ("Warning. Cannot count the main groove")
+            print ("Current edge %d, %d in surf %d"%(cedge[0]-10**7, cedge[1]-10**7, cedge[3]-10**7))
+            print ("Current Ref  %d, %d in surf %d"%(redge[0]-10**7, redge[1]-10**7, redge[3]-10**7))
             for j in idx: 
                 if groovebottom[j][0] != cedge[3] and groovebottom[j][0] != redge[3]: 
                     jn = int(groovebottom[j][2])
                     tnode=[]
                     for k in range(7, 7+jn):
                         tnode.append(groovebottom[j][k]-10**7)
-                    print (" ? Surface : ", tnode, 'in %d'%(groovebottom[j][0]-10**7))
+                    # print (" ? Surface : ", tnode, 'in %d'%(groovebottom[j][0]-10**7))
             
             # self.ImageEdge(bottomedges, file=Pattern.name+"-ERROR NEXT EDGE IN Lateral Groove", edge1=[cedge], edge2=[redge], dpi=1000, nid=1, tsize=0.5)#, eid=1)
             ## do not 
@@ -16929,6 +17295,7 @@ def Jacobian_Hexahedron(n1, n2, n3, n4, n5, n6, n7, n8, r=1, s=1, t=-1) :
     Det = np.linalg.det(J)
 
     return Det 
+
 # @timer
 def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> GenerateAllSurfaces(self) 
     ## before call this function, 'makenumpyarray()' should be called.
@@ -16989,7 +17356,6 @@ def Generate_all_surfaces_on_solid(npn, nps, diameter=0, text=""):  ##  --> Gene
         SolidCenter = [round(sx/solid[9], truncation), round(sy/solid[9], truncation), round(sz/solid[9], truncation)] 
 
         centers = []
-        centers_surface=[]
 
         top = 0 
         gap = R*2 
@@ -17750,14 +18116,15 @@ def Angle_Between_Vectors(va, vb):
     return round(acos(cos), 10)
 def Angle_3nodes(n1=[], n2=[], n3=[], xy=0): ## n2 : mid node 
     
-    v1 = [n1[1]-n2[1], n1[2]-n2[2], n1[3]-n2[3] ]
-    v2 = [n3[1]-n2[1], n3[2]-n2[2], n3[3]-n2[3] ]
+    v1 = [0, n1[1]-n2[1], n1[2]-n2[2], n1[3]-n2[3] ]
+    v2 = [0, n3[1]-n2[1], n3[2]-n2[2], n3[3]-n2[3] ]
     
     if xy ==0: 
-        cos = round((v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]) /  sqrt(v1[0]**2 + v1[1]**2 + v1[2]**2) / sqrt(v2[0]**2 + v2[1]**2 + v2[2]**2), 9)
-        angle = acos(cos)
+        # cos = round((v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]) /  sqrt(v1[0]**2 + v1[1]**2 + v1[2]**2) / sqrt(v2[0]**2 + v2[1]**2 + v2[2]**2), 9)
+        # angle = acos(cos)
+        return Angle_Between_Vectors(v1, v2)                                   
     else: 
-        x = int(xy/10)-1;     y = int(xy%10)-1
+        x = int(xy/10);     y = int(xy%10)
         L1 = sqrt(v1[x]**2 + v1[y]**2 ) 
         L2 = sqrt(v2[x]**2 + v2[y]**2)
         if L1 > 0 and L2 > 0: 
@@ -18841,12 +19208,11 @@ def Gauge_Ratio_to_Bottom_of_Pattern_node(N, Ptn_btm_sorted_nodes, pattern_max_R
 
 def Layout_Tread_Gauge_at_pattern_node(node_on_profile, nodes_layout_td_bottom, tilting_angle): 
     N = node_on_profile 
-    PI = 3.14159265358979323846
-    # slope = tan(PI/2 - angle)
+    # slope = tan(pi/2 - angle)
     ## y1 = slope * (x1 - N[2]) + N[3]  
     ## y2 = (n2[3]-n1[3]) / (n2[2] - n1[3]) (x2 - n1[2] ) + n1[3]  
 
-    m1 = tan(PI/2 - tilting_angle); n1 = -m1 * N[2] + N[3] 
+    m1 = tan(pi/2 - tilting_angle); n1 = -m1 * N[2] + N[3] 
 
 
     for i, nd in enumerate(nodes_layout_td_bottom): 
@@ -19448,7 +19814,12 @@ def AttatchSquarePatternSideNodes(layout_sidenodes, npn, orgn, surf_posSide, sur
     R = np.max(orgn[:,3])
     cn = []; on = []
     for sn in sNodes: 
-        ix = np.where(orgn[:,0]==sn)[0][0]
+        try: 
+            ix = np.where(orgn[:,0]==sn)[0][0]
+        except: 
+            print (orgn)
+            print (sn)
+            sys.exit()
         on.append(orgn[ix])
         cn.append(npn[ix])
         # print ("%d, %.5f, %.5f, %.5f"%(npn[ix][0], npn[ix][1], npn[ix][2], npn[ix][3]))
@@ -20673,8 +21044,6 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
         patternReversed = 0 
     # rev = False ## 'rev ==True' does not need when rotating pattern 
 
-    PI = 3.14159265358979323846
-
     if len(elset) == 0: 
         Elset = ["CTB", solids[:,0]]
         elsets=[]  # Elset_SUT = ["SUT", []]
@@ -20758,10 +21127,10 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
     # print (deleted_nodes)
     mched_nodes = np.array(mched_nodes)
 
-    delta = 2*PI / float(pn) 
+    delta = 2*pi / float(pn) 
     if pl >0: ## check the delta angle 
         Total_Length = pl * pn 
-        Circumferential_length = PI * OD 
+        Circumferential_length = pi * OD 
         
         print ("* The No. of pitches=%d\n* Unit PL=%.3fmm(angle = %.3fdeg)"%(pn, pl*1000, degrees(delta)))
         print ("* All Pitch Length = %.3fmm\n* Tire Circumferential Length = %.3fmm"%(Total_Length*1000, Circumferential_length*1000))
@@ -20898,9 +21267,8 @@ def GenerateFullPatternMesh(nodes, solids, pn, OD, surf_pitch_up, surf_pitch_dow
 
     return fnodes, fsolids, elset3d, surf_XTRD1001, surf_YTIE1001, deleted_nodes, mched_nodes, surf_free, surf_to_body
 def GenerateFullBodyMesh(nodes, elements, elsets, surfaces=[], sectors=240, offset=10000, body_outer=[]): 
-    PI = 3.14159265358979323846
     nodes3d = []
-    delta = 2*PI / float(sectors) 
+    delta = 2*pi / float(sectors) 
 
     el2n=[]; el3n=[]; el4n=[]
     for i in range(sectors): 
@@ -22273,8 +22641,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
 
 
     lines = ""
-    PI = 3.14159265358979323846
-    delta = 2*PI / float(body_sector) 
+    delta = 2*pi / float(body_sector) 
     for i in range(body_sector): 
         lf=float(i)
         for nd in bds:
@@ -22444,7 +22811,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
         angle_start = Angle_3nodes(vert, crv[2], crv[0], xy=23)
         angle_end = Angle_3nodes(vert, crv[2], crv[1], xy=23)
 
-        if angle_start > PI/2.0: 
+        if angle_start > pi/2.0: 
             delAngle = abs(angle_start - angle_end)
             angle_start = Angles[-1][1] 
             angle_end = angle_start + delAngle
@@ -22488,7 +22855,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
     delPitchAngle = np.max(angles) - minangle
     pitch1 = np.array(P1)
     if delPitchAngle ==0:  ## in case of groove tire 
-        delPitchAngle = 2*PI/ptn_PN
+        delPitchAngle = 2*pi/ptn_PN
     # print("ptn_npn", ptn_npn[0])
     # print( np.max(angles), ", ", minangle, ",", delPitchAngle)
     
@@ -22538,7 +22905,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
         R = sqrt(nd[1]**2 + nd[3]**2)
 
         cu = Angle_3nodes(N0, N1, nd, xy=13)    # circumferential angle from vertical line at center 
-        if nd[1] < 0: cu = 2*PI - cu 
+        if nd[1] < 0: cu = 2*pi - cu 
 
         if grooveTire ==1 and len(crownEdge)>0: 
         
@@ -22592,7 +22959,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                     cent = [0, 0, pN[2], pN[3]-1.0]
                     # tAngle += Angle_3nodes(cent, pN, nN, xy=23)
                     tmp1 =  Angle_3nodes(cent, pN, nN, xy=23)
-                    if tmp1 > 0 and tmp1 >=PI/2.0: 
+                    if tmp1 > 0 and tmp1 >=pi/2.0: 
                         tAngle += tmp1 
                         cntn += 1
 
@@ -22605,11 +22972,11 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
                     cent = [0, 0, pN[2], pN[3]-1.0]
                     # tAngle += Angle_3nodes(cent, pN, nN, xy=23)
                     tmp2 =  Angle_3nodes(cent, pN, nN, xy=23)
-                    if tmp2 > 0 and tmp2 >=PI/2.0: 
+                    if tmp2 > 0 and tmp2 >=pi/2.0: 
                         tAngle += tmp2 
                         cntn += 1
             try: 
-                cv = tAngle / float(cntn) - PI/2.0
+                cv = tAngle / float(cntn) - pi/2.0
                 # print ("Nd %d, angle=%.1f (%.1f, %.1f), pre=%d, next=%d"%(nd[0]-TreadNo, cv*180/3.14159, tmp1*180/3.14, tmp2*180/3.14, pN[0], nN[0]))
             except:
                 
@@ -22626,7 +22993,7 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
 
 
                 cent = [0, 0, pN[2], pN[3]-1.0]
-                cv = Angle_3nodes(cent, pN, nN, xy=23) - PI/2.0
+                cv = Angle_3nodes(cent, pN, nN, xy=23) - pi/2.0
 
                 # for edge in crownEdge:
                 #     print(edge)
@@ -22731,58 +23098,6 @@ def FricView_msh_creator(fname="", HalfOD=0.0, body_outer=[], body_node=[], body
     ## Coordinate Y, Accumulated Wear 01, Accumulated Wear 01, R position of Nodes..
 
     #############################################################
-def TD_Arc_endPoints(profile): 
-    quit()
-    ## wrong logic to use 
-    negR = 0 
-    sumAngle = 0
-    negSumAngle = 0 
-    for i, pf in enumerate(profile): 
-        print ('%d'%(i), pf, end=' > ')
-        if i ==0: 
-            xc = 0
-            yc = pf[0]
-            sumAngle += pf[1]/pf[0]
-            xe = xc + pf[0] * sin(sumAngle)
-            ye = yc - pf[0] * cos(sumAngle)
-            angle = sumAngle
-            delA = pf[1]/pf[0]
-        else: 
-            if pf[0] < 0: 
-                negR = 1 
-                firstNegR = 1 
-            if negR ==0 : 
-                xc = (1-pf[0]/profile[i-1][0])*(xe-xc) + xc 
-                yc = (1-pf[0]/profile[i-1][0])*(ye-yc) + yc 
-
-                sumAngle += pf[1]/pf[0]
-                xe = xc + pf[0] * sin(sumAngle)
-                ye = yc - pf[0] * cos(sumAngle)
-                angle = sumAngle
-                delA =  pf[1]/pf[0]
-            else: 
-                print (negR)
-                print (" temp ye-yc", ye-yc, " temp xe-xc", xe-xc)
-                print (" xc=%.3f, pf[0]=%.1f, prev pf[0]=%.1f, xe=%.2f, xc=%.2f"%(xc*1000, pf[0]*1000, profile[i-1][0]*1000, xe*1000, xc*1000))
-                if firstNegR : 
-                    xc = xe + abs(pf[0]/profile[i-1][0]) * (xe-xc)
-                    yc = ye + abs(pf[0]/profile[i-1][0]) * (ye-yc) 
-                    firstNegR = 0 
-                else: 
-                    xc = -abs(pf[0]/profile[i-1][0])*(xe-xc) + xc 
-                    yc = -abs(pf[0]/profile[i-1][0])*(ye-yc) + yc 
-
-                negSumAngle += abs(pf[1]/pf[0])
-                xe = xc - abs(pf[0]) * cos(PI/2 - sumAngle + negSumAngle)
-                ye = yc + abs(pf[0]) * sin(PI/2 - sumAngle + negSumAngle)
-                angle = PI/2 - sumAngle + negSumAngle
-                delA =  abs(pf[1]/pf[0])
-                print (" r=%.1f, l=%.2f"%(pf[0]*1000, pf[1]*1000))
-        print (" center : %.3f, %.3f, end : %.3f, %.3f, angle=%.8f(del A=%.8f)\n"%(xc*1000, yc*1000, xe*1000, ye*1000, degrees(angle), degrees(delA)))
-        
-
-    return xe, ye 
-
 
 def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0, debug=False): 
     ## halfOD : for     square shoulder profile, to calculate the center of the circle with negative radius
@@ -22818,9 +23133,9 @@ def TD_Arc_length_calculator(profile, h_dist=0, totalwidth=0, msh_return=0, debu
 
         r = abs(pf[0])
         sum_length += pf[1]
-        angle = pf[1]/r ## arc angle 
+        angle = abs(pf[1]/r) ## arc angle 
         if debug: print ("R=%.3f, Len=%.3f, angle=%.3f"%(r*1000, pf[1]*1000, degrees(angle)))
-        # print ("angle radian %.6f, degrees =%.6f"%(angle, angle*180.0/PI))
+        # print ("angle radian %.6f, degrees =%.6f"%(angle, angle*180.0/pi))
         if i ==0: 
             drop = r - r * cos(angle)  # drop 
             dist = r*sin(angle)        # dist from center 
@@ -23060,7 +23375,7 @@ def ConvexHull(node, XY=23, **args):
                 if Center[y]<N2[y] :
                     angle = CalculateAngleFrom3Node(N1, N2, Center, XY=XY)
                 else:
-                    angle = PI * 2 - CalculateAngleFrom3Node(N1, N2, Center, XY=XY) 
+                    angle = pi * 2 - CalculateAngleFrom3Node(N1, N2, Center, XY=XY) 
                 
                 if mAngle > angle and angle >= pangle:
                     tCenter = N2
@@ -23180,6 +23495,36 @@ def CalculateAngleFrom3Node(N1, N2, Center, XY=13, **args):
 ##########################################################################################
 # End of General Functions 
 ##########################################################################################
+def OtherNodes_InSurface_faceorder(surf, nids): 
+    lefts=[]
+    if len(nids) >= surf[2]: return lefts 
+
+    fds=[]
+    nodes = surf[7:]
+    i =0
+    while i < len(nodes): 
+        fd = False 
+        for n in nids: 
+            if nodes[i] == n: 
+                fd = True 
+                break 
+        if not fd: 
+            fds.append([nodes[i], i+1])
+        i += 1
+    
+    if len(fds) ==2 : 
+        if fds[0][1] == 1 and fds[1][1] ==4: 
+            tmp = fds[0]
+            fds[0] = fds[1]
+            fds[1] = tmp 
+        if fds[0][1] == 1 and fds[1][1] ==3: 
+            tmp = fds[0]
+            fds[0] = fds[1]
+            fds[1] = tmp 
+        return fds 
+    
+    return fds 
+
 def OtherNodes_InSurface(surface, node_ids): 
     # Surface [ 0=EL ID, 1=Face, 2=No of nodes, 3=position, 4=cx, 5=cy, 6=cz, 7=N1, 8=n2, 9=n3, 10=n4, ... ] 
     lefts=[]

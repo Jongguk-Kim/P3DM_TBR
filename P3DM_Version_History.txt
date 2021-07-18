@@ -1,7 +1,23 @@
 
 P3DM Version History
 
-2021.03.29 
+2021.07.14
+1. In case that the groove side angle is too big to expand, P3DM changed the maximum angle 
+   to adjust the groove side angle from 25 degrees to 15 degrees versus the groove base width in the mesh. 
+   Groove bottom minimum Width = 0.3mm
+   Maximum Angle = atan(( Groove_bottom_minimum_Width - Minimum_Grv_Bottom_Width_scaled  ) / (TW_ratio*Model_Pattern_GD - Target_GD) )
+
+
+2021.07.07
+1. bug fixed 
+   - logic to connect3 2 Pitches.
+2. It's added the logic to Keep the gauge of kerfs constant at TBR Hidden groove  
+
+2021.07.01
+1. bug fixed 
+   - calculation for connection curve from curve to straight line in TBR 
+
+2021.06.29 
 1. fixing bug the logic to add a supplementary curve to tread profile with Straight line on tread in TBR 
 
 2021.06.23

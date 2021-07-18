@@ -133,16 +133,11 @@ class PATTERN_EXPANSION():
         layoutms = self.layoutmesh.split("/")[-1].split(".")[0]
         ptnms = self.patternmesh.split("/")[-1].split(".")[0]
         cwd = getcwd() 
-        
 
         print ("# 3D Full mesh file : %s"%(layoutms+"-"+ptnms))
 
         solid_err=[]
-        
-
         self.pd=0
-        
-
         if self.layout.shoulderType=="R":
             if  self.layout.r_shocurve < 6.0E-03 or self.shoulderGa >= self.layout.r_shocurve  + 2.0e-03:       self.Check_ShoulderGaugeCheck = 1
             if self.layout.T3DMMODE == 0: 
@@ -195,8 +190,6 @@ class PATTERN_EXPANSION():
             bodyelements=self.layout.Element, ptnnodes=self.pattern.npn, \
                 ptnbottom=self.pattern.freebottom, start=start, \
                     shoulder=self.layout.shoulderType, ptnelements=self.pattern.nps)
-
-        
 
         ## Sub Tread is  ... : subtread = False 
         isSubTread = True

@@ -293,9 +293,9 @@ class Ui_MainWindow(object):
         self.radio_Kerf = QtWidgets.QRadioButton(self.groupBox_OverlaySurf)
         self.radio_Kerf.setGeometry(QtCore.QRect(10, 40, 71, 20))
         self.radio_Kerf.setObjectName("radioSubGrv")
-        self.radio_AllSide = QtWidgets.QRadioButton(self.groupBox_OverlaySurf)
-        self.radio_AllSide.setGeometry(QtCore.QRect(160, 40, 111, 20))
-        self.radio_AllSide.setObjectName("radioMainGrv")
+        self.radio_HiddenGrv = QtWidgets.QRadioButton(self.groupBox_OverlaySurf)
+        self.radio_HiddenGrv.setGeometry(QtCore.QRect(160, 40, 111, 20))
+        self.radio_HiddenGrv.setObjectName("radioHiddenGrv")
         self.horizontalLayout_25.addWidget(self.groupBox_OverlaySurf)
         self.verticalLayout.addLayout(self.horizontalLayout_25)
         self.horizontalLayout_7 = QtWidgets.QHBoxLayout()
@@ -542,8 +542,8 @@ class Ui_MainWindow(object):
         MainWindow.setTabOrder(self.radioSide, self.radio_Maingrv)
         MainWindow.setTabOrder(self.radio_Maingrv, self.radio_Subgrv)
         MainWindow.setTabOrder(self.radio_Subgrv, self.radio_Kerf)
-        MainWindow.setTabOrder(self.radio_Kerf, self.radio_AllSide)
-        MainWindow.setTabOrder(self.radio_AllSide, self.searchno)
+        MainWindow.setTabOrder(self.radio_Kerf, self.radio_HiddenGrv)
+        MainWindow.setTabOrder(self.radio_HiddenGrv, self.searchno)
         MainWindow.setTabOrder(self.searchno, self.btn_showsolid)
         MainWindow.setTabOrder(self.btn_showsolid, self.btn_PtnNodeCheck)
         MainWindow.setTabOrder(self.btn_PtnNodeCheck, self.btn_initialization)
@@ -574,7 +574,6 @@ class Ui_MainWindow(object):
         self.filesaved = 0 
         self.renewptn = 0 
         self.renewlayout = 0 
-        self.PI = 3.14159265358979323846
         self.errorcode = 0 
         self.LayoutNo = 0 
         self.savedirectory = ''
@@ -612,7 +611,7 @@ class Ui_MainWindow(object):
         self.radioBottom.clicked.connect(self.showBottomSurface)
         self.radio_Maingrv.clicked.connect(self.showMainGrvBtm)
         self.radio_Subgrv.clicked.connect(self.showSubGrvBtm)
-        self.radio_AllSide.clicked.connect(self.showMainGroove)
+        self.radio_HiddenGrv.clicked.connect(self.showHiddenGrv)
         self.radio_Kerf.clicked.connect(self.showSubGroove)
         self.radioDefault.clicked.connect(self.showDefault)
         self.radioPitch.clicked.connect(self.showPitch)
@@ -828,7 +827,7 @@ class Ui_MainWindow(object):
         self.radio_Maingrv.setText(_translate("MainWindow", "Main groove"))
         self.radio_Subgrv.setText(_translate("MainWindow", "Sub groove"))
         self.radio_Kerf.setText(_translate("MainWindow", "Kerf"))
-        self.radio_AllSide.setText(_translate("MainWindow", "All kerf/Grv sides"))
+        self.radio_HiddenGrv.setText(_translate("MainWindow", "Hidden Groove"))
         self.SearchElement.setText(_translate("MainWindow", "Show elements"))
         self.searchno.setText(_translate("MainWindow", ""))
         self.checkBox_OverlaySurfNo.setText(_translate("MainWindow", "No."))
@@ -985,10 +984,11 @@ class Ui_MainWindow(object):
                 
             errel, jac_message, negative_ht,_ = PTN.Jacobian_check(nodes, solids)
 
+
             if len(dups) == 0 and len(errel) > 0 : 
                 print ("## Elements need to check ")
                 for el in errel:
-                    print(int(el[0]), end=", ")
+                    print("%d"%(el[0]), end=", ")
 
                 if len(errel) < 10: 
                     self.figure.plot_error(errel, nodes)
@@ -1121,7 +1121,7 @@ class Ui_MainWindow(object):
                 RecPL = self.pattern.pitchlength
             if self.check_T3DM.isChecked() == True: 
                 RecPL = self.pattern.pitchlength
-            PN = round(self.layout.OD * self.PI / RecPL , 0)
+            PN = round(self.layout.OD * np.pi / RecPL , 0)
             NoPitch = int(PN)
             self.input_pitch_no.setText(str(NoPitch))
 
@@ -1538,7 +1538,7 @@ class Ui_MainWindow(object):
                         RecPL = self.pattern.pitchlength
                     if self.check_T3DM.isChecked() == True: 
                         RecPL = self.pattern.pitchlength
-                    PN = round(self.layout.OD * self.PI / RecPL , 0)
+                    PN = round(self.layout.OD * np.pi / RecPL , 0)
                     NoPitch = int(PN)
                     self.input_pitch_no.setText(str(NoPitch))
                     self.btn_removetread.setEnabled(True)
@@ -1653,7 +1653,7 @@ class Ui_MainWindow(object):
                         RecPL = self.pattern.pitchlength
                     if self.check_T3DM.isChecked() == True: 
                         RecPL = self.pattern.pitchlength
-                    PN = round(self.layout.OD * self.PI / RecPL , 0)
+                    PN = round(self.layout.OD * np.pi / RecPL , 0)
 
                     NoPitch = int(PN)
                     self.input_pitch_no.setText(str(NoPitch))
@@ -1883,7 +1883,6 @@ class Ui_MainWindow(object):
                 self.figure.plot(layout=self.layout, show='layout', add2d=self.layout.TieError, xtrd=Edge_XTRD) 
                 self.ShowingImage = 'layout'
                 if self.check_FricView.isChecked() == True: 
-                    PI = 3.14159265358979323846
                     self.edge_body = bodyElements_class.OuterEdge(self.layout.Node)
                     self.poffset = BodyOffset
 
@@ -2061,8 +2060,8 @@ class Ui_MainWindow(object):
                                 
                                 N1a = [N1[0], N1[1], abs(N1[2]), N1[3]]
                                 N2a = [N2[0], N2[1], abs(N2[2]), N2[3]]
-                                # angle = TIRE.CalculateAngleFrom3Node(N2a, [0, N2a[1], N2a[2]+1.0, N2a[3]], N1a, XY=23)*180.0/PI
-                                angle = PTN.Angle_3nodes(N2a, [0, N2a[1], N2a[2]+1.0, N2a[3]], N1a, xy=23)*180.0/PI
+                                # angle = TIRE.CalculateAngleFrom3Node(N2a, [0, N2a[1], N2a[2]+1.0, N2a[3]], N1a, XY=23)*180.0/np.pi
+                                angle = PTN.Angle_3nodes(N2a, [0, N2a[1], N2a[2]+1.0, N2a[3]], N1a, xy=23)*180.0/np.pi
                                 if self.layout.TDW/2.0-Length >= 0 and abs(angle) < CriticalAngle: 
                                     RightTWNode = N2
                                     # print ("right", NoGrooveCrown.Edge[i], Length*1000, TreadDesignWidth/2.0, angle)
@@ -2089,8 +2088,8 @@ class Ui_MainWindow(object):
                                         
                                 N1a = [N1[0], N1[1], abs(N1[2]), N1[3]]
                                 N2a = [N2[0], N2[1], abs(N2[2]), N2[3]]
-                                # angle = TIRE.CalculateAngleFrom3Node(N1a, [0, N1a[1], N1a[2]+1.0, N1a[3]], N2a, XY=23)*180.0/PI
-                                angle = PTN.Angle_3nodes(N1a, [0, N1a[1], N1a[2]+1.0, N1a[3]], N2a, xy=23)*180.0/PI
+                                # angle = TIRE.CalculateAngleFrom3Node(N1a, [0, N1a[1], N1a[2]+1.0, N1a[3]], N2a, XY=23)*180.0/np.pi
+                                angle = PTN.Angle_3nodes(N1a, [0, N1a[1], N1a[2]+1.0, N1a[3]], N2a, xy=23)*180.0/np.pi
                                 if self.layout.TDW/2.0-Length >= 0  and abs(angle) < CriticalAngle: 
                                     LeftTWNode = N1
                                     # print ("Left", NoGrooveCrown.Edge[i], Length*1000, TreadDesignWidth/2.0)
@@ -2154,7 +2153,7 @@ class Ui_MainWindow(object):
                         ptn_deleted_nodes=self.nd_deleted, ## 
                         ptn_deleted=self.deletednode, ## 
                         ptn_PN=self.user_sector, ## 
-                        ptn_PL=float(self.layout.OD*PI / self.user_sector), ## 
+                        ptn_PL=float(self.layout.OD*np.pi / self.user_sector), ## 
                         ptn_offset=BodyOffset, ## 
                         shoulder=self.layout.shoulderType, ## 
                         revPtn=False, grooveTire=1)
@@ -2297,7 +2296,13 @@ class Ui_MainWindow(object):
             
             NN = len(self.pattern.npn); NS= len(self.pattern.nps)
             solid_err, text, _, _=PTN.Jacobian_check(self.pattern.npn, self.pattern.nps)  ## deformed pattern mesh check 
-             
+            if len(solid_err) > 0 :
+                txt = "### Elements distorted\n"
+                for sd in solid_err: 
+                    txt += " %d, "%(sd[0])
+                txt += "\n>Trying to relocate the nodes on the bottom solids"
+                print (txt)
+            # solid_err=[]
             if len(solid_err) > 0 : 
                 soler = np.array(solid_err)
                 soler = soler[:,0]
@@ -2570,7 +2575,7 @@ class Ui_MainWindow(object):
         self.radio_Maingrv.setChecked(False)
         self.radio_Subgrv.setChecked(False)
         self.radio_Kerf.setChecked(False)
-        self.radio_AllSide.setChecked(False)
+        self.radio_HiddenGrv.setChecked(False)
     
     ## layout based plot ##########################
     def showcurrentlayout(self): 
@@ -3170,13 +3175,13 @@ class Ui_MainWindow(object):
             except:
                 # self.message.setText("Sub Groove Bottom Surface has not been plotted.")
                 self.figure.plot(show='none')
-    def showMainGroove(self):  ## Pattern full depth groove Surface 
+    def showHiddenGrv(self):  ## Pattern full depth groove Surface 
         if self.ShowingImage == 'pattern':
             self.searchsolid = self.SearchedSolids(id=1) 
             if self.checkBox_OverlaySurfNo.isChecked():  number = 1
             else: number = 0 
             try:
-                surface2plot = self.ptn_model.beforeside 
+                surface2plot = self.ptn_model.surf_HiddenGrv
                 if self.radio_model.isChecked() : 
                     node2plot = self.ptn_model.npn
                 elif self.radio_scaled.isChecked() : 
@@ -3191,9 +3196,10 @@ class Ui_MainWindow(object):
                     self.figure.Add_surface(sf2=surface2plot, nodes=node2plot, search=self.searchsolid, number=number)
                     # self.message.setText("Pattern full depth groove Surface has been plotted.")
                 else: 
-                    print ("No Groove Side surface")
+                    print ("No Hidden Groove")
             except:
                 # self.message.setText("Pattern full depth groove Surface has not been plotted.")
+                # print ("No Groove Side surface")
                 self.figure.plot(show='none')
     def showSubGroove(self):   ## Pattern sub groove side Surface
         if self.ShowingImage == 'pattern':
