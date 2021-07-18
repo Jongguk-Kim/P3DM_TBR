@@ -1,0 +1,36 @@
+LTR 표준 Mesh 공청회 
+
+1. 일시 : 2021.06.15 14:00~
+2. 장소 : MR431
+3. 참석 : 
+    LT 기술혁신 TFT 김대일
+    연구정보팀 권소라, 박순경
+    ITDS PJT 조남두, 염석훈
+    VT PJT 김종국, 박현철, 김학구 
+4. 안건 및 내용 
+    1) LTR 표준 메쉬 생성 로직 : PCR 표준 메쉬 생성 로직을 기반으로 함 
+    2) LTR 전용 반제품의 메쉬 생성 
+        - Bead Filler Tape: Mesh 표현 필요 여부 확인 (김대일님)
+            -> 표준에 B86 사용 정의됨, 그러나, Bead Filler compound가 다르게 사용될 수 있어 메쉬 구분 필요  
+        - Rim Cushion Sheet: CCT와 같은 compound 적용하나, 내구 분석위해 Mesh 분리 생성 
+        - RFM : 좌우 비대칭 각도 사용 경우 있어 확인 (김대일님)
+            -> 동방향 사용 중이나, A 또는 V 방향 사용 여부 협의 중으로 향후 표준 설정에 따라 필요시 방향 표시 필요 
+        - I/L가 알비드를 감싸고 올라가도록 Layout 생성되어 Bead base부의 
+            RIC 요소가 너무 작아 수렴 이슈 발생 가능성 있음 
+            -> Rim Contact 부의 요소 형상과 TIE는 해석 수렴성 영향 주므로 
+              검증 시 Mesh 형상 검토 예정 (박현철님, 김대일님)
+
+        - LT의 Bead부 Chafer Mesh 생략 
+        - LTR의 Groove 바닥 요소 두 개로 구성 (단 Groove 배면 크기가 4mm 이상일 경우)
+        
+        - Pattern 타이어 해석 위해 LTR은 Profile의 형태(Round/Square)에 따라 2가지 type의 메쉬 개발 (연구정보팀)
+          : LTR 타이어는 TBR의 Square와 유사한 형태, P type은 PCR의 Round와 유사한 형태를 동시게 가지고 있음 
+            --> Profile 형상 이미지로 패턴 Mesh의 type을 결정하며 Upper side Curve 또는 TR로서 구분하기 어려움 
+            
+          : Profile/Pattern의 결합을 위해 Pattern과 Layout Mesh에 프로파일과 패턴 형상을 구분할 수 있는 인자를 출력 기능 추가 (조남두님, 염석훈님)
+            - Pattern 및 Profile Mesh에 기록 (Pattern Library 패턴 구분 인자)
+            - ISLM 환경에서 Pattern mesh를 구분할 수 있도록 CUTE Layout Mesh 생성 시 CUTE DB 설정 
+            * Shoulder type = Round / Square 로 구분 (Square : TBR type, Round : PCR type) 
+
+            
+ 

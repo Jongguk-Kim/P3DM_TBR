@@ -1,0 +1,63 @@
+
+
+ISLM TBR Pattern 해석 기능 개발을 위한 Pattern Mesh 확산 로직 공청회 
+
+1. 일시 : 2021년 3월 9일 (MR351)
+
+2. 참석자: 김종국, 이동규, 김영진, 배성렬, 오선영, 이원빈 
+
+3. 내용  
+    1) TBR Pattern Mesh 확산 로직 개발 배경 및 목적 
+      - 현재 ISLM에서는 Groove tire에 대한 해석 기능 제공하고 있으나 Pattern의 영향을 많이 받는 
+        해석의 신뢰도 향상 및 향후 해석 기능 확장을 위해 Pattern Tire의 해석 기능 개발 필요함
+
+      - Pattern Tire 해석을 위해서는 각 규격의 단면에 대응하는 Pattern mesh 생성 필요하나, 
+        Auto-Mesh 생성 기능을 다양한 Pattern 형상에 대해 구현하기 기술적으로 어렵기 때문에 
+        기존 Model Pattern Mesh를 활용하여 Target하는 Layout에 맞추어 확산을 자동화 하는 
+        로직을 개발하여 ISLM에 해석 기능을 개발하고자 함. 
+        ※ 단, 확산 상품의 패턴이 모델과 다를 수 있어 해석 정확성 감소할 수 있음
+
+    ▶ Pattern mesh의 ISLM 연동을 위해 Pattern QFD System을 개발 중(ITDS, PTP, PPP) 으로 
+        VTRMS의 업데이트 병행 진행 중임 (ITDS, 한국네트웍스)
+      >> Pattern QFD system에서 TBR Pattern의 생성 및 관리에 대한 협의 진행(TB 담당자 선정 및 회의 참여) 필요
+
+
+    2) ISLM Pattern Tire 해석 기능 개발 계획 
+        
+        ※ Pattern Tire 해석 기능은 단일 Pitch Full Pattern Tire를 기준으로 제공함 
+        
+        - Target 일정 : '2021년 11월 Release 
+        - 개발 해석 기능 
+            ① Static footshape 
+            ③ Dynamic footshape 
+            ③ Rolling Resistance 
+            ④ Cornering Stiffness 
+            ⑤ PRAT 
+
+    3) TBR Tire에 적용할 패턴 메쉬 확산 기본 규칙 
+
+        ▶ TBR Pattern Mesh의 형상이 Mesh cutting과 일치하지 않아 TBR 표준 Mesh 개정 예정 
+           > 11월 적용 Target으로 Mesh 표준 개정 진행 중임(Mesh 생성 로직 구현 중, ITDS)
+
+        ※ 모든 패턴 형상에 적용할 규칙으로서 기본적으로 TBR의 패턴 자동 확산 로직과 동일하도록 설정
+
+        - Pattern Mesh 확산 기본 Logic 
+            ① Sea/Land Ratio 유지 
+                : Model Pattern과 Target 규격의 PL, TW 비율에 맞게 Pattern block/Groove에 동일하게 Scaling
+            ③ Block Angle 유지 
+                : PL과 TW의 Scaling 비율이 다를 때 달라지는 Block Angle을 보정                   
+            ③ Groove 배면 각 유지 
+                : 배면의 Angle을 Model Pattern의 것에 맞추어 유지 
+                ※ groove depth 차이가 너무 클 경우 요소 뒤틀림 발생 가능성 있음 
+            ④ Kerf Gauge 유지 (Hidden groove 제외)
+                : PL, TW 달라지더라도 Gauge는 유지함 
+        
+        - Pattern mesh 구성 요소 중 Tire layout mesh의 Sub tread 영역 내에 있는 요소는 Sub Tread로 지정 
+          (Mesh 차이로 인해 Groove Tire와 Pattern Tire의 Sub Tread Volume은 차이 날 수 있음)
+
+        
+
+>> 상기 공유된 규칙을 기반으로 패턴 메쉬 확산 로직을 개발 예정임
+
+
+
